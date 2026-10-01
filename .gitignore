@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+secrets/
+
+# Real data never belongs in the repo (CLAUDE.md §2.1). Synthetic fixtures live in fixtures/.
+*.real.csv
+data/
+exports/
+
+# Benchmark output
+spikes/**/results/*.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

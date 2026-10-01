@@ -1,0 +1,11 @@
+cpsat seed=1 w=4 gen_none    FEASIBLE  wall=   30.1s gap=160.6058 short=0.0h over=42.0h kept=None hard=0 first=11.68s target_short={}
+cpsat seed=1 w=4 gen_strict  FEASIBLE  wall=   30.1s gap=669.0234 short=0.0h over=44.5h kept=None hard=0 first=7.0s target_short={}
+cpsat seed=1 w=4 rb_target   FEASIBLE  wall=   15.1s gap=186.6878 short=0.0h over=41.5h kept=95.9 hard=0 first=12.21s target_short={'S04': [15.5, 17.0]}
+cpsat seed=1 w=4 rb_rotation FEASIBLE  wall=   15.1s gap=679.3364 short=0.0h over=81.0h kept=88.0 hard=0 first=12.25s target_short={}
+cpsat seed=1 w=4 rb_cap      FEASIBLE  wall=   15.1s gap=531.787 short=0.0h over=45.0h kept=72.4 hard=0 first=12.81s target_short={}
+cpsat seed=1 w=4 gen_none    FEASIBLE  wall=   30.1s gap=0.0902 short=0.0h over=2.0h kept=None hard=0 first=8.02s target_short={}
+cpsat seed=1 w=4 gen_strict  FEASIBLE  wall=   30.1s gap=4.064 short=0.0h over=3.5h kept=None hard=0 first=3.19s target_short={}
+cpsat seed=1 w=4 rb_target   FEASIBLE  wall=   15.1s gap=0.2998 short=0.0h over=2.0h kept=87.1 hard=0 first=1.31s target_short={'S04': [0.0, 0.0]}
+cpsat seed=1 w=4 rb_rotation OPTIMAL   wall=   15.1s gap=0.0 short=0.0h over=2.0h kept=77.8 hard=0 first=1.24s target_short={}
+cpsat seed=1 w=4 rb_cap      OPTIMAL   wall=    9.8s gap=0.0 short=0.0h over=2.0h kept=97.8 hard=0 first=1.27s target_short={}
+exit=0

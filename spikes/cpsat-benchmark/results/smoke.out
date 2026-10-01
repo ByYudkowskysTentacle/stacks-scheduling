@@ -1,0 +1,6 @@
+cpsat seed=1 w=8 gen_none    FEASIBLE  wall=   30.2s gap=0.00822 short=0.0h over=2.0h kept=None hard=0
+cpsat seed=1 w=8 gen_strict  FEASIBLE  wall=   30.1s gap=0.00097 short=0.0h over=2.5h kept=None hard=0
+cpsat seed=1 w=8 rb_target   FEASIBLE  wall=   15.2s gap=12.97868 short=0.0h over=2.0h kept=98.9 hard=0
+cpsat seed=1 w=8 rb_rotation FEASIBLE  wall=   15.2s gap=1.215 short=0.0h over=38.0h kept=88.4 hard=0
+cpsat seed=1 w=8 rb_cap      OPTIMAL   wall=   14.7s gap=0.0 short=0.0h over=2.0h kept=98.9 hard=0
+exit=0
