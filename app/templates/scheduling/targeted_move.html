@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Move hours{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>Move hours</h1>
+<p class="help">For requests like "give Joshua a couple of Palmer's hours". Whole shifts are reassigned, never cut, and each one is checked against the validation suite. Planning changes nothing; applying saves drafts, and nobody is notified until you publish.</p>
+<form method="get" class="stacked-form">
+  {{ form.as_div }}
+  <div class="form-actions"><button type="submit" class="button button--primary">Plan the move</button></div>
+</form>
+{% if move %}
+<section class="card" aria-labelledby="plan-heading">
+  <h2 id="plan-heading">{% if move.chosen %}Plan: {{ move.chosen_minutes|hours }}h to {{ move.recipient_name }}{% else %}No move found{% endif %} <span class="subtle">({{ move.wanted_minutes|hours }}h asked for)</span></h2>
+  {% if move.chosen %}
+  <form method="post">{% csrf_token %}
+    <input type="hidden" name="recipient" value="{{ move.recipient_id }}">
+    <table class="data-table">
+      <thead><tr><th scope="col">Shift</th><th scope="col">From</th><th scope="col">Preferred time</th></tr></thead>
+      <tbody>{% for o in move.chosen %}<tr><th scope="row">{{ o.shift.day|date:"D j M" }} {{ o.shift.interval.label }}<input type="hidden" name="shift" value="{{ o.shift.id }}"></th><td>{{ o.donor_name }}</td><td>{% if o.preferred %}Yes{% else %}No{% endif %}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% if move.check.warnings %}<ul>{% for w in move.check.warnings %}<li><span class="severity severity--warning">Warning</span> {{ w }}</li>{% endfor %}</ul>{% endif %}
+    <div class="form-actions"><button type="submit" class="button button--primary">Apply as drafts</button></div>
+  </form>
+  {% endif %}
+  <h3>Why</h3>
+  <ul>{% for n in move.notes %}<li>{{ n }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+{% endblock %}

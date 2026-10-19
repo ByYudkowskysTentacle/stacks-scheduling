@@ -106,6 +106,7 @@ class EmployeeEditMixin(OrgObjectMixin):
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object() if "pk" in kwargs else None
+        was_in_pool = bool(self.object and self.object.in_scheduling_pool)
         form = self.get_form()
         sets = self.formsets(self.object or Employee(organization=request.organization))
         if form.is_valid() and all(fs.is_valid() for fs in sets.values()):
@@ -118,6 +119,8 @@ class EmployeeEditMixin(OrgObjectMixin):
                         f.instance.organization = request.organization
                     fs.save()
             messages.success(request, f"Saved {self.object.display_name}.")
+            if was_in_pool and not self.object.in_scheduling_pool:
+                return offer_reassignment(request, self.object)
             return redirect("employee_detail", pk=self.object.pk)
         return self.render_to_response(self.get_context_data(form=form, **sets))
 
@@ -143,7 +146,8 @@ class EmployeeArchiveView(OrgViewMixin, View):
 
     def get(self, request, pk):
         employee = self.get_employee(pk)
-        return render(request, "people/employee_archive.html", {"employee": employee})
+        upcoming = upcoming_shifts(employee).count()
+        return render(request, "people/employee_archive.html", {"employee": employee, "upcoming": upcoming})
 
     def post(self, request, pk):
         employee = self.get_employee(pk)
@@ -158,10 +162,30 @@ class EmployeeArchiveView(OrgViewMixin, View):
             messages.success(
                 request, f"Archived {employee.display_name}. Their records are kept and can be restored."
             )
+            return offer_reassignment(request, employee)
         else:
             messages.error(request, "Tick the confirmation box to archive.")
             return redirect("employee_archive", pk=pk)
         return redirect("employee_detail", pk=pk)
+
+
+def upcoming_shifts(employee: Employee):
+    from app.scheduling.models import Shift
+
+    return Shift.objects.live().filter(employee=employee, date__gte=timezone.localdate())
+
+
+def offer_reassignment(request, employee: Employee):
+    """Out of the pool with shifts still ahead: show the reassignment plan (SPEC §4, §9.4)."""
+    n = upcoming_shifts(employee).count()
+    if n and request.access.has(Perm.EDIT_SCHEDULE):
+        messages.warning(
+            request,
+            f"{employee.display_name} still has {n} upcoming shift{'s' if n != 1 else ''}. "
+            "Review who could take them below, or cancel to leave them as they are.",
+        )
+        return redirect("remove_from_pool", pk=employee.pk)
+    return redirect("employee_detail", pk=employee.pk)
 
 
 class EmployeeInviteView(OrgViewMixin, View):

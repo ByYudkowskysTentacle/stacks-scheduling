@@ -6,7 +6,7 @@ from app.availability import views as availability
 from app.core import views as core
 from app.imports import views as imports
 from app.people import views as people
-from app.scheduling import solve_views
+from app.scheduling import solve_views, suggest_views
 from app.scheduling import views as scheduling
 
 urlpatterns = [
@@ -65,6 +65,11 @@ urlpatterns = [
     path("people/<int:pk>/records.json", people.EmployeeExportView.as_view(), name="employee_export"),
     path("people/<int:pk>/erase/", people.EmployeeEraseView.as_view(), name="employee_erase"),
     path(
+        "people/<int:pk>/remove-from-pool/",
+        suggest_views.RemoveFromPoolView.as_view(),
+        name="remove_from_pool",
+    ),
+    path(
         "people/<int:pk>/availability/",
         availability.EmployeeAvailabilityView.as_view(),
         name="employee_availability",
@@ -99,6 +104,23 @@ urlpatterns = [
         "schedule/<int:period_pk>/shifts/<int:pk>/call-out/",
         scheduling.CallOutView.as_view(),
         name="call_out",
+    ),
+    path(
+        "schedule/<int:period_pk>/shifts/<int:pk>/takers/",
+        suggest_views.ShiftTakersView.as_view(),
+        name="shift_takers",
+    ),
+    path("schedule/<int:period_pk>/cover/", suggest_views.GapTakersView.as_view(), name="gap_takers"),
+    path("schedule/<int:period_pk>/move/", suggest_views.TargetedMoveView.as_view(), name="targeted_move"),
+    path(
+        "schedule/<int:period_pk>/shifts/<int:pk>/split/",
+        suggest_views.SplitShiftView.as_view(),
+        name="split_shift",
+    ),
+    path(
+        "schedule/<int:period_pk>/raise/<int:employee_pk>/",
+        suggest_views.RaiseHoursView.as_view(),
+        name="raise_hours",
     ),
     path("schedule/<int:period_pk>/publish/", scheduling.PublishView.as_view(), name="publish"),
     path("schedule/<int:period_pk>/reports/", scheduling.ReportsView.as_view(), name="reports"),

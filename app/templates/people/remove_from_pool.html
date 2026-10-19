@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Remove {{ employee.display_name }} from the scheduling pool{% endblock %}
+{% block content %}
+<p><a href="{% url 'employee_detail' employee.pk %}">← {{ employee.display_name }}</a></p>
+<h1>Remove {{ employee.display_name }} from the scheduling pool</h1>
+<p>The generator and suggestions will stop using {{ employee.display_name }}. Their shifts from {{ today|date:"j M Y" }} on are reassigned to eligible people at the same times, preferring preferred-time matches and the fewest hours. Nothing is deleted: a shift nobody can take becomes an open shift. All changes are drafts until you publish.</p>
+{% if plans %}
+  {% for p in plans %}
+  <h2>Schedule {{ p.period }}</h2>
+  <table class="data-table">
+    <thead><tr><th scope="col">Shift</th><th scope="col">Goes to</th><th scope="col">Why</th></tr></thead>
+    <tbody>{% for m in p.moves %}<tr><th scope="row">{{ m.shift.day|date:"D j M" }} {{ m.shift.interval.label }}</th><td>{% if m.to_id %}{{ m.to_name }}{% else %}<strong>Open shift</strong>{% endif %}</td><td>{{ m.reason }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% endfor %}
+{% else %}
+  <p>{{ employee.display_name }} has no upcoming shifts, so nothing needs reassigning.</p>
+{% endif %}
+<form method="post" class="stacked-form">{% csrf_token %}
+  <div><label><input type="checkbox" name="confirm" value="yes" required> Remove {{ employee.display_name }} from the pool{% if plans %} and reassign these shifts as drafts{% endif %}.</label></div>
+  <div class="form-actions">
+    <button type="submit" class="button button--danger">Remove from pool</button>
+    <a href="{% url 'employee_detail' employee.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

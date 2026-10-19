@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Raise {{ employee.display_name }}'s hours{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>How can I raise {{ employee.display_name }}'s hours?</h1>
+<p class="help">Shifts {{ employee.display_name }} could take over without breaking a rule, grouped by week. Shifts from people with hours to spare come first. "Low themselves" means the holder is at or below the median weekly hours, or would drop below their own target or desired hours. Taking a shift saves a draft: nobody is notified until you publish.</p>
+{% if result.protected %}<p>{{ result.protected }} other shift{{ result.protected|pluralize }} {{ result.protected|pluralize:"is,are" }} left out because a duty or an hour target protects {{ result.protected|pluralize:"it,them" }}.</p>{% endif %}
+{% for w in weeks %}
+<section aria-labelledby="week-{{ forloop.counter }}">
+  <h2 id="week-{{ forloop.counter }}">{{ w.label }}: {{ employee.display_name }} has {{ w.minutes|hours }}h <span class="subtle">(median {{ w.low_threshold|hours }}h)</span></h2>
+  {% if w.items %}
+  <table class="data-table">
+    <thead><tr><th scope="col">Shift</th><th scope="col">Held by</th><th scope="col">Holder's hours that week</th><th scope="col">Holder</th><th scope="col">Preferred time</th><th scope="col">Notes</th><th scope="col"><span class="visually-hidden">Action</span></th></tr></thead>
+    <tbody>
+    {% for o in w.items %}
+      <tr>
+        <th scope="row">{{ o.shift.day|date:"D j M" }} {{ o.shift.interval.label }}</th>
+        <td>{{ o.holder_name }}</td>
+        <td>{{ o.holder_week_minutes|hours }}h</td>
+        <td>{% if o.holder_is_low %}<strong>Low themselves</strong>{% else %}Has hours to spare{% endif %}</td>
+        <td>{% if o.preferred %}Yes{% else %}No{% endif %}</td>
+        <td>{% for x in o.warnings %}<span class="severity severity--warning">Warning</span> {{ x }}{% if not forloop.last %}<br>{% endif %}{% empty %}None{% endfor %}</td>
+        <td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ o.shift.id }}"><button type="submit" class="button button--small">Give to {{ employee.display_name }}</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>No shifts {{ employee.display_name }} could take this week.</p>{% endif %}
+</section>
+{% endfor %}
+{% endblock %}

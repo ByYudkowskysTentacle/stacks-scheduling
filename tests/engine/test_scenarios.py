@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Acceptance scenarios for engine v1 (SPEC §12: 1-8, 12, 14, 19-22) on the synthetic,
+"""Acceptance scenarios for engine v1 (SPEC §12: 1-9, 12-14, 19-22) on the synthetic,
 pilot-shaped roster in fixtures/synthetic.py. These are real solves, so they're slow: each
 shared solve runs once per session."""
 
@@ -16,7 +16,8 @@ from domain.engine import Mode, Scope, SolveRequest, run
 from domain.engine.diff import ChangeKind
 from domain.rules import HourTarget, RotationMode
 from domain.schedule import minutes_by_person_week
-from domain.validation import Category
+from domain.suggest import opportunities, remove_from_pool_plan
+from domain.validation import Category, Severity, validate
 from fixtures.synthetic import (
     CAPPED,
     CHAPEL,
@@ -142,6 +143,56 @@ def test_scenario_8_not_entered_only_when_needed_and_with_a_warning(base):
     used = sum(weekly(option, ctx).get(NOT_ENTERED, {}).values())
     warned = any(i.category == Category.STATUS and i.employee_id == NOT_ENTERED for i in option.report.issues)
     assert used == 0 or warned
+
+
+# --- Scenarios 9 and 13: remove from pool, opportunities -------------------------------------
+
+
+@pytest.fixture(scope="session")
+def scheduled(base):
+    ctx, option = base
+    shifts = [replace(s, id=i + 1) for i, s in enumerate(option.shifts)]
+    return replace(ctx, shifts=shifts)
+
+
+def errors(ctx):
+    return sorted(i.message for i in validate(ctx).issues if i.severity == Severity.ERROR)
+
+
+def test_scenario_9_remove_from_pool_reassigns_without_gaps(scheduled):
+    ctx = scheduled
+    counts = {}
+    for s in ctx.shifts:
+        if s.employee_id and ctx.people[s.employee_id].auto_schedulable:
+            counts[s.employee_id] = counts.get(s.employee_id, 0) + 1
+    duty = ctx.rules.duty_employee_ids()
+    w = next(p for p, n in sorted(counts.items()) if n >= 3 and p not in duty)
+    plan = remove_from_pool_plan(ctx, w, PILOT_START)
+    assert len(plan) == counts[w]
+    assert all(m.to_id is not None and m.to_id != w for m in plan)
+    moved = {m.shift.id: m.to_id for m in plan}
+    after = replace(ctx, shifts=[replace(s, employee_id=moved.get(s.id, s.employee_id)) for s in ctx.shifts])
+    assert len(after.shifts) == len(ctx.shifts)  # no deletions
+    assert [(s.day, s.interval) for s in after.shifts] == [(s.day, s.interval) for s in ctx.shifts]
+    assert errors(after) == errors(ctx)  # coverage, availability and caps as before
+
+
+def test_scenario_13_opportunities_to_raise_someones_hours(scheduled):
+    ctx = scheduled
+    per = minutes_by_person_week(ctx.shifts, ctx.period)
+    pool = [p for p in ctx.people.values() if p.auto_schedulable and p.availability.is_known]
+    e = min(pool, key=lambda p: (sum(per.get(p.id, {}).values()), p.id))
+    result = opportunities(ctx, e.id)
+    found = [o for items in result.by_week.values() for o in items]
+    assert found, "a low-hour student should have something to take"
+    assert set(result.by_week) <= {0, 1}
+    for o in found:
+        assert o.holder_week_minutes == per[o.holder_id][ctx.period.week_of(o.shift.day)]
+        trial = replace(ctx, shifts=[replace(s, employee_id=e.id) if s is o.shift else s for s in ctx.shifts])
+        new_errors = set(errors(trial)) - set(errors(ctx))
+        assert not new_errors, (o, new_errors)
+        # Opening shifts are protected by the opener's duty.
+        assert not (o.holder_id == OPENER and o.shift.interval.start == 450)
 
 
 # --- Scenario 6: priority target --------------------------------------------------------------

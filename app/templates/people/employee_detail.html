@@ -28,6 +28,7 @@
   {% if not object.is_archived %}
     <a class="button button--primary" href="{% url 'employee_edit' object.pk %}">Edit</a>
     <a class="button" href="{% url 'employee_availability' object.pk %}">Availability</a>
+    {% if object.in_scheduling_pool and Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'remove_from_pool' object.pk %}">Remove from scheduling pool</a>{% endif %}
     <form method="post" action="{% url 'employee_invite' object.pk %}" class="inline-form">{% csrf_token %}
       <button type="submit" class="button">{% if object.user %}Resend invitation{% else %}Invite to sign in{% endif %}</button>
     </form>
