@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 import pytest
@@ -260,3 +260,88 @@ def test_every_audited_model_is_classified_for_the_audit_log():
     )
     tracked = {m.pgh_tracked_model._meta.label for m in registry.get_models() if issubclass(m, Event)}
     assert tracked <= classified, f"decide who sees the history of: {sorted(tracked - classified)}"
+
+
+# --- What students see (D108) ---------------------------------------------------------------
+
+
+@pytest.fixture
+def students(org, location, admin_user, pay_role, world):
+    from app.scheduling import services
+
+    users = {}
+    for name in ("Avery", "Blake"):
+        e = world["people"][name]
+        e.user = make_user(org, f"{name.lower()}-student@example.edu", Role.EMPLOYEE)
+        e.save()
+        users[name] = e.user
+    open_special = Shift.objects.create(
+        organization=org,
+        location=location,
+        period=world["periods"]["special"],
+        employee=None,
+        date=MONDAY + timedelta(days=1),
+        start_min=780,
+        end_min=900,
+        pay_role=pay_role,
+    )
+    for p in world["periods"].values():
+        services.publish(p, admin_user)
+    return {"users": users, "open_special": open_special}
+
+
+def get(client, name, **params):
+    with mock.patch("django.utils.timezone.localdate", return_value=START):
+        return client.get(reverse(name), params).content.decode()
+
+
+def post(client, **data):
+    with mock.patch("django.utils.timezone.localdate", return_value=START):
+        return client.post(reverse("shift_exchange"), data, follow=True).content.decode()
+
+
+def test_students_see_their_own_departments_published_schedule(as_user, world, students):
+    page = get(as_user(students["users"]["Avery"]), "published_schedule", week="2027-01-18")
+    assert "You" in page and "Blake" not in page
+    page = get(as_user(students["users"]["Blake"]), "published_schedule", week="2027-01-18")
+    assert "You" in page and "Avery" not in page
+
+
+def test_open_shifts_from_other_departments_only_when_a_department_allows_it(as_user, world, students):
+    from app.scheduling.models import ShiftExchange
+
+    client = as_user(students["users"]["Avery"])
+    shift = students["open_special"]
+    assert "Ask for this shift" not in get(client, "shift_exchange")
+    assert "isn&#x27;t in your departments" in post(client, action="claim", shift=shift.pk)
+    assert not ShiftExchange.objects.exists()
+    circ = world["circ"]
+    circ.open_shifts_from = [world["special"].pk]
+    circ.save()
+    assert "Ask for this shift" in get(client, "shift_exchange")
+    post(client, action="claim", shift=shift.pk)
+    assert ShiftExchange.objects.get().shift == shift
+
+
+def test_swaps_and_cover_stay_within_my_departments(as_user, world, students):
+    from app.scheduling.models import ShiftExchange
+
+    avery, blake = students["users"]["Avery"], students["users"]["Blake"]
+    mine, theirs = world["shifts"]["circ"], world["shifts"]["special"]
+    with mock.patch("django.utils.timezone.localdate", return_value=START):
+        resp = as_user(avery).post(reverse("shift_swap", args=[mine.pk]), {"other": theirs.pk}, follow=True)
+    assert "isn&#x27;t in your departments" in resp.content.decode() and not ShiftExchange.objects.exists()
+    post(as_user(blake), action="offer", shift=theirs.pk)
+    offer = ShiftExchange.objects.get()
+    assert "from Blake" not in get(as_user(avery), "shift_exchange")
+    assert "isn&#x27;t in your departments" in post(as_user(avery), action="volunteer", exchange=offer.pk)
+
+
+def test_department_settings_choose_where_open_shifts_come_from(as_user, supervisor, world):
+    circ, special = world["circ"], world["special"]
+    as_user(supervisor).post(
+        reverse("department_edit", args=[circ.pk]),
+        {"name": circ.name, "open_shifts_from_choices": [special.pk]},
+    )
+    circ.refresh_from_db()
+    assert circ.open_shifts_from == [special.pk]

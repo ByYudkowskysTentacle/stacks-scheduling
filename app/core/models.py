@@ -252,6 +252,8 @@ class Department(models.Model):
         choices=[("exact", "Exact: report under and over"), ("minimum", "Minimum: report under only")],
         help_text="Blank uses the organization's setting.",
     )
+    # Other departments whose open shifts this department's people may see and ask for (D108).
+    open_shifts_from = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["name"]

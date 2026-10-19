@@ -81,8 +81,16 @@ def _when(shift: Shift) -> str:
     return f"{shift.date:%a %-d %b} {shift.interval.label()}"
 
 
+def _within(departments: frozenset[int] | None, shift: Shift, what: str) -> None:
+    if departments is not None and shift.period.department_id not in departments:
+        raise ExchangeError(f"That {what} isn't in your departments.")
+
+
 def claim(employee: Employee, shift: Shift, today: date) -> ShiftExchange:
+    from app.scheduling.published import open_shift_departments
+
     _future(shift, today)
+    _within(open_shift_departments(employee), shift, "open shift")
     if not _matches_published(shift, None):
         raise ExchangeError("That shift isn't an open shift on the published schedule any more.")
     if _overlaps_own(employee, shift):
@@ -122,6 +130,9 @@ def volunteer(employee: Employee, ex: ShiftExchange, today: date) -> ShiftExchan
             raise ExchangeError("Someone has already volunteered, or the offer was withdrawn.")
         if ex.requester_id == employee.pk:
             raise ExchangeError("That's your own shift.")
+        from app.scheduling.published import student_departments
+
+        _within(student_departments(employee), ex.shift, "shift")
         if _overlaps_own(employee, ex.shift):
             raise ExchangeError("You're already working at that time.")
         ex.taker = employee
@@ -133,10 +144,13 @@ def volunteer(employee: Employee, ex: ShiftExchange, today: date) -> ShiftExchan
 def swap(employee: Employee, shift: Shift, other: Shift, today: date) -> ShiftExchange:
     """Propose swapping one of your published shifts for a co-worker's (D104). The co-worker
     accepts or declines; then a supervisor decides."""
+    from app.scheduling.published import student_departments
+
     _future(shift, today)
     _future(other, today)
     if not _matches_published(shift, employee.pk):
         raise ExchangeError("You can only swap your own shifts from the published schedule.")
+    _within(student_departments(employee), other, "shift")
     coworker = other.employee
     if coworker is None or coworker.pk == employee.pk or not _matches_published(other, coworker.pk):
         raise ExchangeError("That shift isn't a co-worker's shift on the published schedule any more.")

@@ -395,6 +395,15 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - **Current membership counts.** A supervisor sees the full history of people and schedules in their departments today.
   - **Guard test.** A test fails if a new audited model isn't classified. Until it is, the model is hidden from department-limited supervisors.
 - **D108 (resolves part of open item 16).** Students see the published schedules of their own departments only, and can claim open shifts and propose swaps only within them. A department's supervisor can turn on a setting that also lists open shifts from other departments to their employees, choosing which departments. *Interpretation:* the setting belongs to the employees' department (the one whose people may look elsewhere), and lists the chosen departments' open shifts only, not their full schedules. A claim still goes to the supervisor of the shift's department, and the validation suite still runs on it.
+  *Built:*
+  - **Where students' departments come from.** `published.student_departments(employee)` gives the departments a student belongs to. It is None, meaning everything is shared, when the organization has no departments.
+  - **What they limit.**
+    - The published schedule page shows only those departments to a student. Supervisors and shift leads see the departments they work with (D95).
+    - Co-workers' cover offers are limited the same way, and so is the swap picker.
+    - Volunteering, claiming and swapping are checked on the server, with "isn't in your departments" as the refusal.
+  - **Open shifts.** `open_shift_departments` adds the departments chosen under "Also show this department's people open shifts from" on each department's settings page (`Department.open_shifts_from`, audited with the department).
+  - **Still across departments.** "My shifts", the calendar feed and the home page list a student's own shifts wherever they are.
+  - *Interpretation:* a student in no department sees no published schedule. A member without an employee record sees none either once there are departments.
 - **D109 (revises D93/D105 and the retention purge).** Purging expired data no longer removes the audit history of that data. The audit log gets its own retention period under Settings, Retention, blank by default (keep). When it is set, audit entries older than that are purged on the same nightly run. Erasure still leaves the audit log as it is (D100).
   *Built:*
   - **Purges keep the audit history.** They delete the live rows only: availability, time off and solver runs are deleted, notifications are deleted, and import batches have their data blanked. The audit history of each stays, including the delete itself.
