@@ -125,7 +125,8 @@ On Windows Git Bash, prefix `docker run` with `MSYS_NO_PATHCONV=1` so the volume
 docs/SPEC.md          product and domain spec (source of truth for behaviour)
 docs/adr/             architecture decision records
 docs/decisions.md     running log of spec interpretations and open questions
-domain/               pure domain model, validation rules, solver model (no Django imports)
+domain/               pure domain model (no Django imports): timeutil, calendar, availability,
+                      rules, schedule, validation (the SPEC §8 suite); the solver model next
 adapters/             Paycom, ICS/calendar, CSV import/export
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
 app/accounts/         sign-in accounts (email login, allauth, TOTP)
@@ -134,6 +135,8 @@ app/core/             organization, locations, hours, closures, terms, roles, th
 app/people/           employees, pay roles and wages, tags, invitations
 app/availability/     term availability, entry form and paint grid, the availability grid
 app/imports/          roster and availability CSV imports: preview, apply, undo
+app/scheduling/       periods, draft shifts, publish and versions, rules config, review queue,
+                      call-outs, notifications; services.py builds the domain context
 app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
 deploy/               Caddyfile; compose.yaml and compose.dev.yaml sit at the root

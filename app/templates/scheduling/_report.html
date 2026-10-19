@@ -1,0 +1,11 @@
+<section id="validation" class="card validation{% if report.errors %} card--problem{% endif %}" aria-labelledby="validation-heading">
+  <h2 id="validation-heading">Validation: {{ report.summary }}</h2>
+  {% if not report.counted %}<p>All rules pass: full coverage, no conflicts, no cap breaches.</p>{% endif %}
+  {% for g in report_groups %}
+    <details{% if g.issues.0.severity == "error" %} open{% endif %} class="validation__group validation__group--{{ g.issues.0.severity }}">
+      <summary><span class="severity severity--{{ g.issues.0.severity }}">{% if g.issues.0.severity == "error" %}Error{% elif g.issues.0.severity == "warning" %}Warning{% else %}Info{% endif %}</span>
+        {{ g.issues|length }} {{ g.label }}</summary>
+      <ul>{% for i in g.issues %}<li>{{ i.message }}</li>{% endfor %}</ul>
+    </details>
+  {% endfor %}
+</section>

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Record a call-out{% endblock %}
+{% block content %}
+<p><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>Call-out: {{ shift }}</h1>
+<p>Record that {{ shift.employee.display_name }} can't work this shift and who's covering. The change is a draft, goes to the supervisor's review queue, and nobody is notified.</p>
+<form method="post" class="stacked-form" novalidate>{% csrf_token %}
+  {{ form.as_div }}
+  <div class="form-actions"><button type="submit" class="button button--primary">Record call-out</button>
+    <a href="{% url 'period' period.pk %}" class="button">Cancel</a></div>
+</form>
+{% endblock %}

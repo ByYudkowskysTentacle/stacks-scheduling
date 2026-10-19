@@ -21,6 +21,8 @@ def browser():
         try:
             b = p.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or None)
         except Exception as exc:  # no browser available on this machine
+            if os.environ.get("REQUIRE_BROWSER"):
+                raise  # CI sets this, so browser tests can't pass by being skipped
             pytest.skip(f"Chromium not available: {exc.__class__.__name__}")
         yield b
         b.close()

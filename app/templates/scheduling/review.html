@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Review queue{% endblock %}
+{% block content %}
+<h1>Review queue</h1>
+<p class="help">Draft changes proposed by shift leads, and call-outs they recorded. Keep or revert each one; nothing reaches employees until you publish.</p>
+<h2>Proposed shift changes</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Shift now</th><th scope="col">Changed by</th><th scope="col">When</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+  <tbody>
+  {% for s in proposals %}
+    <tr><th scope="row"><a href="{% url 'shift_edit' s.period.pk s.pk %}">{{ s }}</a>{% if s.deleted_at %} <span class="badge">Removed</span>{% endif %}</th><td>{{ s.updated_by.email|default:"—" }}</td><td>{{ s.updated_at|date:"j M H:i" }}</td>
+      <td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ s.pk }}">
+        <button type="submit" name="action" value="keep" class="button button--small">Keep</button>
+        <button type="submit" name="action" value="revert" class="button button--small button--danger-outline">Revert</button></form></td></tr>
+  {% empty %}<tr><td colspan="4">Nothing to review.</td></tr>{% endfor %}
+  </tbody>
+</table>
+<h2>Call-outs</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Shift</th><th scope="col">Called out</th><th scope="col">Covered by</th><th scope="col">Note</th><th scope="col">Recorded</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+  <tbody>
+  {% for c in call_outs %}
+    <tr><th scope="row">{{ c.shift.date|date:"D j M" }} {{ c.shift.interval.label }}</th><td>{{ c.called_out.display_name }}</td><td>{{ c.covered_by.display_name|default:"No one (open shift)" }}</td>
+      <td>{{ c.note }}</td><td>{{ c.recorded_by.email|default:"—" }}, {{ c.recorded_at|date:"j M H:i" }}</td>
+      <td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="call_out" value="{{ c.pk }}"><button type="submit" name="action" value="reviewed" class="button button--small">Mark reviewed</button></form></td></tr>
+  {% empty %}<tr><td colspan="6">No call-outs waiting.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

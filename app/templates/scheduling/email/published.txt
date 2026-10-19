@@ -1,0 +1,11 @@
+Hi {{ employee.display_name }},
+
+Your schedule for {{ period }} has been published with changes.
+{% if added %}
+Added:
+{% for a in added %}  - {{ a }}
+{% endfor %}{% endif %}{% if removed %}
+Removed:
+{% for r in removed %}  - {{ r }}
+{% endfor %}{% endif %}
+See your full schedule: {{ link }}

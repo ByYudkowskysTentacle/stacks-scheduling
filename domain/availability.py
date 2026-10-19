@@ -67,6 +67,16 @@ class WeeklyAvailability:
             for iv in self.exact(weekday, BlockKind.UNAVAILABLE)
         )
 
+    def conflicting_blocks(self, weekday: int, interval: Interval) -> list[Interval]:
+        """Unavailable blocks, as entered, whose scheduling (rounded) form overlaps `interval`."""
+        return [
+            iv
+            for iv in self.exact(weekday, BlockKind.UNAVAILABLE)
+            if Interval(slot_floor(iv.start) * SLOT_MINUTES, slot_ceil(iv.end) * SLOT_MINUTES).overlaps(
+                interval
+            )
+        ]
+
     def preferred_for_scheduling(self, weekday: int) -> list[Interval]:
         """Preferred time narrowed to whole slots and never overlapping unavailability."""
         narrowed: list[Interval] = []

@@ -9,7 +9,12 @@ PERM_NAMES = SimpleNamespace(**{p.name: p.value for p in Perm})  # templates wou
 
 
 def organization(request):
+    unread = 0
+    user = getattr(request, "user", None)
+    if user is not None and user.is_authenticated:
+        unread = user.notifications.filter(read_at__isnull=True).count()
     return {
+        "unread_notifications": unread,
         "organization": getattr(request, "organization", None),
         "access": getattr(request, "access", None),
         "Perm": PERM_NAMES,

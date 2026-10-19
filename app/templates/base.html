@@ -18,7 +18,14 @@
         <nav aria-label="Main" class="main-nav">
           <ul>
             <li><a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Home</a></li>
+            {% if Perm.VIEW_DRAFTS in access.perms %}
+              <li><a href="{% url 'schedule_index' %}"{% if request.path|slice:':10' == '/schedule/' and request.resolver_match.url_name != 'review_queue' %} aria-current="page"{% endif %}>Schedule</a></li>
+            {% endif %}
+            {% if Perm.EDIT_SCHEDULE in access.perms %}
+              <li><a href="{% url 'review_queue' %}"{% if request.resolver_match.url_name == 'review_queue' %} aria-current="page"{% endif %}>Review</a></li>
+            {% endif %}
             {% if access.employee %}
+              <li><a href="{% url 'my_schedule' %}"{% if request.resolver_match.url_name == 'my_schedule' %} aria-current="page"{% endif %}>My schedule</a></li>
               <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>
             {% endif %}
             {% if Perm.VIEW_FREE_BUSY in access.perms %}
@@ -30,6 +37,7 @@
             {% if Perm.CONFIGURE in access.perms %}
               <li><a href="{% url 'locations' %}"{% if request.path|slice:':10' == '/settings/' %} aria-current="page"{% endif %}>Settings</a></li>
             {% endif %}
+            <li><a href="{% url 'notifications' %}"{% if request.resolver_match.url_name == 'notifications' %} aria-current="page"{% endif %}>Notifications{% if unread_notifications %} <span class="count">({{ unread_notifications }} new)</span>{% endif %}</a></li>
             <li><a href="{% url 'account_change_password' %}">Account</a></li>
             <li>
               <form method="post" action="{% url 'account_logout' %}" class="inline-form">{% csrf_token %}
@@ -41,7 +49,7 @@
       {% endif %}
     </div>
   </header>
-  <main id="main" tabindex="-1">
+  <main id="main" tabindex="-1" class="{% block main_class %}{% endblock %}">
     {% if messages %}
       <div class="messages" role="status">
         {% for message in messages %}

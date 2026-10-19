@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Discard drafts{% endblock %}
+{% block content %}
+<h1>Discard draft changes to {{ period }}?</h1>
+{% if not latest %}<p>This period hasn't been published, so there's nothing to go back to.</p>{% else %}
+<p>The working schedule goes back to published version {{ latest.number }}. Shifts added since are removed (and can be restored), and changed or removed shifts go back to how they were published. {{ pending|length }} employee{{ pending|length|pluralize }} have draft changes. Nobody is notified.</p>
+<form method="post" class="stacked-form">{% csrf_token %}
+  <div><label><input type="checkbox" name="confirm" value="yes"> Discard all draft changes</label></div>
+  <div class="form-actions"><button type="submit" class="button button--danger">Discard drafts</button>
+    <a href="{% url 'period' period.pk %}" class="button">Keep them</a></div>
+</form>
+{% endif %}
+{% endblock %}

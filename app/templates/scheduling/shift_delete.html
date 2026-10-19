@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Remove shift{% endblock %}
+{% block content %}
+<h1>Remove {{ shift }}?</h1>
+<p>The shift comes out of the draft. It stays recorded, you can restore it from the period page, and nobody is told until you publish. If you only need someone else to work it, edit the shift and change who's assigned instead.</p>
+<form method="post" class="stacked-form">{% csrf_token %}
+  <div><label><input type="checkbox" name="confirm" value="yes"> Remove this shift from the draft</label></div>
+  <div class="form-actions">
+    <button type="submit" class="button button--danger">Remove</button>
+    <a href="{% url 'shift_edit' period.pk shift.pk %}" class="button">Keep it</a>
+  </div>
+</form>
+{% endblock %}

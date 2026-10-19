@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load stacks %}
 {% block title %}Availability grid{% endblock %}
+{% block main_class %}main--wide{% endblock %}
 {% block content %}
 <h1>Availability <span class="subtle">{{ term.name }}, week of {{ week|date:"D j M Y" }}</span></h1>
 

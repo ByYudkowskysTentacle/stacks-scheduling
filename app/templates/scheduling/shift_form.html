@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{% if shift %}Edit shift{% else %}Add a shift{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>{% if shift %}Edit shift{% else %}Add a shift{% endif %}</h1>
+{% if not access.is_supervisor %}<p class="card card--notice">Your change is saved as a draft for a supervisor to review. Nobody is notified.</p>{% else %}<p class="help">Changes are drafts until you publish. The full validation suite runs after you save.</p>{% endif %}
+<form method="post" class="stacked-form" novalidate>
+  {% csrf_token %}
+  {{ form.as_div }}
+  <div class="form-actions">
+    <button type="submit" class="button button--primary">Save draft</button>
+    <a href="{% url 'period' period.pk %}" class="button">Cancel</a>
+    {% if shift and Perm.EDIT_SCHEDULE in access.perms %}<a href="{% url 'shift_delete' period.pk shift.pk %}" class="button button--danger-outline">Remove</a>{% endif %}
+    {% if shift and shift.employee %}<a href="{% url 'call_out' period.pk shift.pk %}" class="button">Record a call-out</a>{% endif %}
+  </div>
+</form>
+{% endblock %}

@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "app.people",
     "app.availability",
     "app.imports",
+    "app.scheduling",
 ]
 
 MIDDLEWARE = [

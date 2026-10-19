@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Versions of {{ period }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>Published versions <span class="subtle">{{ period }}</span></h1>
+<table class="data-table">
+  <thead><tr><th scope="col">Version</th><th scope="col">Published</th><th scope="col">By</th><th scope="col">Employees notified</th><th scope="col">Validation</th></tr></thead>
+  <tbody>
+  {% for v in versions %}
+    <tr><th scope="row"><a href="{% url 'version_detail' period.pk v.number %}">Version {{ v.number }}</a></th><td>{{ v.published_at|date:"j M Y H:i" }}</td>
+      <td>{{ v.published_by.email|default:"—" }}</td><td>{{ v.changes|length }}</td><td>{{ v.validation_summary }}</td></tr>
+  {% empty %}<tr><td colspan="5">Not published yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

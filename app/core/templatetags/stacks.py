@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from django import template
 
+from domain.calendar import WEEKDAY_SHORT
 from domain.timeutil import format_minute_12h
 
 register = template.Library()
@@ -12,6 +13,21 @@ def clock(minute):
     if minute is None or minute == "":
         return ""
     return format_minute_12h(int(minute))
+
+
+@register.filter
+def weekday_short(weekday):
+    return WEEKDAY_SHORT[int(weekday)]
+
+
+@register.filter
+def get_item(mapping, key):
+    return mapping.get(key) if mapping else None
+
+
+@register.filter
+def index(sequence, i):
+    return sequence[int(i)]
 
 
 @register.filter

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Schedule {{ period }}{% endblock %}
+{% block main_class %}main--wide{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'schedule_index' %}">← Schedules</a></p>
+<h1>Schedule <span class="subtle">{{ period }}</span></h1>
+<p class="status-line">
+  {% if latest %}Published version {{ latest.number }} on {{ latest.published_at|date:"j M Y H:i" }}.{% else %}Not published yet.{% endif %}
+  {% if pending %}<strong>Draft changes affect {{ pending|length }} employee{{ pending|length|pluralize }}.</strong> Nobody is notified until you publish.{% else %}No unpublished changes.{% endif %}
+</p>
+<div class="form-actions no-print">
+  {% if Perm.PUBLISH in access.perms %}<a class="button button--primary" href="{% url 'publish' period.pk %}">Review and publish</a>{% endif %}
+  {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}<a class="button" href="{% url 'shift_add' period.pk %}">Add a shift</a>{% endif %}
+  <a class="button" href="{% url 'versions' period.pk %}">Versions</a>
+  {% if latest and pending and Perm.EDIT_SCHEDULE in access.perms %}<a class="button button--danger-outline" href="{% url 'discard_drafts' period.pk %}">Discard drafts</a>{% endif %}
+  <button type="button" class="button" onclick="window.print()">Print</button>
+</div>
+
+{% include "scheduling/_report.html" %}
+
+{% if weeks|length > 1 %}
+<nav class="sub-nav no-print" aria-label="Weeks">
+  <ul>{% for w in weeks %}<li><a href="?week={{ w }}"{% if w == week %} aria-current="page"{% endif %}>Week {{ w|add:1 }}</a></li>{% endfor %}</ul>
+</nav>
+{% endif %}
+
+<ul class="legend no-print" aria-label="Key">
+  <li><span class="chip chip--published">9am–1pm</span> Published</li>
+  <li><span class="chip chip--new">9am–1pm <span class="chip__state">new</span></span> Draft, new</li>
+  <li><span class="chip chip--changed">9am–1pm <span class="chip__state">changed</span></span> Draft, changed</li>
+</ul>
+
+<div class="grid-scroll">
+<table class="schedule-grid">
+  <caption class="visually-hidden">Shifts by person, week {{ week|add:1 }}</caption>
+  <thead>
+    <tr>
+      <th scope="col">Person</th>
+      {% for d in days %}<th scope="col"><a href="{% url 'period_day' period.pk d|date:'Y-m-d' %}">{{ d|date:"D j M" }}</a></th>{% endfor %}
+      {% if Perm.VIEW_HOURS in access.perms %}<th scope="col">Week hours</th><th scope="col">Period hours</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <th scope="row" class="schedule-grid__person">{{ r.employee.display_name }}
+        {% if r.status == "not_entered" %}<span class="badge badge--not_entered">No availability</span>{% endif %}
+        {% for t in r.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+      </th>
+      {% for cell in r.cells %}
+        <td>
+          {% for s in cell %}
+            {% with state=states|get_item:s.pk %}
+            <a class="chip chip--{{ state }}" href="{% url 'shift_edit' period.pk s.pk %}"{% if s.pay_role %} style="--chip: {{ s.pay_role.color }}"{% endif %}>{{ s.interval.label }}{% if state != "published" %} <span class="chip__state">{{ state }}</span>{% endif %}<span class="visually-hidden">, edit</span></a>
+            {% endwith %}
+          {% endfor %}
+          {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}
+            {% with day=days|index:forloop.counter0 %}<a class="add-link no-print" href="{% url 'shift_add' period.pk %}?employee={{ r.employee.pk }}&amp;date={{ day|date:'Y-m-d' }}" aria-label="Add a shift for {{ r.employee.display_name }} on {{ day|date:'l j M' }}">+</a>{% endwith %}
+          {% endif %}
+        </td>
+      {% endfor %}
+      {% if Perm.VIEW_HOURS in access.perms %}
+        {% with m=r.week_minutes.0 cap=r.week_minutes.1 %}
+        <td class="hours-cell{% if cap and m > cap %} is-over{% endif %}">{{ m|hours }}{% if cap %} / {{ cap|hours }}{% endif %}{% if cap and m > cap %} <strong>over</strong>{% endif %}
+          {% if cap %}<span class="meter" aria-hidden="true"><span style="width: {% widthratio m cap 100 %}%"></span></span>{% endif %}</td>
+        {% endwith %}
+        <td class="hours-cell{% if r.hours.over %} is-over{% endif %}">{{ r.hours.period_minutes|hours }}{% if r.hours.period_cap %} / {{ r.hours.period_cap|hours }}{% endif %}</td>
+      {% endif %}
+    </tr>
+  {% endfor %}
+    <tr class="open-row">
+      <th scope="row">Open shifts</th>
+      {% for cell in open_shifts %}
+        <td>{% for s in cell %}<a class="chip chip--open" href="{% url 'shift_edit' period.pk s.pk %}">{{ s.interval.label }} <span class="chip__state">open</span></a>{% endfor %}</td>
+      {% endfor %}
+      {% if Perm.VIEW_HOURS in access.perms %}<td></td><td></td>{% endif %}
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <th scope="row">Coverage</th>
+      {% for c in coverage %}
+        <td>{% if not c.open %}Closed{% else %}{% if c.gap %}<strong>{{ c.gap|hours }} person-hours short</strong>{% else %}Covered{% endif %}{% if c.over %}<br>{{ c.over|hours }} person-hours over{% endif %}{% endif %}</td>
+      {% endfor %}
+      {% if Perm.VIEW_HOURS in access.perms %}<td></td><td></td>{% endif %}
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+{% if removed and Perm.EDIT_SCHEDULE in access.perms %}
+<details class="card no-print">
+  <summary>Removed shifts ({{ removed|length }})</summary>
+  <ul class="plain-list">
+    {% for s in removed %}<li>{{ s }} <form method="post" action="{% url 'shift_delete' period.pk s.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="action" value="restore"><button type="submit" class="button button--small">Restore</button></form></li>{% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ version }}{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'versions' period.pk %}">← Versions</a></p>
+<h1>{{ version }}</h1>
+<p>Published {{ version.published_at|date:"j M Y H:i" }}{% if version.published_by %} by {{ version.published_by.email }}{% endif %}. Validation at the time: {{ version.validation_summary }}.</p>
+{% if changes %}
+<h2>Changes in this version</h2>
+<ul>{% for name, c in changes %}<li><strong>{{ name }}</strong>: {% if c.added %}added {{ c.added|join:"; " }}{% endif %}{% if c.added and c.removed %}; {% endif %}{% if c.removed %}removed {{ c.removed|join:"; " }}{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+<h2>Shifts</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Day</th><th scope="col">Time</th><th scope="col">Who</th></tr></thead>
+  <tbody>{% for s, name in shifts %}<tr><td>{{ s.day|date:"D j M" }}</td><td>{{ s.interval.label }}</td><th scope="row">{{ name }}</th></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}

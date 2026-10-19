@@ -26,6 +26,9 @@ class Perm(StrEnum):
     VIEW_PAY = "people.view_pay"  # wages (D48)
     VIEW_NOTES = "people.view_notes"  # supervisor notes
     VIEW_AUDIT = "audit.view"
+    EDIT_SCHEDULE = "schedule.edit"  # add, change and remove draft shifts; review lead proposals
+    PUBLISH = "schedule.publish"
+    VIEW_DRAFTS = "schedule.view_drafts"  # the working copy, not just the published schedule
     # Shift-lead grants (D25), used from milestone 3.
     VIEW_FREE_BUSY = "availability.view_free_busy"
     VIEW_HOURS = "schedule.view_hours"
@@ -36,7 +39,7 @@ class Perm(StrEnum):
 SUPERVISOR_PERMS = frozenset(Perm) - {Perm.MANAGE_MEMBERS}
 ADMIN_PERMS = frozenset(Perm)
 SHIFT_LEAD_PERMS = frozenset(
-    {Perm.VIEW_FREE_BUSY, Perm.VIEW_HOURS, Perm.PROPOSE_EDITS, Perm.RECORD_CALL_OUTS}
+    {Perm.VIEW_FREE_BUSY, Perm.VIEW_HOURS, Perm.PROPOSE_EDITS, Perm.RECORD_CALL_OUTS, Perm.VIEW_DRAFTS}
 )
 
 
