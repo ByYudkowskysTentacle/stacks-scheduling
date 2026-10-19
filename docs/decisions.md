@@ -331,6 +331,23 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
   - The reminders page lists everyone who still needs to act, including people without an account, who can't be reminded until they're invited.
   - CLAUDE.md §7's "don't auto-notify" is read as "never without a supervisor turning it on", which is how SPEC §5.2 puts it.
 
+## 2026-10-19 – Maintainer review of the build-session decisions
+
+The maintainer reviewed the decisions flagged for a look. Each entry below replaces or amends the original; the original stays above for history.
+
+- **D95 (revises D51).** Add departments now. An employee can belong to several departments. Each schedule period belongs to one department, with that department's coverage rules; hour caps still count hours from every department. Admins assign each supervisor one or more departments and see everything themselves.
+- **D96 (amends D64).** Keep the strict reading ("a New employee always has someone without the tag on duty too") as the default, and make it configurable in Settings, Scheduling rules: the looser "never working alone" option counts any other person on duty.
+- **D97 (amends D67).** Hard tag rules still outrank coverage: the generator leaves a gap rather than break one. When it does, the result says plainly which hard rule caused the gap and who was free but blocked by it, and offers a what-if that keeps coverage by relaxing that rule for this period only, applied only if the supervisor confirms.
+- **D98 (revises D68).** Rebalances prefer the fewest changes, except where keeping a shift would break an existing rule (caps, targets, approved desired hours, duties, tag rules). Protecting low-hour staff becomes a tie-breaker among equally small changes rather than outranking the keep bonus.
+- **D99 (confirms D71).** Applying a generate replaces draft shifts; published, frozen and out-of-scope shifts are kept, and the diff shows every replaced shift first.
+- **D100 (revises D78).** Erasure leaves the audit log intact. The live record and related rows are erased as before; earlier audit snapshots are not rewritten.
+- **D101 (revises D79).** Erasure leaves stored messages alone: validation messages, solver explanations, other people's notifications and import batches are not edited.
+- **D102 (amends D86).** A targeted move still picks the closest set of whole shifts, and also offers a split when no whole-shift set comes close: part of a donor's shift goes to the recipient, the donor keeps the rest (and the original shift's ID).
+- **D103 (revises D90).** Deciding a time-off request creates an in-app notification for the student. A per-user Notifications settings page lets each person turn email on or off per category: schedule published (on by default), time-off decisions and open-shift or cover decisions (off by default), availability reminders (on by default). In-app notifications always appear; phone push stays later work (SPEC §9.1).
+- **D104 (revises D92).** Add two-way swaps: a student proposes swapping one of their shifts for a co-worker's, the co-worker accepts, and a supervisor approves after validation checks both moves together. Non-regular staff may claim open shifts; the scheduling-pool rule applies only to the generator and suggestions.
+- **D105 (amends D93).** Retention periods still start blank; the settings page shows suggested periods (availability 365 days after the term, time off 365, import data 30, notifications 180, solver runs 90) with a one-click "use suggested periods" that fills the form for the admin to save.
+- **D106 (amends D94).** Reminders stay opt-in per term, with several reminder days of the supervisor's choosing (for example 7, 3 and 1 days before) plus the deadline day.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -342,9 +359,9 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 7. Re-run the solver benchmark on the VPS once it is provisioned (D42).
 8. Consider mirroring these items and the SPEC §13 milestones as GitHub issues and milestones (D46).
 9. Confirm you're comfortable keeping wage rates on the off-campus VPS, or leave the wage fields blank until the hosting question (item 4) is settled (D48, D50).
-10. Review the build-session interpretations marked for a look: D64 (new employees never alone, read conservatively), D67 (hard tag rules weighted above coverage), D68 (rebalances take hours from the busiest first), D71 (applying a generate replaces drafts) and D51 (no departments yet).
+10. ~~Review the build-session interpretations marked for a look~~ Done 2026-10-19 (D95–D106).
 11. Decide whether Google sign-in (D5, generic OIDC restricted to the campus domain) is needed for go-live, or whether invited local accounts are enough for spring. It needs an OAuth client from campus Google Workspace admins.
 12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).
-13. Decide whether a decision on a time-off request should email the student (D90). It doesn't today: they see it on their time-off page.
-14. Decide whether two-way shift trades are needed, and whether non-regular staff may claim open shifts (D92).
+13. ~~Decide whether a time-off decision should email the student~~ Resolved: in-app notification, email per user preference (D103).
+14. ~~Decide on two-way trades and non-regular claims~~ Resolved: add swaps; non-regular staff may claim (D104).
 15. Choose retention periods under Settings, Retention once the registrar or counsel has answered item 4 (D93). SPEC §11 suggests one year after the term ends for availability.
