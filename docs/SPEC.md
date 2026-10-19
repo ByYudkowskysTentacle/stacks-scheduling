@@ -264,7 +264,7 @@ Run after every mutation. Show results in the UI and store them with the schedul
 ### 9.1 Drafts and publishing
 
 - All edits create draft changes. Publishing is explicit, per period or per location, and shows a summary (added, changed and removed shifts per person) before confirming.
-- Notifications go out only on publish, and only to affected employees. v1 sends email over SMTP (settings from the environment) and keeps an in-app notification list. SMS and push are later. Emails carry a link and a summary of the employee's own changes, never wages, hour totals or co-workers' details.
+- Schedule notifications go out only on publish, and only to affected employees. The one other kind is a decision on a person's own request (time off, an open-shift claim, cover): the people who asked are told the outcome, and a shift change it causes still reaches the published schedule only when a supervisor publishes (D103). Every notification appears in the in-app list; email over SMTP (settings from the environment) follows each person's email settings, on by default for published schedules and availability reminders and off for decisions. SMS and push are later. Emails carry a link and a summary of the employee's own changes, never wages, hour totals or co-workers' details.
 - Published schedules keep a version history. Supervisors can compare versions and roll back drafts.
 
 ### 9.2 Employee self-service

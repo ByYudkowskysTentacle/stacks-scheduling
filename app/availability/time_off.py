@@ -68,7 +68,35 @@ def decide(t: TimeOff, user, approve: bool) -> TimeOff:
         t.decided_by = user
         t.decided_at = timezone.now()
         t.save()
+        _tell_employee(t)
     return t
+
+
+def _tell_employee(t: TimeOff) -> None:
+    """An in-app notification of the decision; email only if the person turned it on (D103)."""
+    from django.conf import settings
+    from django.urls import reverse
+
+    from app.scheduling.models import NotificationCategory
+    from app.scheduling.notify import notify, site_link
+
+    user = t.employee.user
+    if user is None:
+        return
+    word = "approved" if t.status == TimeOffStatus.APPROVED else "not approved"
+    link = reverse("my_time_off")
+    body = (
+        f"Hi {t.employee.display_name},\n\nYour time-off request for {t.label()} was {word}.\n\n"
+        f"{site_link(link)}\n"
+    )
+    notify(
+        user,
+        t.organization,
+        NotificationCategory.TIME_OFF,
+        f"{settings.STACKS_SITE_NAME}: time off {word}",
+        body,
+        link,
+    )
 
 
 def cancel(t: TimeOff) -> TimeOff:
