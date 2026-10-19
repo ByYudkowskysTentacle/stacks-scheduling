@@ -14,7 +14,7 @@
 {% if term %}
   <section aria-labelledby="avail-heading" class="card">
     <h2 id="avail-heading">Your availability for {{ term.name }}</h2>
-    <p><strong>Status:</strong> {{ availability_status }}</p>
+    <p><strong>Status:</strong> {{ availability_status }}{% if term.availability_deadline and availability_status != "Entered" %}. Due by {{ term.availability_deadline|date:"l j F" }}{% endif %}</p>
     <p><a class="button{% if availability_status != 'Entered' %} button--primary{% endif %}" href="{% url 'my_availability' %}?term={{ term.pk }}">{% if availability_status == "Entered" %}Review or change it{% elif availability_status == "Needs review" %}Check and confirm it{% else %}Enter it now{% endif %}</a></p>
   </section>
 {% endif %}

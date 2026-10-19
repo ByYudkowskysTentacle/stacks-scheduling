@@ -20,7 +20,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from app.accounts.models import User
-from app.availability.models import Availability, AvailabilityBlock, Status
+from app.availability.models import Availability, AvailabilityBlock, AvailabilityReminder, Status, TimeOff
 from app.core.models import (
     Closure,
     Location,
@@ -28,12 +28,14 @@ from app.core.models import (
     OpenInterval,
     OperatingHoursSet,
     Organization,
+    RetentionPolicy,
     Role,
     Term,
 )
 from app.imports.models import ImportBatch
 from app.people.models import Employee, EmployeePayRole, EmployeeTag, EmploymentType, PayRole, Tag
 from app.scheduling.models import (
+    CalendarFeed,
     CallOut,
     CoverageOverride,
     DesiredHours,
@@ -47,6 +49,7 @@ from app.scheduling.models import (
     SchedulePeriod,
     SchedulingRules,
     Shift,
+    ShiftExchange,
     SolveRun,
     TagCoverageRule,
 )
@@ -105,6 +108,13 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true", help="Delete the demo organization first.")
         parser.add_argument("--seed", type=int, default=1)
+        parser.add_argument(
+            "--generate",
+            type=int,
+            default=0,
+            metavar="SECONDS",
+            help="Fill the first period with a generated schedule, solving for this long, and publish it.",
+        )
 
     def handle(self, *args, **opts):
         if not settings.DEBUG:
@@ -117,6 +127,9 @@ class Command(BaseCommand):
             if existing:
                 delete_organization(existing)
             org = build_demo(random.Random(opts["seed"]))  # noqa: S311 (synthetic data)
+            if opts["generate"]:
+                summary = generate_and_publish(org, opts["generate"])
+                self.stdout.write(f"Generated and published the first period: {summary}.")
         self.stdout.write(
             self.style.SUCCESS(
                 f"Created {org.name}. Sign in as supervisor@example.edu or admin@example.edu "
@@ -128,6 +141,11 @@ class Command(BaseCommand):
 def delete_organization(org: Organization) -> None:
     """Development helper: remove every row of the demo organization, children first."""
     for model in (
+        ShiftExchange,
+        CalendarFeed,
+        TimeOff,
+        AvailabilityReminder,
+        RetentionPolicy,
         SolveRun,
         DesiredHours,
         HourTargetRule,
@@ -329,3 +347,35 @@ def seed_rules_and_period(org, loc, tags, spring) -> None:
             end_min=540 if short else 570,
             pay_role=opener.default_pay_role,
         )
+
+
+def generate_and_publish(org: Organization, seconds: int) -> str:
+    """Development helper: solve the first period from scratch and publish it, so the student
+    views, exchanges and reports have something to show."""
+    from app.scheduling import services
+    from domain.engine import Mode, SolveRequest, run
+
+    period = SchedulePeriod.objects.filter(organization=org).order_by("start_date").first()
+    supervisor = User.objects.get(email="supervisor@example.edu")
+    ctx = services.build_context(period)
+    option = run(
+        ctx, SolveRequest(Mode.GENERATE, time_limit=seconds, workers=settings.STACKS_SOLVER_WORKERS)
+    ).options[0]
+    period.shifts.all().delete()  # a fresh demo period: no history to keep
+    people = {e.pk: e for e in Employee.objects.filter(organization=org)}
+    Shift.objects.bulk_create(
+        Shift(
+            organization=org,
+            location=period.location,
+            period=period,
+            employee=people[s.employee_id],
+            date=s.day,
+            start_min=s.interval.start,
+            end_min=s.interval.end,
+            pay_role=people[s.employee_id].default_pay_role,
+        )
+        for s in option.shifts
+        if s.employee_id is not None
+    )
+    services.publish(period, supervisor)
+    return option.report.summary()

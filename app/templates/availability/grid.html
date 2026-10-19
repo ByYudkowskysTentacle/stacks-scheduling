@@ -4,6 +4,7 @@
 {% block main_class %}main--wide{% endblock %}
 {% block content %}
 <h1>Availability <span class="subtle">{{ term.name }}, week of {{ week|date:"D j M Y" }}</span></h1>
+{% if term.availability_deadline or Perm.MANAGE_PEOPLE in access.perms %}<p class="no-print">{% if term.availability_deadline %}Due by {{ term.availability_deadline|date:"l j F" }}.{% endif %}{% if Perm.MANAGE_PEOPLE in access.perms %} <a href="{% url 'availability_reminders' %}?term={{ term.pk }}">Who hasn't entered it, and reminders</a>{% endif %}</p>{% endif %}
 
 <form method="get" class="filter-bar" role="search" aria-label="Filter the grid">
   <div><label for="term">Term</label>

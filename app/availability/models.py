@@ -171,3 +171,22 @@ def time_off_for(employees, first: date, last: date) -> dict[int, dict[date, tup
             if first <= d <= last:
                 out.setdefault(t.employee_id, {}).setdefault(d, []).append(t.interval())
     return {e: {d: tuple(ivs) for d, ivs in by_day.items()} for e, by_day in out.items()}
+
+
+class AvailabilityReminder(models.Model):
+    """One reminder email sent (SPEC §5.2), so a person gets at most one per day."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    term = models.ForeignKey(Term, on_delete=models.CASCADE, related_name="reminders")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="availability_reminders")
+    sent_on = models.DateField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["term", "employee", "sent_on"], name="availability_reminder_once_a_day"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"Reminder to {self.employee} for {self.term} on {self.sent_on}"

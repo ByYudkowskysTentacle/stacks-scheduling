@@ -4,6 +4,7 @@
 {% block content %}
 {% if employee != access.employee %}<p><a href="{% url 'employee_detail' employee.pk %}">← {{ employee.display_name }}</a></p>{% endif %}
 <h1>{% if employee == access.employee %}Your availability{% else %}{{ employee.display_name }}'s availability{% endif %} <span class="subtle">for {{ term.name }}</span></h1>
+{% if term.availability_deadline %}<p><strong>Due by {{ term.availability_deadline|date:"l j F" }}.</strong></p>{% endif %}
 
 {% if terms|length > 1 %}
 <form method="get" class="filter-bar" aria-label="Choose a term">

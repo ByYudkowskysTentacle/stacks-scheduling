@@ -180,6 +180,20 @@ class Term(models.Model):
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField()
+    availability_deadline = models.DateField(
+        null=True, blank=True, help_text="Optional. Shown to employees on their home and availability pages."
+    )
+    availability_reminders = models.BooleanField(
+        "Email availability reminders",
+        default=False,
+        help_text="Off unless you turn it on (SPEC §5.2). Emails people who haven't entered or confirmed "
+        "their availability, a few days before the deadline and on the day.",
+    )
+    reminder_days_before = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(30)],
+        help_text="Days before the deadline.",
+    )
 
     class Meta:
         ordering = ["-start_date"]
@@ -226,3 +240,30 @@ class Membership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} ({self.get_role_display()})"
+
+
+def _days(label: str, help_text: str) -> models.PositiveIntegerField:
+    return models.PositiveIntegerField(
+        label, null=True, blank=True, validators=[MinValueValidator(1)], help_text=help_text
+    )
+
+
+@audited()
+class RetentionPolicy(models.Model):
+    """How long each kind of personal data is kept (SPEC §11). Blank means keep: nothing is
+    purged until an administrator sets a period. Purges run daily in the worker, or on demand,
+    and remove the matching audit snapshots too."""
+
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="retention")
+    availability_days = _days("Term availability", "Days after the term ends. SPEC example: 365.")
+    time_off_days = _days("Time-off requests", "Days after the time off ends.")
+    import_days = _days("Import data", "Days after an import: the parsed rows, preview and undo data.")
+    notification_days = _days("In-app notifications", "Days after a notification was sent.")
+    solve_run_days = _days(
+        "Solver runs", "Days after a generate or rebalance finished: options and explanations."
+    )
+    last_purged_at = models.DateTimeField(null=True, blank=True)
+    last_purge_counts = models.JSONField(default=dict, blank=True)
+
+    def __str__(self) -> str:
+        return f"Retention policy for {self.organization}"

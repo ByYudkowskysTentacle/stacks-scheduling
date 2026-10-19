@@ -376,8 +376,8 @@ def apply(batch: ImportBatch) -> None:
 
 
 def can_undo(batch: ImportBatch) -> bool:
-    if batch.status != BatchStatus.APPLIED:
-        return False
+    if batch.status != BatchStatus.APPLIED or not batch.undo:
+        return False  # not applied, or its undo data was removed by the retention policy
     later = ImportBatch.objects.filter(
         organization=batch.organization,
         kind=batch.kind,

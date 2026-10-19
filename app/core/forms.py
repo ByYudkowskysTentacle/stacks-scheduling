@@ -4,7 +4,15 @@ from __future__ import annotations
 from django import forms
 from django.core.exceptions import ValidationError
 
-from app.core.models import Closure, Location, OpenInterval, OperatingHoursSet, Organization, Term
+from app.core.models import (
+    Closure,
+    Location,
+    OpenInterval,
+    OperatingHoursSet,
+    Organization,
+    RetentionPolicy,
+    Term,
+)
 from domain import calendar as cal
 from domain.timeutil import Interval, format_minute, is_on_slot
 from domain.timeutil import parse_clock as parse_time_input
@@ -155,5 +163,18 @@ class ClosureForm(forms.ModelForm):
 class TermForm(forms.ModelForm):
     class Meta:
         model = Term
-        fields = ["name", "start_date", "end_date"]
-        widgets = {"start_date": DateInput(), "end_date": DateInput()}
+        fields = [
+            "name",
+            "start_date",
+            "end_date",
+            "availability_deadline",
+            "availability_reminders",
+            "reminder_days_before",
+        ]
+        widgets = {"start_date": DateInput(), "end_date": DateInput(), "availability_deadline": DateInput()}
+
+
+class RetentionPolicyForm(forms.ModelForm):
+    class Meta:
+        model = RetentionPolicy
+        fields = ["availability_days", "time_off_days", "import_days", "notification_days", "solve_run_days"]
