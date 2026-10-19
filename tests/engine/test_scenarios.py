@@ -96,7 +96,9 @@ def test_scenario_3_opener_opens_every_weekday(base):
     weekdays = [d for d in ctx.period.days if d.weekday() <= FRI]
     for d in weekdays:
         # The opener may also have a second, later shift that day; the opening one is what counts.
-        opening = [s for s in option.shifts if s.employee_id == OPENER and s.day == d and s.interval.start == 450]
+        opening = [
+            s for s in option.shifts if s.employee_id == OPENER and s.day == d and s.interval.start == 450
+        ]
         assert opening, f"no opening shift on {d}"
         if d.weekday() in (MON, WED, FRI):
             assert opening[0].minutes == 90
