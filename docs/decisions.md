@@ -379,6 +379,12 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 - **D105 (amends D93).** Retention periods still start blank; the settings page shows suggested periods (availability 365 days after the term, time off 365, import data 30, notifications 180, solver runs 90) with a one-click "use suggested periods" that fills the form for the admin to save.
 - **D106 (amends D94).** Reminders stay opt-in per term, with several reminder days of the supervisor's choosing (for example 7, 3 and 1 days before) plus the deadline day.
 
+## 2026-10-19 – Maintainer review of the department follow-ups
+
+- **D107 (resolves part of open item 16).** Once an organization has departments, the audit log shows each supervisor the changes to records in their own departments (people, schedules, shifts, requests, time off, availability), plus changes to organization-wide settings. Admins see everything. Changes to another department's records, including wages and notes, are no longer visible to that department's outsiders.
+- **D108 (resolves part of open item 16).** Students see the published schedules of their own departments only, and can claim open shifts and propose swaps only within them. A department's supervisor can turn on a setting that also lists open shifts from other departments to their employees, choosing which departments. *Interpretation:* the setting belongs to the employees' department (the one whose people may look elsewhere), and lists the chosen departments' open shifts only, not their full schedules. A claim still goes to the supervisor of the shift's department, and the validation suite still runs on it.
+- **D109 (revises D93/D105 and the retention purge).** Purging expired data no longer removes the audit history of that data. The audit log gets its own retention period under Settings, Retention, blank by default (keep). When it is set, audit entries older than that are purged on the same nightly run. Erasure still leaves the audit log as it is (D100).
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -396,4 +402,5 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 13. ~~Decide whether a time-off decision should email the student~~ Resolved: in-app notification, email per user preference (D103).
 14. ~~Decide on two-way trades and non-regular claims~~ Resolved: add swaps; non-regular staff may claim (D104).
 15. Choose retention periods under Settings, Retention once the registrar or counsel has answered item 4 (D93). SPEC §11 suggests one year after the term ends for availability.
-16. Decide whether supervisors limited to some departments should see the whole audit log, the published schedule of every department, and organization-wide settings and imports, or only their departments' (D95, part 4).
+16. ~~Decide what supervisors limited to some departments see of the audit log and the published schedule~~ Resolved: own departments (D107, D108).
+17. Decide whether settings (hours, rules, terms, tags, pay roles, departments) and CSV imports should stay organization-wide for every supervisor, or be limited by department (D95, part 4).
