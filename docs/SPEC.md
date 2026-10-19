@@ -314,7 +314,7 @@ Paycom is the payroll system of record. It is administered by university HR/payr
 - Minimal collection: availability is stored only as time blocks, and course details are never collected. Punch geolocation is stored only as an inside/outside result (§10.1).
 - Hosting on a third-party VPS may need a data-processing agreement or registrar/counsel sign-off. The install guide flags this.
 - Role-based access (§1), server-side authorization, an audit log of every write, encryption in transit, and database encryption at rest where the platform allows it.
-- Retention settings per data type (for example, purge availability 1 year after the term ends). Export and delete a single person's data on request.
+- Retention settings per data type (for example, purge availability 1 year after the term ends). A purge removes the live records and keeps the audit log's history of them; the audit log has its own retention period (D109). Export and delete a single person's data on request.
 - Authentication through SAML 2.0 and OIDC for campus SSO, plus local accounts with strong password rules and optional TOTP. Order: local accounts first, then Google Workspace (the pilot campus) through a generic OIDC configuration restricted to the campus domain (checked server-side), then SAML. Other OIDC providers are configuration, not code. Tests use a local Keycloak container, never a real identity provider.
 
 ## 12. Acceptance scenarios

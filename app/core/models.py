@@ -303,8 +303,8 @@ def _days(label: str, help_text: str) -> models.PositiveIntegerField:
 @audited()
 class RetentionPolicy(models.Model):
     """How long each kind of personal data is kept (SPEC §11). Blank means keep: nothing is
-    purged until an administrator sets a period. Purges run daily in the worker, or on demand,
-    and remove the matching audit snapshots too."""
+    purged until an administrator sets a period. Purges run daily in the worker, or on demand.
+    They keep the audit history of what they remove; the audit log has its own period (D109)."""
 
     organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="retention")
     availability_days = _days("Term availability", "Days after the term ends. SPEC example: 365.")
@@ -313,6 +313,11 @@ class RetentionPolicy(models.Model):
     notification_days = _days("In-app notifications", "Days after a notification was sent.")
     solve_run_days = _days(
         "Solver runs", "Days after a generate or rebalance finished: options and explanations."
+    )
+    audit_days = _days(
+        "Audit log",
+        "Days after a change was recorded. Covers the history of everything above too, so set it "
+        "no shorter than you need records of who changed what.",
     )
     last_purged_at = models.DateTimeField(null=True, blank=True)
     last_purge_counts = models.JSONField(default=dict, blank=True)

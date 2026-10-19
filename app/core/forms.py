@@ -228,7 +228,14 @@ class TermForm(forms.ModelForm):
 class RetentionPolicyForm(forms.ModelForm):
     class Meta:
         model = RetentionPolicy
-        fields = ["availability_days", "time_off_days", "import_days", "notification_days", "solve_run_days"]
+        fields = [
+            "availability_days",
+            "time_off_days",
+            "import_days",
+            "notification_days",
+            "solve_run_days",
+            "audit_days",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
