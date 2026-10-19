@@ -96,9 +96,9 @@ See **Benchmark results** below.
 
 | License | Dependencies |
 |---|---|
-| BSD | Django, django-pghistory |
+| BSD | Django, django-pghistory, django-pgtrigger |
 | Apache-2.0 | OR-Tools, Caddy |
-| MIT | django-allauth, Procrastinate, python3-saml, xmlsec |
+| MIT | django-allauth, Procrastinate, Gunicorn, WhiteNoise, python3-saml, xmlsec |
 | LGPL-3.0 | psycopg |
 | PostgreSQL License | PostgreSQL |
 | Permissive (BSD family) | HTMX |

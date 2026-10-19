@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Audit log</h1>
+<p class="help">Every change to settings, people, wages and tags, newest first.</p>
+<table class="data-table audit-table">
+  <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Change</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.when|date:"j M Y H:i" }}</td>
+      <td>{{ r.who }}</td>
+      <td>{{ r.action }} {{ r.what|lower }} #{{ r.object_id }}{% if r.summary %} ({{ r.summary }}){% endif %}</td>
+      <td>{% if r.changes %}<ul class="plain-list">{% for field, before, after in r.changes %}<li><code>{{ field }}</code>: {{ before|default_if_none:"(blank)" }} → {{ after|default_if_none:"(blank)" }}</li>{% endfor %}</ul>{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4">Nothing recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if page.has_other_pages %}
+<nav aria-label="Pages" class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Newer</a>{% endif %}
+  <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Older</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

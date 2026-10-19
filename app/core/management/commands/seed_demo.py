@@ -1,0 +1,203 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Load a synthetic, pilot-shaped demo organization for development (CLAUDE.md §2.1).
+
+Every name and address is made up; emails use example.edu. Refuses to run unless
+DJANGO_DEBUG is on, so it can't touch a production database by accident.
+
+    python manage.py seed_demo            # creates "Demo Library" if missing
+    python manage.py seed_demo --reset    # deletes and recreates the demo organization
+"""
+
+from __future__ import annotations
+
+import random
+from datetime import date
+from decimal import Decimal
+
+import pghistory
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+
+from app.accounts.models import User
+from app.core.models import (
+    Closure,
+    Location,
+    Membership,
+    OpenInterval,
+    OperatingHoursSet,
+    Organization,
+    Role,
+    Term,
+)
+from app.people.models import Employee, EmployeePayRole, EmployeeTag, EmploymentType, PayRole, Tag
+from domain.calendar import FRI, MON, SAT, SUN, THU, TUE, WED
+
+DEMO_ORG = "Demo Library"
+DEMO_PASSWORD = "demo-password-123"  # noqa: S105 (development-only demo accounts)
+FIRST = [
+    "Avery",
+    "Blake",
+    "Casey",
+    "Devon",
+    "Emery",
+    "Finley",
+    "Gray",
+    "Harper",
+    "Indigo",
+    "Jordan",
+    "Kai",
+    "Logan",
+    "Morgan",
+    "Nico",
+    "Oakley",
+    "Parker",
+    "Quinn",
+    "Reese",
+    "Sage",
+    "Taylor",
+    "Umi",
+    "Val",
+    "Wren",
+    "Xen",
+    "Yael",
+    "Zion",
+    "Arden",
+    "Bellamy",
+    "Cypress",
+    "Dakota",
+    "Ellis",
+    "Frankie",
+]
+LAST = ["Example", "Sample", "Placeholder", "Testcase", "Fixture", "Synthetic", "Mockley", "Dummy"]
+PILOT_HOURS = {
+    **{wd: [(450, 1320)] for wd in (MON, TUE, WED, THU)},
+    FRI: [(450, 960)],
+    SAT: [(720, 960)],
+    SUN: [(1080, 1320)],
+}
+
+
+class Command(BaseCommand):
+    help = "Create a synthetic demo organization (development only)."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--reset", action="store_true", help="Delete the demo organization first.")
+        parser.add_argument("--seed", type=int, default=1)
+
+    def handle(self, *args, **opts):
+        if not settings.DEBUG:
+            raise CommandError("seed_demo only runs with DJANGO_DEBUG=1.")
+        with transaction.atomic(), pghistory.context(command="seed_demo"):
+            existing = Organization.objects.filter(name=DEMO_ORG).first()
+            if existing and not opts["reset"]:
+                self.stdout.write("Demo organization already exists; use --reset to recreate it.")
+                return
+            if existing:
+                delete_organization(existing)
+            org = build_demo(random.Random(opts["seed"]))  # noqa: S311 (synthetic data)
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Created {org.name}. Sign in as supervisor@example.edu or admin@example.edu "
+                f"with password {DEMO_PASSWORD!r}."
+            )
+        )
+
+
+def delete_organization(org: Organization) -> None:
+    """Development helper: remove every row of the demo organization, children first."""
+    for model in (
+        EmployeeTag,
+        EmployeePayRole,
+        Employee,
+        Tag,
+        PayRole,
+        OpenInterval,
+        OperatingHoursSet,
+        Closure,
+        Term,
+    ):
+        model.objects.filter(organization=org).delete()
+    Location.objects.filter(organization=org).delete()
+    Membership.objects.filter(organization=org).delete()
+    org.delete()
+
+
+def build_demo(rng: random.Random) -> Organization:
+    org = Organization.objects.create(name=DEMO_ORG)
+    loc = Location.objects.create(organization=org, name="Main library")
+    hours = OperatingHoursSet.objects.create(
+        organization=org, location=loc, name="Regular term hours", effective_from=date(2026, 8, 1)
+    )
+    OpenInterval.objects.bulk_create(
+        OpenInterval(organization=org, hours_set=hours, weekday=wd, start_min=s, end_min=e)
+        for wd, ivs in PILOT_HOURS.items()
+        for s, e in ivs
+    )
+    Closure.objects.create(
+        organization=org,
+        location=loc,
+        reason="Chapel",
+        kind=Closure.RECURRING,
+        weekday=WED,
+        start_min=600,
+        end_min=660,
+    )
+    Term.objects.create(
+        organization=org, name="Fall 2026", start_date=date(2026, 8, 24), end_date=date(2026, 12, 11)
+    )
+    Term.objects.create(
+        organization=org, name="Spring 2027", start_date=date(2027, 1, 11), end_date=date(2027, 5, 7)
+    )
+
+    assistant = PayRole.objects.create(organization=org, name="Student Assistant", color="#1f6f8b")
+    fws = PayRole.objects.create(organization=org, name="FWS Student Assistant", color="#7a3e9d")
+    tags = {
+        name: Tag.objects.create(organization=org, name=name)
+        for name in ("Shift lead", "Opener", "Cataloguer", "Processor", "Marketing", "New employee")
+    }
+
+    for email, role in (("admin@example.edu", Role.ADMIN), ("supervisor@example.edu", Role.SUPERVISOR)):
+        user = User.objects.filter(email=email).first() or User.objects.create_user(email, DEMO_PASSWORD)
+        Membership.objects.create(user=user, organization=org, role=role)
+
+    names = [(first, rng.choice(LAST)) for first in rng.sample(FIRST, 32)]
+    for i, (first, last) in enumerate(names, start=1):
+        regular = i <= 28
+        pay_role = fws if i % 3 == 0 else assistant
+        emp = Employee.objects.create(
+            organization=org,
+            full_name=f"{first} {last}",
+            preferred_name=first,
+            email=f"student{i:02d}@example.edu",
+            employment_type=EmploymentType.REGULAR if regular else EmploymentType.NON_REGULAR,
+            hire_date=date(2025, 8, 20),
+            new_employee_until=date(2027, 2, 28) if 5 <= i <= 8 else None,
+            default_pay_role=pay_role,
+            default_wage=Decimal("12.50") if pay_role is assistant else Decimal("13.00"),
+            shift_lead_access=i in (2, 3),
+        )
+        EmployeePayRole.objects.create(organization=org, employee=emp, pay_role=pay_role)
+        held = set()
+        if i == 1:
+            held.add("Opener")
+        if i in (2, 3) or (regular and rng.random() < 0.15):
+            held.add("Shift lead")
+        if 5 <= i <= 8:
+            held.add("New employee")
+        if regular and rng.random() < 0.2:
+            held.add("Cataloguer")
+        if regular and rng.random() < 0.12:
+            held.add("Processor")
+        for name in sorted(held):
+            EmployeeTag.objects.create(organization=org, employee=emp, tag=tags[name])
+
+    # The first student can sign in, to try the employee view.
+    student = Employee.objects.get(organization=org, email="student01@example.edu")
+    user = User.objects.filter(email=student.email).first() or User.objects.create_user(
+        student.email, DEMO_PASSWORD
+    )
+    Membership.objects.create(user=user, organization=org, role=Role.EMPLOYEE)
+    student.user = user
+    student.save(update_fields=["user"])
+    return org

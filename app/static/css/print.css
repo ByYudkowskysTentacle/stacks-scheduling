@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Print: landscape, repeated table headers, no clipped cells (CLAUDE.md §2.7). */
+@page { size: landscape; margin: 12mm; }
+
+.site-header, .sub-nav, .skip-link, .form-actions, .filter-bar, .messages, .pager, button, .button { display: none !important; }
+body { font-size: 10pt; color: #000; background: #fff; }
+main { max-width: none; padding: 0; }
+a { color: #000; text-decoration: none; }
+.card { border: 0; padding: 0; }
+.data-table { display: table !important; overflow: visible !important; width: 100%; }
+.data-table thead { display: table-header-group; }
+.data-table tr { break-inside: avoid; }
+.data-table th, .data-table td { border-bottom: 1px solid #666; }
+.badge, .tag { border-color: #000; }

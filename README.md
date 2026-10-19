@@ -6,7 +6,7 @@ It covers what general-purpose tools like Homebase do (availability, shift sched
 
 ## Status
 
-**Planning complete; scaffolding not started.** The stack is decided (Python, Django, HTMX, PostgreSQL and OR-Tools CP-SAT, deployed with `docker compose`). The first release targets the spring 2027 term at a pilot library.
+**Milestone 1 (foundations) in progress.** Python, Django, PostgreSQL and OR-Tools CP-SAT, deployed with `docker compose`. The first release targets the spring 2027 term at a pilot library. See `CLAUDE.md` §8 for how to run it.
 
 ## Documents
 

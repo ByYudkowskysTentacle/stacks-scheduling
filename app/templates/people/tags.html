@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Tags{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Tags</h1>
+<p class="help">Skills and duties used by coverage rules, such as Cataloguer, Opener or New employee. Tags never grant access.</p>
+<ul class="plain-list">
+  {% for t in object_list %}<li><a href="{% url 'tag_edit' t.pk %}">{{ t.name }}</a>{% if t.description %}: {{ t.description }}{% endif %}</li>{% empty %}<li>No tags yet.</li>{% endfor %}
+</ul>
+<p><a class="button" href="{% url 'tag_add' %}">Add a tag</a></p>
+{% endblock %}

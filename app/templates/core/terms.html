@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Terms{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Terms</h1>
+<p class="help">Availability, caps and funding are set per term.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Term</th><th scope="col">Starts</th><th scope="col">Ends</th></tr></thead>
+  <tbody>
+  {% for t in object_list %}
+    <tr><th scope="row"><a href="{% url 'term_edit' t.pk %}">{{ t.name }}</a></th><td>{{ t.start_date|date:"D j M Y" }}</td><td>{{ t.end_date|date:"D j M Y" }}</td></tr>
+  {% empty %}
+    <tr><td colspan="3">No terms yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><a class="button" href="{% url 'term_add' %}">Add a term</a></p>
+{% endblock %}

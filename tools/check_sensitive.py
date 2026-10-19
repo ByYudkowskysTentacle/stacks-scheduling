@@ -29,8 +29,17 @@ import sys
 from pathlib import PurePosixPath
 
 BLOCKED_SUFFIXES = {
-    ".xlsx", ".xlsm", ".xls", ".ods", ".numbers",  # spreadsheets: fixtures must be CSV
-    ".sqlite", ".sqlite3", ".db", ".dump", ".pgdump", ".bak",  # databases and dumps
+    ".xlsx",
+    ".xlsm",
+    ".xls",
+    ".ods",
+    ".numbers",  # spreadsheets: fixtures must be CSV
+    ".sqlite",
+    ".sqlite3",
+    ".db",
+    ".dump",
+    ".pgdump",
+    ".bak",  # databases and dumps
 }
 DATA_SUFFIXES = {".csv", ".tsv", ".ics", ".vcf"}
 DATA_DIRS = ("fixtures/", "tests/", "spikes/")  # synthetic data only, per CLAUDE.md §2.1

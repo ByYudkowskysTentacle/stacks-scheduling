@@ -1,0 +1,13 @@
+<nav aria-label="Settings" class="sub-nav">
+  <ul>
+    {% with name=request.resolver_match.url_name %}
+    <li><a href="{% url 'locations' %}"{% if name == 'locations' %} aria-current="page"{% endif %}>Hours and closures</a></li>
+    <li><a href="{% url 'terms' %}"{% if name == 'terms' %} aria-current="page"{% endif %}>Terms</a></li>
+    <li><a href="{% url 'pay_roles' %}"{% if name == 'pay_roles' %} aria-current="page"{% endif %}>Pay roles</a></li>
+    <li><a href="{% url 'tags' %}"{% if name == 'tags' %} aria-current="page"{% endif %}>Tags</a></li>
+    <li><a href="{% url 'organization_settings' %}"{% if name == 'organization_settings' %} aria-current="page"{% endif %}>Organization</a></li>
+    {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'members' %}"{% if name == 'members' %} aria-current="page"{% endif %}>Roles</a></li>{% endif %}
+    {% if Perm.VIEW_AUDIT in access.perms %}<li><a href="{% url 'audit_log' %}"{% if name == 'audit_log' %} aria-current="page"{% endif %}>Audit log</a></li>{% endif %}
+    {% endwith %}
+  </ul>
+</nav>

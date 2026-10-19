@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<h1>Welcome{% if access.employee %}, {{ access.employee.display_name }}{% endif %}</h1>
+{% if setup %}
+  <section aria-labelledby="setup-heading" class="card">
+    <h2 id="setup-heading">Set up {{ organization.name }}</h2>
+    <ol class="checklist">
+      {% for label, done, url in setup %}
+        <li class="{% if done %}is-done{% endif %}">
+          <span class="checklist__state">{% if done %}Done{% else %}To do{% endif %}</span>
+          <a href="{{ url }}">{{ label }}</a>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+{% else %}
+  <p>Your availability and schedule will appear here.</p>
+{% endif %}
+{% endblock %}
