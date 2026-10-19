@@ -596,7 +596,7 @@ class RulesView(OrgViewMixin, TemplateView):
 
         return {
             "rules_form": SchedulingRulesForm(bound("rules"), instance=SchedulingRules.for_org(org)),
-            "override_form": CoverageOverrideForm(bound("override"), week_start=ws),
+            "override_form": CoverageOverrideForm(bound("override"), week_start=ws, organization=org),
             "cap_form": HourCapForm(bound("cap"), organization=org),
             "tag_rule_form": TagRuleForm(bound("tag_rule"), organization=org, week_start=ws),
             "rotation_form": RotationForm(bound("rotation"), organization=org),
@@ -610,9 +610,9 @@ class RulesView(OrgViewMixin, TemplateView):
         for k, v in self.forms().items():
             ctx.setdefault(k, v)
         ctx.update(
-            overrides=CoverageOverride.objects.filter(organization=org),
+            overrides=CoverageOverride.objects.filter(organization=org).select_related("department"),
             caps=HourCapRule.objects.filter(organization=org).select_related("employee", "tag"),
-            tag_rules=TagCoverageRule.objects.filter(organization=org).select_related("tag"),
+            tag_rules=TagCoverageRule.objects.filter(organization=org).select_related("tag", "department"),
             rotation=RotationAssignment.objects.filter(organization=org).select_related("employee"),
             duties=DutyAssignment.objects.filter(organization=org).select_related("employee"),
             targets=HourTargetRule.objects.filter(organization=org).select_related("employee"),

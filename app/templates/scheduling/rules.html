@@ -16,7 +16,7 @@
 <section class="card" aria-labelledby="ov-h">
   <h2 id="ov-h">Coverage overrides</h2>
   <ul class="plain-list">
-    {% for o in overrides %}<li>{{ o }} on {% for wd in o.weekdays %}{{ wd|weekday_short }}{% if not forloop.last %}, {% endif %}{% endfor %}
+    {% for o in overrides %}<li>{{ o }} on {% for wd in o.weekdays %}{{ wd|weekday_short }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if o.department %} <span class="tag">{{ o.department }}</span>{% endif %}
       {% include "scheduling/_remove.html" with kind="override" pk=o.pk %}</li>{% empty %}<li>None. The default applies at all open hours.</li>{% endfor %}
   </ul>
   <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="override">
@@ -35,7 +35,7 @@
 <section class="card" aria-labelledby="tr-h">
   <h2 id="tr-h">Tag coverage rules</h2>
   <ul class="plain-list">
-    {% for r in tag_rules %}<li>{{ r }} ({% if r.hard %}hard{% else %}soft{% endif %}) {% include "scheduling/_remove.html" with kind="tag_rule" pk=r.pk %}</li>{% empty %}<li>None yet.</li>{% endfor %}
+    {% for r in tag_rules %}<li>{{ r }} ({% if r.hard %}hard{% else %}soft{% endif %}){% if r.department %} <span class="tag">{{ r.department }}</span>{% endif %} {% include "scheduling/_remove.html" with kind="tag_rule" pk=r.pk %}</li>{% empty %}<li>None yet.</li>{% endfor %}
   </ul>
   <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="tag_rule">
     {{ tag_rule_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add rule</button></div></form>

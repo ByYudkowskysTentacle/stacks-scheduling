@@ -12,9 +12,9 @@ from django.apps import apps
 from django.urls import reverse
 
 from app.core.models import Department, Membership, Role, SupervisorDepartment
-from app.people.models import Employee, EmployeeDepartment
+from app.people.models import Employee, EmployeeDepartment, Tag
 from app.scheduling import services
-from app.scheduling.models import SchedulePeriod, Shift
+from app.scheduling.models import CoverageOverride, SchedulePeriod, Shift, TagCoverageRule
 from tests.app.test_foundations import employee_post_data
 from tests.conftest import make_user
 
@@ -144,3 +144,73 @@ def test_supervisors_cannot_assign_departments(as_user, supervisor, depts):
         reverse("members"), {"membership": member.pk, "action": "departments", "department": [depts[1].pk]}
     )
     assert resp.status_code == 403 and not member.departments.exists()
+
+
+# --- Per-department coverage (D95, part 3) --------------------------------------------------
+
+
+def test_each_department_gets_its_own_coverage(org, location, depts):
+    circ, special = depts
+    special.coverage_default = 1
+    special.coverage_mode = "minimum"
+    special.save()
+    tag = Tag.objects.create(organization=org, name="Cataloguer")
+    for dept, count in ((None, 3), (circ, 4), (special, 5)):
+        CoverageOverride.objects.create(
+            organization=org,
+            location=location,
+            department=dept,
+            weekdays=[0],
+            start_min=600,
+            end_min=720,
+            count=count,
+        )
+    TagCoverageRule.objects.create(organization=org, tag=tag, kind="min_on_duty", department=circ)
+    circ_rules = services.domain_rules(org, None, circ)
+    special_rules = services.domain_rules(org, None, special)
+    assert circ_rules.coverage.default == 2 and circ_rules.coverage.mode == "exact"  # the organization's
+    assert special_rules.coverage.default == 1 and special_rules.coverage.mode == "minimum"
+    assert sorted(o.count for o in circ_rules.coverage.overrides) == [3, 4]
+    assert sorted(o.count for o in special_rules.coverage.overrides) == [3, 5]
+    assert len(circ_rules.tag_rules) == 1 and special_rules.tag_rules == []
+
+
+def test_a_periods_validation_uses_its_departments_coverage(org, location, depts):
+    _, special = depts
+    special.coverage_default = 0
+    special.save()
+    period = SchedulePeriod.objects.create(
+        organization=org, location=location, department=special, start_date=START, weeks=2
+    )
+    assert not [i for i in services.validate_period(period).issues if i.category == "coverage_gap"]
+
+
+def test_rules_page_asks_which_department_only_when_there_are_several(as_user, org, supervisor, location):
+    client = as_user(supervisor)
+    only = Department.objects.create(organization=org, name="General")
+    assert "Every department" not in client.get(reverse("rules")).content.decode()
+    special = Department.objects.create(organization=org, name="Special Collections")
+    assert "Every department" in client.get(reverse("rules")).content.decode()
+    client.post(
+        reverse("rules"),
+        {
+            "form": "override",
+            "department": special.pk,
+            "weekdays": [0],
+            "start_min": "10:00",
+            "end_min": "12:00",
+            "count": 1,
+        },
+    )
+    assert CoverageOverride.objects.get().department == special
+    assert only.coverage_overrides.count() == 0
+
+
+def test_department_coverage_is_set_on_its_settings_page(as_user, org, supervisor):
+    dept = Department.objects.create(organization=org, name="Special Collections")
+    as_user(supervisor).post(
+        reverse("department_edit", args=[dept.pk]),
+        {"name": dept.name, "coverage_default": 1, "coverage_mode": "minimum"},
+    )
+    dept.refresh_from_db()
+    assert (dept.coverage_default, dept.coverage_mode) == (1, "minimum")

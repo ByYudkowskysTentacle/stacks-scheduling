@@ -103,6 +103,14 @@ class CoverageOverride(models.Model):
 
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="coverage_overrides")
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="coverage_overrides",
+        help_text="Blank applies to every department's schedules (D95).",
+    )
     weekdays = models.JSONField(default=list, help_text="Weekday numbers, Monday 0.")
     start_min = minute_field("from")
     end_min = minute_field("until")
@@ -162,6 +170,14 @@ class TagCoverageRule(models.Model):
 
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="tag_rules")
     tag = models.ForeignKey(Tag, on_delete=models.PROTECT, related_name="coverage_rules")
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="tag_rules",
+        help_text="Blank applies to every department's schedules (D95).",
+    )
     kind = models.CharField(
         max_length=20,
         choices=[

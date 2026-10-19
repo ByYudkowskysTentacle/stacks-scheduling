@@ -164,7 +164,7 @@ class ClosureForm(forms.ModelForm):
 class DepartmentForm(forms.ModelForm):
     class Meta:
         model = Department
-        fields = ["name"]
+        fields = ["name", "coverage_default", "coverage_mode"]
         help_texts = {"name": "For example Circulation or Special Collections."}
 
     def __init__(self, *args, organization, **kwargs):
