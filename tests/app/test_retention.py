@@ -157,3 +157,15 @@ def test_only_admins_manage_retention(as_user, admin_user, supervisor, org, data
 def test_periods_must_be_positive(as_user, admin_user, org, data):
     resp = as_user(admin_user).post(reverse("retention"), {"action": "save", "notification_days": "0"})
     assert resp.status_code == 200 and retention.policy_for(org).notification_days is None
+
+
+def test_suggested_periods_fill_the_form_but_save_nothing(as_user, admin_user, org, data):
+    client = as_user(admin_user)
+    page = client.get(reverse("retention")).content.decode()
+    assert "Suggested: 365." in page and "Suggested: 30." in page
+    resp = client.post(reverse("retention"), {"action": "suggest"})
+    html = resp.content.decode()
+    assert resp.status_code == 200 and "Review them, then save" in html
+    assert 'name="availability_days" value="365"' in html
+    assert retention.policy_for(org).availability_days is None  # not saved
+    assert Notification.objects.exists()  # and nothing purged

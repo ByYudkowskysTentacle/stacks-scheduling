@@ -303,6 +303,11 @@ class RetentionView(OrgViewMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         org = request.organization
         policy = retention.policy_for(org)
+        if request.POST.get("action") == "suggest":
+            # Fill the form only: nothing is saved until the admin presses Save (D105).
+            form = RetentionPolicyForm(instance=policy, initial=retention.SUGGESTED)
+            messages.info(request, "Suggested periods filled in below. Review them, then save.")
+            return self.render_to_response(self.get_context_data(form=form))
         if request.POST.get("action") == "purge":
             if request.POST.get("confirm") != "yes":
                 messages.error(request, "Tick the confirmation box to purge.")
