@@ -111,6 +111,8 @@ docker compose logs migrate             # should end with the migrations applied
 
 To roll back, check out the previous version (`git checkout <tag>`), rebuild, and restore the backup taken before the upgrade. Database migrations only run forwards.
 
+Upgrading to the version with departments puts every existing schedule, employee and supervisor into one department called "General". Nothing else changes until you rename it or add more under Settings, Departments, then put people in departments from their records and give supervisors theirs under Settings, Roles.
+
 ## Day to day
 
 - **Logs:** `docker compose logs -f web worker`. Logs hold request paths and status codes, never personal data.

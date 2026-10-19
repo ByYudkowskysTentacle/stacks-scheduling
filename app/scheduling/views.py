@@ -88,7 +88,7 @@ class ScheduleIndexView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        periods = list(self.org_queryset(SchedulePeriod).select_related("location"))
+        periods = list(self.org_queryset(SchedulePeriod).select_related("location", "department"))
         rows = []
         for p in periods:
             latest = p.latest_version()
@@ -109,7 +109,9 @@ class ScheduleIndexView(OrgViewMixin, TemplateView):
             return redirect("schedule_index")
         if form.is_valid():
             existing = SchedulePeriod.objects.filter(
-                location=location, start_date=form.cleaned_data["start_date"]
+                location=location,
+                department=form.cleaned_data["department"],
+                start_date=form.cleaned_data["start_date"],
             ).first()
             if existing:
                 messages.info(request, "That period already exists.")

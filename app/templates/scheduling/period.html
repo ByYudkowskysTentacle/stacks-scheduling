@@ -4,7 +4,7 @@
 {% block main_class %}main--wide{% endblock %}
 {% block content %}
 <p class="no-print"><a href="{% url 'schedule_index' %}">← Schedules</a></p>
-<h1>Schedule <span class="subtle">{{ period }}</span></h1>
+<h1>Schedule <span class="subtle">{{ period }}{% if period.department %}, {{ period.department }}{% endif %}</span></h1>
 <p class="status-line">
   {% if latest %}Published version {{ latest.number }} on {{ latest.published_at|date:"j M Y H:i" }}.{% else %}Not published yet.{% endif %}
   {% if pending %}<strong>Draft changes affect {{ pending|length }} employee{{ pending|length|pluralize }}.</strong> Nobody is notified until you publish.{% else %}No unpublished changes.{% endif %}

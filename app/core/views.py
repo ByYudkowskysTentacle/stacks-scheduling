@@ -13,13 +13,23 @@ from django.views.generic import CreateView, DeleteView, ListView, TemplateView,
 from app.core import audit_log, retention
 from app.core.forms import (
     ClosureForm,
+    DepartmentForm,
     LocationForm,
     OperatingHoursForm,
     OrganizationForm,
     RetentionPolicyForm,
     TermForm,
 )
-from app.core.models import Closure, Location, Membership, OperatingHoursSet, Role, Term
+from app.core.models import (
+    Closure,
+    Department,
+    Location,
+    Membership,
+    OperatingHoursSet,
+    Role,
+    SupervisorDepartment,
+    Term,
+)
 from app.core.permissions import Perm
 from app.core.views_base import OrgObjectMixin, OrgViewMixin
 from domain import calendar as cal
@@ -243,6 +253,37 @@ class TermUpdateView(OrgObjectMixin, UpdateView):
     extra_context = {"title": "Edit term"}
 
 
+class DepartmentListView(OrgViewMixin, ListView):
+    """Departments plan their own schedules (D95)."""
+
+    permission = Perm.CONFIGURE
+    template_name = "core/departments.html"
+
+    def get_queryset(self):
+        return self.org_queryset(Department).prefetch_related("supervisors__user")
+
+
+class DepartmentFormMixin(OrgObjectMixin):
+    permission = Perm.CONFIGURE
+    model = Department
+    form_class = DepartmentForm
+    template_name = "core/form.html"
+    success_url = reverse_lazy("departments")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()  # type: ignore[misc]
+        kwargs["organization"] = self.request.organization
+        return kwargs
+
+
+class DepartmentCreateView(DepartmentFormMixin, CreateView):
+    extra_context = {"title": "Add a department"}
+
+
+class DepartmentUpdateView(DepartmentFormMixin, UpdateView):
+    extra_context = {"title": "Rename department"}
+
+
 class MemberListView(OrgViewMixin, TemplateView):
     """Admins grant the supervisor and admin roles. Employees get their membership by invitation."""
 
@@ -251,12 +292,20 @@ class MemberListView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["members"] = self.org_queryset(Membership).select_related("user").order_by("role", "user__email")
+        ctx["members"] = (
+            self.org_queryset(Membership)
+            .select_related("user")
+            .prefetch_related("departments")
+            .order_by("role", "user__email")
+        )
         ctx["roles"] = Role.choices
+        ctx["departments"] = self.org_queryset(Department)
         return ctx
 
     def post(self, request, *args, **kwargs):
         member = get_object_or_404(self.org_queryset(Membership), pk=request.POST.get("membership"))
+        if request.POST.get("action") == "departments":
+            return self.set_departments(request, member)
         role = request.POST.get("role")
         if role not in Role.values:
             messages.error(request, "Unknown role.")
@@ -265,7 +314,23 @@ class MemberListView(OrgViewMixin, TemplateView):
         else:
             member.role = role
             member.save(update_fields=["role"])
+            departments = list(self.org_queryset(Department)[:2])
+            if role == Role.SUPERVISOR and len(departments) == 1:
+                SupervisorDepartment.objects.get_or_create(membership=member, department=departments[0])
             messages.success(request, f"{member.user.email} is now {member.get_role_display().lower()}.")
+        return redirect("members")
+
+    def set_departments(self, request, member: Membership):
+        """Which departments a supervisor manages (D95). Admins always manage all of them."""
+        wanted = set(self.org_queryset(Department).filter(pk__in=request.POST.getlist("department")))
+        links = {link.department: link for link in member.department_links.select_related("department")}
+        for dept, link in links.items():
+            if dept not in wanted:
+                link.delete()
+        for dept in wanted - set(links):
+            SupervisorDepartment.objects.create(membership=member, department=dept)
+        names = ", ".join(sorted(d.name for d in wanted)) or "no departments"
+        messages.success(request, f"{member.user.email} manages {names}.")
         return redirect("members")
 
 

@@ -3,6 +3,7 @@
     {% with name=request.resolver_match.url_name %}
     <li><a href="{% url 'locations' %}"{% if name == 'locations' %} aria-current="page"{% endif %}>Hours and closures</a></li>
     <li><a href="{% url 'rules' %}"{% if name == 'rules' %} aria-current="page"{% endif %}>Scheduling rules</a></li>
+    <li><a href="{% url 'departments' %}"{% if name == 'departments' %} aria-current="page"{% endif %}>Departments</a></li>
     <li><a href="{% url 'terms' %}"{% if name == 'terms' %} aria-current="page"{% endif %}>Terms</a></li>
     <li><a href="{% url 'pay_roles' %}"{% if name == 'pay_roles' %} aria-current="page"{% endif %}>Pay roles</a></li>
     <li><a href="{% url 'tags' %}"{% if name == 'tags' %} aria-current="page"{% endif %}>Tags</a></li>

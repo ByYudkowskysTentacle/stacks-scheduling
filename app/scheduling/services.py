@@ -105,13 +105,20 @@ def term_for(period: SchedulePeriod) -> Term | None:
     )
 
 
+def in_department(period: SchedulePeriod) -> Q:
+    """Members of the period's department (D95). Every period has one after the departments
+    migration; the fallback keeps a stray period without one org-wide."""
+    return Q(departments=period.department_id) if period.department_id else Q()
+
+
 def people_for(period: SchedulePeriod, shifts) -> dict[int, Person]:
     org = period.organization
     ids = {s.employee_id for s in shifts if s.employee_id}
     employees = list(
         Employee.objects.filter(organization=org)
-        .filter(Q(archived_at__isnull=True) | Q(pk__in=ids))
+        .filter(Q(Q(archived_at__isnull=True) & in_department(period)) | Q(pk__in=ids))
         .prefetch_related("employee_tags__tag")
+        .distinct()
     )
     term = term_for(period)
     avail = availability_for(employees, term) if term else {}
@@ -376,11 +383,14 @@ def hours_rows(period: SchedulePeriod, employees, ctx: ScheduleContext | None = 
 
 
 def employees_for_grid(period: SchedulePeriod):
-    """Everyone in the scheduling pool, plus anyone else holding a shift in the period."""
+    """Everyone in the department's scheduling pool, plus anyone else holding a shift in the period."""
     with_shifts = period.shifts.live().exclude(employee=None).values_list("employee_id", flat=True)
     return (
         Employee.objects.filter(organization=period.organization)
-        .filter(Q(archived_at__isnull=True, in_scheduling_pool=True) | Q(pk__in=with_shifts))
+        .filter(
+            Q(Q(archived_at__isnull=True, in_scheduling_pool=True) & in_department(period))
+            | Q(pk__in=with_shifts)
+        )
         .exclude(Q(employment_type=EmploymentType.INACTIVE) & ~Q(pk__in=with_shifts))
         .prefetch_related(models_prefetch_tags())
         .distinct()

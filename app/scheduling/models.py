@@ -18,7 +18,7 @@ from django.db import models
 
 from app.core.audit import audited
 from app.core.fields import minute_field
-from app.core.models import Location, Organization
+from app.core.models import Department, Location, Organization
 from app.people.models import Employee, PayRole, Tag
 from domain import rules as dom
 from domain.timeutil import Interval, is_on_slot
@@ -207,10 +207,14 @@ class TagCoverageRule(models.Model):
 
 @audited()
 class SchedulePeriod(models.Model):
-    """A planning period (SPEC §3.2): one to four weeks from a week start."""
+    """A planning period (SPEC §3.2): one to four weeks from a week start, for one department at
+    one location (D95)."""
 
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="periods")
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="periods")
+    # Every period has one; the column allows NULL only so that audit snapshots taken before
+    # departments existed stay as they were (D95, D100).
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="periods", null=True)
     start_date = models.DateField()
     weeks = models.PositiveSmallIntegerField(
         default=2, validators=[MinValueValidator(1), MaxValueValidator(4)]
@@ -219,7 +223,11 @@ class SchedulePeriod(models.Model):
 
     class Meta:
         ordering = ["-start_date"]
-        constraints = [models.UniqueConstraint(fields=["location", "start_date"], name="period_unique_start")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["department", "location", "start_date"], name="period_unique_start"
+            )
+        ]
 
     def __str__(self) -> str:
         return f"{self.start_date:%-d %b} to {self.end_date:%-d %b %Y}"

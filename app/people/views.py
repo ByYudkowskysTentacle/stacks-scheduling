@@ -113,6 +113,7 @@ class EmployeeEditMixin(OrgObjectMixin):
             with transaction.atomic():
                 form.instance.organization = request.organization
                 self.object = form.save()
+                form.save_departments(self.object)
                 for fs in sets.values():
                     fs.instance = self.object
                     for f in fs.forms:

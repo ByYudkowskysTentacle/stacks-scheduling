@@ -16,7 +16,7 @@ from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 
 from app.core.audit import audited
-from app.core.models import Organization
+from app.core.models import Department, Organization
 
 COLOR_VALIDATOR = RegexValidator(r"^#[0-9a-fA-F]{6}$", "Use a hex colour such as #3366cc.")
 WAGE_VALIDATORS = [MinValueValidator(Decimal("0.00"))]
@@ -123,6 +123,13 @@ class Employee(models.Model):
     )
     archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    departments = models.ManyToManyField(
+        Department,
+        through="EmployeeDepartment",
+        related_name="employees",
+        blank=True,
+        help_text="The departments whose schedules this person is on (D95).",
+    )
 
     objects = EmployeeQuerySet.as_manager()
 
@@ -143,6 +150,17 @@ class Employee(models.Model):
 
     def __str__(self) -> str:
         return self.preferred_name or self.full_name
+
+    def save(self, *args, **kwargs) -> None:
+        new = self._state.adding
+        super().save(*args, **kwargs)
+        if new:
+            # In a library with one department, everyone is on its roster (D95).
+            only = list(Department.objects.filter(organization_id=self.organization_id)[:2])
+            if len(only) == 1:
+                EmployeeDepartment.objects.get_or_create(
+                    organization_id=self.organization_id, employee=self, department=only[0]
+                )
 
     @property
     def display_name(self) -> str:
@@ -189,6 +207,23 @@ class EmployeePayRole(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee} as {self.pay_role}"
+
+
+@audited()
+class EmployeeDepartment(models.Model):
+    """An employee's place on a department's roster (D95)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="department_links")
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="employee_links")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["employee", "department"], name="employee_department_once")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee}: {self.department}"
 
 
 @audited()

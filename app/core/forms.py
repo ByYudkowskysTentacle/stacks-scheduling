@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 
 from app.core.models import (
     Closure,
+    Department,
     Location,
     OpenInterval,
     OperatingHoursSet,
@@ -158,6 +159,24 @@ class ClosureForm(forms.ModelForm):
         elif cleaned.get("kind") == Closure.DATED:
             cleaned["weekday"] = cleaned["valid_from"] = cleaned["valid_to"] = None
         return cleaned
+
+
+class DepartmentForm(forms.ModelForm):
+    class Meta:
+        model = Department
+        fields = ["name"]
+        help_texts = {"name": "For example Circulation or Special Collections."}
+
+    def __init__(self, *args, organization, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.organization = organization
+
+    def clean_name(self):
+        name = (self.cleaned_data.get("name") or "").strip()
+        clash = Department.objects.filter(organization=self.organization, name__iexact=name)
+        if clash.exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError("There's already a department with that name.")
+        return name
 
 
 class TermForm(forms.ModelForm):

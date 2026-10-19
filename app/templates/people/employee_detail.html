@@ -18,6 +18,8 @@
     <dt>Pay role rates</dt>
     <dd>{% for r in object.pay_roles.all %}{{ r.pay_role.name }}: {% if r.wage is not None %}${{ r.wage }}/h{% else %}default wage{% endif %}{% if not forloop.last %}; {% endif %}{% empty %}(none){% endfor %}</dd>
   {% endif %}
+  <dt>Departments</dt>
+  <dd>{% for d in object.departments.all %}<span class="tag">{{ d.name }}</span> {% empty %}None: on no schedule{% endfor %}</dd>
   <dt>Tags</dt>
   <dd>{% for et in object.employee_tags.all %}<span class="tag">{{ et.tag.name }}{% if et.valid_from or et.valid_to %} ({% if et.valid_from %}from {{ et.valid_from|date:"j M" }}{% endif %}{% if et.valid_to %} to {{ et.valid_to|date:"j M" }}{% endif %}){% endif %}</span> {% empty %}(none){% endfor %}</dd>
   {% if Perm.VIEW_NOTES in access.perms and object.notes %}<dt>Supervisor notes</dt><dd>{{ object.notes|linebreaksbr }}</dd>{% endif %}
