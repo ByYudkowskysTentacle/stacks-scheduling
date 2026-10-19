@@ -17,10 +17,90 @@ HIDDEN_FIELDS = {"id", "organization_id", "created_at"}
 ACTIONS = {"insert": "Added", "update": "Changed", "delete": "Removed"}
 
 
-def events_for(org) -> QuerySet:
-    return Events.objects.filter(
+# Organization-wide settings: every supervisor sees their history (D107).
+ORGANIZATION_WIDE = {
+    "core.Organization",
+    "core.Location",
+    "core.OperatingHoursSet",
+    "core.OpenInterval",
+    "core.Closure",
+    "core.Term",
+    "core.Department",
+    "core.Membership",
+    "core.SupervisorDepartment",
+    "core.RetentionPolicy",
+    "people.PayRole",
+    "people.Tag",
+    "imports.ImportBatch",  # imports stay organization-wide for now (open item 17)
+    "scheduling.SchedulingRules",
+}
+# Records that belong to a person, keyed by the employee they belong to.
+BY_EMPLOYEE = {
+    "people.EmployeePayRole",
+    "people.EmployeeDepartment",
+    "people.EmployeeTag",
+    "availability.Availability",
+    "availability.TimeOff",
+    "scheduling.RotationAssignment",
+    "scheduling.DutyAssignment",
+    "scheduling.HourTargetRule",
+    "scheduling.DesiredHours",
+    "scheduling.CalendarFeed",
+}
+BY_PERIOD = {"scheduling.Shift", "scheduling.PublishedVersion", "scheduling.SolveRun"}
+BY_DEPARTMENT = {"scheduling.CoverageOverride", "scheduling.TagCoverageRule"}  # blank: every department
+
+
+def events_for(org, access=None) -> QuerySet:
+    """The organization's audit entries, newest first. A supervisor limited to some departments
+    sees the history of organization-wide settings and of records in their departments only
+    (D107); admins see everything. A model not listed here is hidden from them."""
+    rows = Events.objects.filter(
         Q(pgh_data__organization_id=org.pk) | Q(pgh_obj_model="core.Organization", pgh_obj_id=str(org.pk))
-    ).order_by("-pgh_created_at", "-pgh_id")
+    )
+    if access is not None and access.department_ids is not None:
+        rows = rows.filter(_visible(org, access.department_ids))
+    return rows.order_by("-pgh_created_at", "-pgh_id")
+
+
+def _visible(org, department_ids) -> Q:
+    from app.availability.models import Availability
+    from app.people.models import Employee
+    from app.scheduling.models import SchedulePeriod, Shift
+
+    depts = list(department_ids)
+    employees = list(
+        Employee.objects.filter(organization=org, departments__in=depts)
+        .values_list("pk", flat=True)
+        .distinct()
+    )
+    users = list(
+        Employee.objects.filter(pk__in=employees, user__isnull=False).values_list("user_id", flat=True)
+    )
+    periods = list(
+        SchedulePeriod.objects.filter(organization=org, department__in=depts).values_list("pk", flat=True)
+    )
+    shifts = list(Shift.objects.filter(period__in=periods).values_list("pk", flat=True))
+    availabilities = list(Availability.objects.filter(employee__in=employees).values_list("pk", flat=True))
+
+    def model(*labels: str) -> Q:
+        return Q(pgh_obj_model__in=labels)
+
+    return (
+        model(*ORGANIZATION_WIDE)
+        | model("people.Employee") & Q(pgh_obj_id__in=[str(e) for e in employees])
+        | model(*BY_EMPLOYEE) & Q(pgh_data__employee_id__in=employees)
+        | model("scheduling.HourCapRule")
+        & (Q(pgh_data__employee_id=None) | Q(pgh_data__employee_id__in=employees))
+        | model("availability.AvailabilityBlock") & Q(pgh_data__availability_id__in=availabilities)
+        | model("scheduling.SchedulePeriod") & Q(pgh_data__department_id__in=depts)
+        | model(*BY_PERIOD) & Q(pgh_data__period_id__in=periods)
+        | model("scheduling.CallOut") & Q(pgh_data__shift_id__in=shifts)
+        | model("scheduling.ShiftExchange")
+        & (Q(pgh_data__shift_id__in=shifts) | Q(pgh_data__other_shift_id__in=shifts))
+        | model(*BY_DEPARTMENT) & (Q(pgh_data__department_id=None) | Q(pgh_data__department_id__in=depts))
+        | model("scheduling.EmailPreference") & Q(pgh_data__user_id__in=users)
+    )
 
 
 @dataclass

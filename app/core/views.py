@@ -340,7 +340,7 @@ class AuditLogView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        page = Paginator(audit_log.events_for(self.request.organization), 50).get_page(
+        page = Paginator(audit_log.events_for(self.request.organization, self.request.access), 50).get_page(
             self.request.GET.get("page")
         )
         ctx["page"] = page
