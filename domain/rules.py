@@ -5,7 +5,7 @@ at the edges so nothing here rounds."""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from enum import StrEnum
 
@@ -205,3 +205,14 @@ class Rules:
 
     def duty_employee_ids(self) -> set[int]:
         return {o.employee_id for o in self.openers} | {d.employee_id for d in self.week_duties}
+
+    def softened(self, description: str) -> Rules:
+        """These rules with the hard tag rule of that description treated as a preference, below
+        coverage: the "relax this rule, keeping coverage" what-if (D97)."""
+        return replace(
+            self,
+            tag_rules=[
+                replace(r, hard=False) if r.hard and r.describe() == description else r
+                for r in self.tag_rules
+            ],
+        )
