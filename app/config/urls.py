@@ -151,6 +151,7 @@ urlpatterns = [
     path("availability/desired/", scheduling.DesiredHoursSubmitView.as_view(), name="desired_submit"),
     path("schedule/desired-hours/", scheduling.DesiredHoursReviewView.as_view(), name="desired_hours"),
     path("notifications/", scheduling.NotificationsView.as_view(), name="notifications"),
+    path("notifications/email/", scheduling.EmailSettingsView.as_view(), name="email_settings"),
     path("my-schedule/", scheduling.MyScheduleView.as_view(), name="my_schedule"),
     path("published/", scheduling.PublishedScheduleView.as_view(), name="published_schedule"),
     path(

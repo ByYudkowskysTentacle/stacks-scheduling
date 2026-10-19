@@ -10,7 +10,6 @@ from typing import Any
 
 import pghistory
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Max, Q
 from django.template.loader import render_to_string
@@ -23,7 +22,6 @@ from app.people.models import Employee, EmployeeTag, EmploymentType
 from app.scheduling.models import (
     CoverageOverride,
     HourCapRule,
-    Notification,
     PublishedVersion,
     SchedulePeriod,
     SchedulingRules,
@@ -268,8 +266,10 @@ def _notify(
     period: SchedulePeriod, version: PublishedVersion, changes: dict[int, PersonChanges], site_url: str
 ) -> None:
     link = reverse("my_schedule")
+    from app.scheduling.models import NotificationCategory
+    from app.scheduling.notify import notify
+
     employees = Employee.objects.filter(pk__in=changes.keys()).select_related("user")
-    outbox = []
     for e in employees:
         c = changes[e.pk]
         if e.user is None:
@@ -286,12 +286,7 @@ def _notify(
                 "link": site_url + link,
             },
         )
-        Notification.objects.create(
-            organization=period.organization, user=e.user, subject=subject, body=body, link=link
-        )
-        if e.user.email:
-            outbox.append((subject, body, e.user.email))
-    transaction.on_commit(lambda: [send_mail(s, b, None, [to]) for s, b, to in outbox])
+        notify(e.user, period.organization, NotificationCategory.PUBLISHED, subject, body, link)
 
 
 def discard_drafts(period: SchedulePeriod) -> int:

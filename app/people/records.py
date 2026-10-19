@@ -53,6 +53,7 @@ def export_employee(employee: Employee) -> dict[str, Any]:
         CallOut,
         DesiredHours,
         DutyAssignment,
+        EmailPreference,
         HourCapRule,
         HourTargetRule,
         Notification,
@@ -171,6 +172,10 @@ def export_employee(employee: Employee) -> dict[str, Any]:
                 {"created_at": _plain(n.created_at), "subject": n.subject, "body": n.body}
                 for n in Notification.objects.filter(user=user, organization=employee.organization)
             ],
+            "email_settings": {
+                p.category: p.email
+                for p in EmailPreference.objects.filter(user=user, organization=employee.organization)
+            },
         }
     return data
 
@@ -191,6 +196,7 @@ def erase_employee(employee: Employee) -> None:
         CallOut,
         DesiredHours,
         DutyAssignment,
+        EmailPreference,
         HourCapRule,
         HourTargetRule,
         Notification,
@@ -236,6 +242,7 @@ def erase_employee(employee: Employee) -> None:
 
         if user is not None:
             Notification.objects.filter(user=user, organization=org).delete()
+            EmailPreference.objects.filter(user=user, organization=org).delete()
             Membership.objects.filter(user=user, organization=org).delete()
             if not Membership.objects.filter(user=user).exists():
                 EmailAddress.objects.filter(user=user).delete()

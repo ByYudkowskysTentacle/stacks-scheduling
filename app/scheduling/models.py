@@ -366,11 +366,26 @@ class CallOut(models.Model):
         return f"Call-out: {self.called_out} for {self.shift}"
 
 
+class NotificationCategory(models.TextChoices):
+    PUBLISHED = "published", "My schedule changes when a schedule is published"
+    TIME_OFF = "time_off", "Decisions on my time-off requests"
+    EXCHANGE = "exchange", "Decisions on open shifts, cover and swaps I asked for"
+    REMINDER = "reminder", "Availability reminders"
+
+
+# Email on by default for these; the others are in-app only until the person turns email on
+# under Notifications, Email settings (D103).
+EMAIL_BY_DEFAULT = {NotificationCategory.PUBLISHED, NotificationCategory.REMINDER}
+
+
 class Notification(models.Model):
-    """In-app notification (D14). Created only by publishing."""
+    """In-app notification (D14, D103): created on publish, on a decision about the person's
+    own request, and for availability reminders a supervisor turned on. Never as a side
+    effect of editing."""
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
+    category = models.CharField(max_length=20, choices=NotificationCategory.choices, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     subject = models.CharField(max_length=200)
     body = models.TextField()
@@ -596,3 +611,24 @@ class ShiftExchange(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_kind_display()}: {self.shift}"
+
+
+@audited()
+class EmailPreference(models.Model):
+    """Whether a person also gets email for one kind of notification (D103). No row means the
+    default in `EMAIL_BY_DEFAULT`."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="email_preferences"
+    )
+    category = models.CharField(max_length=20, choices=NotificationCategory.choices)
+    email = models.BooleanField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "organization", "category"], name="email_preference_once")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_category_display()}: {'email' if self.email else 'in-app only'}"

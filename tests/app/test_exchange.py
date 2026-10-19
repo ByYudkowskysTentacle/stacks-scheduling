@@ -63,8 +63,12 @@ def test_claim_an_open_shift_then_supervisor_approves(as_user, student_user, sup
     ex.refresh_from_db()
     assert shift.employee == employee and ex.status == ExchangeStatus.APPROVED
     assert "Validation:" in resp.content.decode()
-    # Nothing is sent until a supervisor publishes.
-    assert (Notification.objects.count(), len(mail.outbox)) == (notes_before, mail_before)
+    # The person who asked hears the decision in the app (D103); no email unless they turned it
+    # on, and the shift itself still waits for publishing.
+    assert (Notification.objects.count(), len(mail.outbox)) == (notes_before + 1, mail_before)
+    note = Notification.objects.latest("pk")
+    assert note.user == student_user and note.category == "exchange"
+    assert "approved" in note.body and "once a supervisor publishes" in note.body
 
 
 def test_offer_cover_volunteer_and_approve(as_user, student_user, casey_user, supervisor, setup):
