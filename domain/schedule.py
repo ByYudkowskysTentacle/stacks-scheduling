@@ -109,9 +109,16 @@ class ScheduleContext:
     shifts: Sequence[Shift]
     published: Sequence[Shift] | None = None  # the last published version, for drift
     term_minutes_outside_period: Mapping[int, int] = field(default_factory=dict[int, int])
+    # These people's shifts on other schedules (another location or department) during this
+    # period. They count toward weekly and period caps, daily limits and double booking, never
+    # toward coverage, and nothing here changes them (D95).
+    elsewhere: Sequence[Shift] = ()
 
     def open_on(self, day: date) -> list[Interval]:
         return open_intervals(day, self.hours, self.closures)
+
+    def elsewhere_on(self, employee_id: int, day: date) -> list[Shift]:
+        return [s for s in self.elsewhere if s.employee_id == employee_id and s.day == day]
 
     def assigned(self) -> list[Shift]:
         return [s for s in self.shifts if s.employee_id is not None]

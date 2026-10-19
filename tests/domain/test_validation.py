@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, timedelta
 
 import pytest
@@ -367,3 +368,38 @@ def test_lead_week_duty():
     assert [(i.severity, i.minutes) for i in issues] == [(Severity.ERROR, 300)]
     short = only(validate(ctx(week_of_shifts(1, 0, 3), people, rules, weeks=2)), Category.DUTY)
     assert [(i.severity, i.minutes) for i in short] == [(Severity.WARNING, 300)]
+
+
+# --- Shifts on other schedules (D95) --------------------------------------------------------
+
+
+def test_overlap_with_a_shift_on_another_schedule_is_double_booking():
+    own = shift(1, MONDAY, 540, 720, sid=1)
+    other = shift(1, MONDAY, 660, 840, sid=99)
+    c = replace(ctx([own], rules=single_day_rules()), elsewhere=[other])
+    issues = [i for i in validate(c).issues if i.category == Category.DOUBLE_BOOKING]
+    assert len(issues) == 1 and "on another schedule" in issues[0].message
+    assert issues[0].shift_id == 1  # points at the shift on this schedule
+
+
+def test_weekly_caps_count_hours_on_other_schedules():
+    rules = Rules(coverage=CoverageRules(default=0), caps=[HourCap(CapScope.WEEK, 10 * 60)])
+    own = shift(1, MONDAY, 540, 900, sid=1)  # 6h here
+    other = shift(1, MONDAY + timedelta(days=1), 540, 900, sid=99)  # 6h elsewhere, same week
+    assert not [i for i in validate(ctx([own], rules=rules)).issues if i.category == Category.CAP]
+    caps = [
+        i
+        for i in validate(replace(ctx([own], rules=rules), elsewhere=[other])).issues
+        if i.category == Category.CAP
+    ]
+    assert len(caps) == 1 and "12" in caps[0].message
+
+
+def test_problems_only_on_other_schedules_are_left_to_them():
+    rules = Rules(coverage=CoverageRules(default=0), caps=[HourCap(CapScope.WEEK, 2 * 60)])
+    away = [shift(2, MONDAY, 540, 780, sid=98), shift(2, MONDAY, 600, 840, sid=99)]  # overlap each other
+    own = [shift(1, MONDAY, 540, 720, sid=1), shift(2, MONDAY + timedelta(days=1), 540, 660, sid=2)]
+    c = replace(ctx(own, rules=rules), elsewhere=away)
+    mine = [i for i in validate(c).issues if i.employee_id == 2]
+    assert not [i for i in mine if i.category == Category.DOUBLE_BOOKING]  # theirs to report
+    assert [i for i in mine if i.category == Category.CAP]  # but the hours still count here

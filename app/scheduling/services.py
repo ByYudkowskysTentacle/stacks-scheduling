@@ -153,15 +153,29 @@ def build_context(period: SchedulePeriod, shifts=None) -> ScheduleContext:
         for s in rows:
             outside[s.employee_id] = outside.get(s.employee_id, 0) + s.minutes
     latest = period.latest_version()
+    people = people_for(period, shifts)
+    # The same people's shifts on other schedules in these weeks count toward caps and double
+    # booking here (D95).
+    elsewhere = (
+        Shift.objects.live()
+        .filter(
+            organization=org,
+            date__gte=period.start_date,
+            date__lte=period.end_date,
+            employee_id__in=list(people),
+        )
+        .exclude(period=period)
+    )
     return ScheduleContext(
         period=Period(period.start_date, period.weeks, org.week_start),
         hours=period.location.domain_hours(),
         closures=period.location.domain_closures(),
-        people=people_for(period, shifts),
+        people=people,
         rules=rules,
         shifts=[to_domain_shift(s) for s in shifts],
         published=[snapshot_to_domain(r) for r in latest.shifts] if latest else None,
         term_minutes_outside_period=outside,
+        elsewhere=[to_domain_shift(s) for s in elsewhere],
     )
 
 

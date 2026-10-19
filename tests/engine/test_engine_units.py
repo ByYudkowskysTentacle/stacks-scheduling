@@ -246,3 +246,28 @@ def test_rebalance_after_cap_cut_moves_hours_and_explains(tmp_path=None):
     assert sum(after.get(busiest, {}).values()) <= 240
     assert result.options[0].hours  # who gains and who loses (CLAUDE.md §2.5)
     assert date(2027, 1, 16) + timedelta(days=6) == ctx.period.end
+
+
+# --- Shifts on other schedules (D95) --------------------------------------------------------
+
+
+def test_candidates_avoid_time_on_another_schedule_and_its_gap():
+    away = Shift(99, 1, MONDAY, Interval(600, 720))  # 10am-12pm on another schedule
+    ctx = replace(context([person(1)]), elsewhere=[away])
+    gap = ctx.rules.shape.min_gap
+    monday = [c for c in build_candidates(ctx, Scope()).candidates if c.day == MONDAY]
+    assert monday and all(not c.interval.overlaps(Interval(600 - gap, 720 + gap)) for c in monday)
+
+
+def test_generated_hours_respect_a_weekly_cap_shared_with_another_schedule():
+    window = Interval(480, 960)
+    rules = Rules(
+        coverage=CoverageRules(default=0, overrides=[CoverageOverride(frozenset({MON, TUE}), window, 1)]),
+        caps=[HourCap(CapScope.WEEK, 8 * 60, employee_id=1)],
+    )
+    away = Shift(99, 1, WEDNESDAY, Interval(480, 840))  # 6h elsewhere this week
+    ctx = replace(context([person(1), person(2)], rules), elsewhere=[away])
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=5, workers=2)).options[0]
+    hours = minutes_by_person_week([s for s in option.shifts if s.employee_id], ctx.period)
+    assert sum(hours.get(1, {}).values()) <= 2 * 60
+    assert not [i for i in option.report.issues if i.category == Category.CAP]

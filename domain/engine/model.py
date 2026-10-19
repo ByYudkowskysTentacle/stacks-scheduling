@@ -172,14 +172,15 @@ def build_model(
                     terms["over"].append((W_OVER, o))
 
     # Shift shape per person and day (SPEC §6.1).
-    for idxs in by_person_day.values():
+    for (pid, day), idxs in by_person_day.items():
         free = [i for i in idxs if not cands[i].fixed]
         if not free:
             continue
         n_fixed = len(idxs) - len(free)
-        if len(idxs) > shape.max_shifts_per_day:
-            add(sum(x[i] for i in idxs) <= max(shape.max_shifts_per_day, n_fixed))
-        capped(idxs, max(slots(shape.max_daily), 0))
+        away = ctx.elsewhere_on(pid, day)  # shifts on other schedules use up the day's allowance (D95)
+        if len(idxs) + len(away) > shape.max_shifts_per_day:
+            add(sum(x[i] for i in idxs) <= max(shape.max_shifts_per_day - len(away), n_fixed, 0))
+        capped(idxs, max(slots(shape.max_daily - sum(s.minutes for s in away)), 0))
         # No overlap and a minimum gap: at most one shift, extended by the gap, covers any minute.
         groups: dict[int, list[int]] = defaultdict(list)
         for i in idxs:
@@ -194,8 +195,12 @@ def build_model(
                 m.add_at_most_one([x[i] for i in group])
                 n_cons += 1
 
-    # Caps (SPEC §6.4): hard.
+    # Caps (SPEC §6.4): hard, counting hours on other schedules (D95).
     people = ctx.people
+    away_by_week: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for s in ctx.elsewhere:
+        if s.employee_id is not None and period.start <= s.day <= period.end:
+            away_by_week[(s.employee_id, period.week_of(s.day))].append(s.minutes)
     for pid, person in people.items():
         for cap in rules.caps:
             applies_to = cap.employee_id if cap.employee_id is not None else None
@@ -205,12 +210,16 @@ def build_model(
                 for week in range(period.weeks):
                     if cap.tag is not None and not person.tagged_in(cap.tag, period.week_days(week)):
                         continue
-                    capped(by_person_week.get((pid, week), []), cap.minutes // SLOT_MINUTES)
+                    away = sum(away_by_week.get((pid, week), []))
+                    capped(by_person_week.get((pid, week), []), max(0, cap.minutes - away) // SLOT_MINUTES)
             else:
                 if cap.tag is not None and not person.tagged_in(cap.tag, period.days):
                     continue
                 idxs = [i for w in range(period.weeks) for i in by_person_week.get((pid, w), [])]
-                outside = ctx.term_minutes_outside_period.get(pid, 0) if cap.scope == CapScope.TERM else 0
+                if cap.scope == CapScope.TERM:  # already counts every other schedule in the term
+                    outside = ctx.term_minutes_outside_period.get(pid, 0)
+                else:
+                    outside = sum(sum(mins) for (p, _), mins in away_by_week.items() if p == pid)
                 capped(idxs, max(0, (cap.minutes - outside) // SLOT_MINUTES))
 
     # Week-hours duties (scenario 4): the lead week's hours as a high-priority target, and a

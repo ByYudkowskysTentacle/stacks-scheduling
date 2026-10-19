@@ -312,6 +312,13 @@ def check_shape(ctx: ScheduleContext) -> list[Issue]:
             )
         if s.employee_id is not None:
             by_person_day[(s.employee_id, s.day)].append(s)
+    other = {id(s) for s in ctx.elsewhere}
+    for (emp, day), own in list(by_person_day.items()):
+        own.extend(ctx.elsewhere_on(emp, day))
+
+    def label(s: Shift) -> str:
+        return s.interval.label() + (" on another schedule" if id(s) in other else "")
+
     for (emp, day), shifts in sorted(by_person_day.items(), key=lambda kv: (kv[0][1], kv[0][0])):
         who = f"{name(ctx, emp)} {day_label(day)}"
         shifts.sort(key=lambda s: s.interval)
@@ -338,16 +345,19 @@ def check_shape(ctx: ScheduleContext) -> list[Issue]:
                 )
             )
         for a, b in pairwise(shifts):
+            if id(a) in other and id(b) in other:
+                continue  # both on another schedule: that schedule reports it
+            mine = b if id(b) not in other else a  # point at the shift on this schedule
             if a.interval.overlaps(b.interval):
                 issues.append(
                     Issue(
                         Category.DOUBLE_BOOKING,
                         Severity.ERROR,
-                        f"{who}: {a.interval.label()} overlaps {b.interval.label()}",
+                        f"{who}: {label(a)} overlaps {label(b)}",
                         day,
-                        b.interval,
+                        mine.interval,
                         emp,
-                        b.id,
+                        mine.id,
                     )
                 )
             elif b.interval.start - a.interval.end < shape.min_gap:
@@ -358,9 +368,9 @@ def check_shape(ctx: ScheduleContext) -> list[Issue]:
                         f"{who}: only {b.interval.start - a.interval.end} minutes between shifts "
                         f"(at least {shape.min_gap} needed)",
                         day,
-                        b.interval,
+                        mine.interval,
                         emp,
-                        b.id,
+                        mine.id,
                     )
                 )
     return issues
@@ -386,11 +396,15 @@ def _cap_label(cap: HourCap) -> str:
 
 def check_caps(ctx: ScheduleContext) -> list[Issue]:
     issues: list[Issue] = []
-    per_week = minutes_by_person_week(ctx.shifts, ctx.period)
-    for emp, weeks in sorted(per_week.items()):
+    own_weeks = minutes_by_person_week(ctx.shifts, ctx.period)
+    # Weekly and period caps count hours on other schedules too (D95); term caps already do,
+    # through term_minutes_outside_period.
+    per_week = minutes_by_person_week([*ctx.shifts, *ctx.elsewhere], ctx.period)
+    for emp, own in sorted(own_weeks.items()):
         person = ctx.people.get(emp)
         if person is None:
             continue
+        weeks = {w: m for w, m in per_week[emp].items() if w in own}
         for cap in ctx.rules.caps:
             if cap.scope == CapScope.WEEK:
                 for week, used in sorted(weeks.items()):
@@ -407,7 +421,7 @@ def check_caps(ctx: ScheduleContext) -> list[Issue]:
                             )
                         )
             elif cap.scope == CapScope.PERIOD:
-                used = sum(weeks.values())
+                used = sum(per_week[emp].values())
                 if _cap_applies(cap, person, ctx.period.days) and used > cap.minutes:
                     issues.append(
                         Issue(
@@ -419,7 +433,7 @@ def check_caps(ctx: ScheduleContext) -> list[Issue]:
                         )
                     )
             elif cap.scope == CapScope.TERM:
-                used = sum(weeks.values()) + ctx.term_minutes_outside_period.get(emp, 0)
+                used = sum(own.values()) + ctx.term_minutes_outside_period.get(emp, 0)
                 if _cap_applies(cap, person, ctx.period.days) and used > cap.minutes:
                     issues.append(
                         Issue(
