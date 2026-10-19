@@ -205,6 +205,21 @@ def check_availability(ctx: ScheduleContext) -> list[Issue]:
         person = ctx.people.get(s.employee_id)  # type: ignore[arg-type]
         if person is None:
             continue
+        off = intersect([s.interval], person.off_on(s.day))
+        if off:
+            issues.append(
+                Issue(
+                    Category.AVAILABILITY,
+                    Severity.ERROR,
+                    f"{person.name} has approved time off {day_label(s.day)} "
+                    f"{', '.join(iv.label() for iv in off)} (shift {s.interval.label()})",
+                    day=s.day,
+                    interval=s.interval,
+                    employee_id=person.id,
+                    shift_id=s.id,
+                    minutes=total_minutes(off),
+                )
+            )
         a = person.availability
         if a.status == AvailabilityStatus.NOT_ENTERED:
             if person.id not in flagged_status:

@@ -50,7 +50,7 @@ def _plain(value: Any) -> Any:
 
 def export_employee(employee: Employee) -> dict[str, Any]:
     """Everything Stacks holds about one person, as JSON-ready data."""
-    from app.availability.models import Availability
+    from app.availability.models import Availability, TimeOff
     from app.scheduling.models import (
         CallOut,
         DesiredHours,
@@ -105,6 +105,10 @@ def export_employee(employee: Employee) -> dict[str, Any]:
         "desired_hours": [
             {"term": d.term.name, "hours": d.minutes / 60, "status": d.status}
             for d in DesiredHours.objects.filter(employee=employee).select_related("term")
+        ],
+        "time_off": [
+            {"when": t.label(), "status": t.status, "requested_at": _plain(t.created_at)}
+            for t in TimeOff.objects.filter(employee=employee)
         ],
         "hour_caps": [str(c) for c in HourCapRule.objects.filter(employee=employee)],
         "hour_targets": [str(t) for t in HourTargetRule.objects.filter(employee=employee)],
@@ -165,7 +169,7 @@ def erase_employee(employee: Employee) -> None:
     """Anonymise an archived employee and remove their personal data everywhere Stacks keeps it."""
     from allauth.account.models import EmailAddress
 
-    from app.availability.models import Availability
+    from app.availability.models import Availability, TimeOff
     from app.core.models import Membership
     from app.imports.models import ImportBatch
     from app.scheduling.models import (
@@ -188,6 +192,9 @@ def erase_employee(employee: Employee) -> None:
     with transaction.atomic(), pghistory.context(action="erase_employee", employee=pk):
         availability_ids = list(Availability.objects.filter(employee=employee).values_list("pk", flat=True))
         desired_ids = list(DesiredHours.objects.filter(employee=employee).values_list("pk", flat=True))
+        time_off_ids = list(TimeOff.objects.filter(employee=employee).values_list("pk", flat=True))
+        TimeOff.objects.filter(employee=employee).delete()
+        apps.get_model("scheduling", "CalendarFeed").objects.filter(employee=employee).delete()
         Availability.objects.filter(employee=employee).delete()
         DesiredHours.objects.filter(employee=employee).delete()
         employee.pay_roles.all().delete()
@@ -277,6 +284,8 @@ def erase_employee(employee: Employee) -> None:
             pgh_obj_id__in=availability_ids
         ).delete()
         apps.get_model("scheduling", "DesiredHoursEvent").objects.filter(pgh_obj_id__in=desired_ids).delete()
+        apps.get_model("availability", "TimeOffEvent").objects.filter(pgh_obj_id__in=time_off_ids).delete()
+        apps.get_model("scheduling", "CalendarFeedEvent").objects.filter(employee_id=pk).delete()
         apps.get_model("scheduling", "ShiftEvent").objects.filter(employee_id=pk).update(note="")
         apps.get_model("scheduling", "CallOutEvent").objects.filter(called_out_id=pk).update(note="")
 

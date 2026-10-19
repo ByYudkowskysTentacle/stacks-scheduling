@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -93,3 +95,79 @@ def availability_for(employees, term: Term) -> dict[int, dom.WeeklyAvailability]
     rows = Availability.objects.filter(term=term, employee__in=employees).prefetch_related("blocks")
     found = {a.employee_id: a.to_domain() for a in rows}
     return {e.pk: found.get(e.pk, NOT_ENTERED) for e in employees}
+
+
+class TimeOffStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    APPROVED = "approved", "Approved"
+    DENIED = "denied", "Denied"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+@audited()
+class TimeOff(models.Model):
+    """A date-specific exception (SPEC §5.1): a request for time off, approved by a supervisor
+    (§9.2). Only approved time off blocks scheduling. No reason is collected (SPEC §11)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="time_off")
+    start_date = models.DateField()
+    end_date = models.DateField()
+    start_min = minute_field("from", null=True, blank=True)
+    end_min = minute_field("until", null=True, blank=True)
+    status = models.CharField(max_length=10, choices=TimeOffStatus.choices, default=TimeOffStatus.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "time off"
+        ordering = ["start_date", "start_min"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(start_date__lte=models.F("end_date")), name="timeoff_dates"
+            ),
+            models.CheckConstraint(
+                condition=(models.Q(start_min__isnull=True) & models.Q(end_min__isnull=True))
+                | models.Q(start_min__lt=models.F("end_min")),
+                name="timeoff_times",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee}: {self.label()}"
+
+    @property
+    def all_day(self) -> bool:
+        return self.start_min is None
+
+    def label(self) -> str:
+        days = f"{self.start_date:%a %-d %b}"
+        if self.end_date != self.start_date:
+            days += f" to {self.end_date:%a %-d %b}"
+        if self.all_day:
+            return f"{days}, all day"
+        return f"{days}, {Interval(self.start_min, self.end_min).label()}"  # type: ignore[arg-type]
+
+    def days(self) -> list[date]:
+        return [
+            self.start_date + timedelta(days=i) for i in range((self.end_date - self.start_date).days + 1)
+        ]
+
+    def interval(self) -> Interval:
+        return Interval(0, 1440) if self.all_day else Interval(self.start_min, self.end_min)  # type: ignore[arg-type]
+
+
+def time_off_for(employees, first: date, last: date) -> dict[int, dict[date, tuple[Interval, ...]]]:
+    """Approved time off per employee id and day, within [first, last]."""
+    out: dict[int, dict[date, list[Interval]]] = {}
+    rows = TimeOff.objects.filter(
+        employee__in=employees, status=TimeOffStatus.APPROVED, start_date__lte=last, end_date__gte=first
+    )
+    for t in rows:
+        for d in t.days():
+            if first <= d <= last:
+                out.setdefault(t.employee_id, {}).setdefault(d, []).append(t.interval())
+    return {e: {d: tuple(ivs) for d, ivs in by_day.items()} for e, by_day in out.items()}

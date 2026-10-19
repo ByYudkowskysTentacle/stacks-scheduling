@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from django import forms
 
+from app.core.forms import MinuteField
 from domain import calendar as cal
 from domain.availability import AvailabilityBlock, BlockKind, WeeklyAvailability, normalise_blocks
 from domain.timeutil import DAY_MINUTES, Interval, format_ranges, parse_ranges
@@ -83,3 +84,46 @@ class WeeklyAvailabilityForm(forms.Form):
                     )
         self.blocks = normalise_blocks(blocks)
         return cleaned
+
+
+class TimeOffForm(forms.Form):
+    """A time-off request. No reason is asked for (SPEC §11)."""
+
+    start_date = forms.DateField(label="From", widget=forms.DateInput(attrs={"type": "date"}))
+    end_date = forms.DateField(
+        label="Until",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+        help_text="Leave blank for one day.",
+    )
+    all_day = forms.BooleanField(label="All day", required=False, initial=True)
+    start_min = MinuteField(
+        label="From (time)", required=False, help_text="Only if not all day, for example 9:00."
+    )
+    end_min = MinuteField(label="Until (time)", required=False)
+
+    MAX_DAYS = 60
+
+    def __init__(self, *args, today, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.today = today
+
+    def clean(self):
+        data = super().clean()
+        start, end = data.get("start_date"), data.get("end_date") or data.get("start_date")
+        if start is None:
+            return data
+        if start < self.today:
+            self.add_error("start_date", "Choose today or a later date.")
+        if end < start:
+            self.add_error("end_date", "The end date is before the start date.")
+        elif (end - start).days >= self.MAX_DAYS:
+            self.add_error("end_date", f"Ask for at most {self.MAX_DAYS} days at a time.")
+        data["end_date"] = end
+        if data.get("all_day"):
+            data["start_min"] = data["end_min"] = None
+        elif data.get("start_min") is None or data.get("end_min") is None:
+            self.add_error("start_min", "Give both times, or tick all day.")
+        elif data["start_min"] >= data["end_min"]:
+            self.add_error("end_min", "The end time is before the start time.")
+        return data

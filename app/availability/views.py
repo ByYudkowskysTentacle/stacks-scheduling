@@ -11,8 +11,9 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import FormView, TemplateView, View
 
-from app.availability.forms import WeeklyAvailabilityForm
-from app.availability.models import NOT_ENTERED, Availability, Status
+from app.availability import time_off
+from app.availability.forms import TimeOffForm, WeeklyAvailabilityForm
+from app.availability.models import NOT_ENTERED, Availability, Status, TimeOff, TimeOffStatus
 from app.availability.services import (
     confirm_availability,
     grid_range,
@@ -248,3 +249,87 @@ def day_bar(day) -> dict:
         "fully_free": day.fully_free,
         "fully_out": day.fully_out,
     }
+
+
+class MyTimeOffView(OrgViewMixin, TemplateView):
+    """An employee's own time-off requests (SPEC §9.2)."""
+
+    template_name = "availability/my_time_off.html"
+
+    def employee(self) -> Employee:
+        employee = self.request.access.employee
+        if employee is None:
+            raise Http404("Your account isn't linked to an employee record.")
+        return employee
+
+    def get_context_data(self, form=None, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        employee = self.employee()
+        ctx["form"] = form or TimeOffForm(today=timezone.localdate())
+        ctx["requests"] = TimeOff.objects.filter(employee=employee).order_by("-start_date")[:30]
+        ctx["today"] = timezone.localdate()
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        employee = self.employee()
+        if request.POST.get("action") == "cancel":
+            t = get_object_or_404(TimeOff.objects.filter(employee=employee), pk=request.POST.get("request"))
+            try:
+                time_off.cancel(t)
+            except time_off.TimeOffError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, f"Cancelled your request for {t.label()}.")
+            return redirect("my_time_off")
+        form = TimeOffForm(request.POST, today=timezone.localdate())
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        d = form.cleaned_data
+        t = time_off.request(employee, d["start_date"], d["end_date"], d["start_min"], d["end_min"])
+        messages.success(request, f"Requested time off for {t.label()}. A supervisor will review it.")
+        return redirect("my_time_off")
+
+
+class TimeOffReviewView(OrgViewMixin, TemplateView):
+    """Pending requests with their coverage impact, then approve or deny (SPEC §9.2)."""
+
+    permission = Perm.EDIT_SCHEDULE
+    template_name = "availability/time_off_review.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        org = self.request.organization
+        pending = TimeOff.objects.filter(organization=org, status=TimeOffStatus.PENDING).select_related(
+            "employee"
+        )
+        ctx["pending"] = [(t, time_off.clashes(t)) for t in pending]
+        ctx["recent"] = (
+            TimeOff.objects.filter(organization=org)
+            .exclude(status=TimeOffStatus.PENDING)
+            .select_related("employee", "decided_by")
+            .order_by("-decided_at", "-created_at")[:20]
+        )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        t = get_object_or_404(
+            TimeOff.objects.filter(organization=request.organization), pk=request.POST.get("request")
+        )
+        approve = request.POST.get("action") == "approve"
+        try:
+            time_off.decide(t, request.user, approve)
+        except time_off.TimeOffError as exc:
+            messages.error(request, str(exc))
+            return redirect("time_off_review")
+        if not approve:
+            messages.success(request, f"Denied {t.employee.display_name}'s time off for {t.label()}.")
+            return redirect("time_off_review")
+        n = len(time_off.clashes(t))
+        extra = (
+            f" {n} of their shifts now clash{'es' if n == 1 else ''} with it and show as availability "
+            "conflicts until reassigned."
+            if n
+            else ""
+        )
+        messages.success(request, f"Approved {t.employee.display_name}'s time off for {t.label()}.{extra}")
+        return redirect("time_off_review")

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Time-off requests{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'review_queue' %}">← Review queue</a></p>
+<h1>Time-off requests</h1>
+<p class="help">Each request shows the shifts it would clash with. Approving changes no shifts: clashing shifts show as availability conflicts until you reassign them, and nothing reaches employees until you publish.</p>
+<h2>Waiting ({{ pending|length }})</h2>
+{% for t, clashes in pending %}
+<section class="card" aria-labelledby="req-{{ t.pk }}">
+  <h3 id="req-{{ t.pk }}">{{ t.employee.display_name }}: {{ t.label }}</h3>
+  {% if clashes %}
+    <p><strong>Clashes with {{ clashes|length }} shift{{ clashes|length|pluralize }}:</strong></p>
+    <ul>{% for c in clashes %}<li>{{ c.shift.date|date:"D j M" }} {{ c.shift.interval.label }}{% if c.published %} <span class="badge">Published</span>{% else %} <span class="badge">Draft</span>{% endif %} <a class="small-link" href="{% url 'shift_takers' c.shift.period_id c.shift.pk %}">Who could take it?</a></li>{% endfor %}</ul>
+  {% else %}<p>No shifts clash with it.</p>{% endif %}
+  <form method="post" class="form-actions">{% csrf_token %}<input type="hidden" name="request" value="{{ t.pk }}">
+    <button type="submit" name="action" value="approve" class="button button--primary">Approve</button>
+    <button type="submit" name="action" value="deny" class="button button--danger-outline">Deny</button>
+  </form>
+</section>
+{% empty %}<p>No requests waiting.</p>{% endfor %}
+<h2>Recently decided</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Who</th><th scope="col">When</th><th scope="col">Decision</th><th scope="col">By</th></tr></thead>
+  <tbody>{% for t in recent %}<tr><th scope="row">{{ t.employee.display_name }}</th><td>{{ t.label }}</td><td>{{ t.get_status_display }}</td><td>{{ t.decided_by.email|default:"—" }}</td></tr>{% empty %}<tr><td colspan="4">None yet.</td></tr>{% endfor %}</tbody>
+</table>
+{% endblock %}

@@ -28,6 +28,7 @@
             {% if access.employee %}
               <li><a href="{% url 'my_schedule' %}"{% if request.resolver_match.url_name == 'my_schedule' %} aria-current="page"{% endif %}>My schedule</a></li>
               <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>
+              <li><a href="{% url 'my_time_off' %}"{% if request.resolver_match.url_name == 'my_time_off' %} aria-current="page"{% endif %}>Time off</a></li>
             {% endif %}
             {% if Perm.VIEW_FREE_BUSY in access.perms %}
               <li><a href="{% url 'availability_grid' %}"{% if request.resolver_match.url_name == 'availability_grid' %} aria-current="page"{% endif %}>Availability grid</a></li>

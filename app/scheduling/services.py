@@ -117,7 +117,9 @@ def people_for(period: SchedulePeriod, shifts) -> dict[int, Person]:
     )
     term = term_for(period)
     avail = availability_for(employees, term) if term else {}
-    from app.availability.models import NOT_ENTERED
+    from app.availability.models import NOT_ENTERED, time_off_for
+
+    off = time_off_for(employees, period.start_date, period.end_date)
 
     people: dict[int, Person] = {}
     for e in employees:
@@ -130,6 +132,7 @@ def people_for(period: SchedulePeriod, shifts) -> dict[int, Person]:
             auto_schedulable=(
                 e.employment_type == EmploymentType.REGULAR and e.in_scheduling_pool and not e.is_archived
             ),
+            time_off=off.get(e.pk, {}),
         )
     return people
 

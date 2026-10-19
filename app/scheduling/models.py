@@ -537,3 +537,18 @@ class SolveRun(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_mode_display()} for {self.period} ({self.get_status_display().lower()})"
+
+
+@audited()
+class CalendarFeed(models.Model):
+    """A private ICS link to an employee's own published shifts (SPEC §9.2). Calendar apps
+    can't sign in, so the link itself is the secret: only its SHA-256 hash is stored, it is
+    shown once, and resetting it makes the old link stop working."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name="calendar_feed")
+    token_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Calendar feed for {self.employee}"

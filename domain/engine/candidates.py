@@ -11,7 +11,7 @@ from datetime import date
 
 from domain.rules import RotationMode
 from domain.schedule import ScheduleContext, Shift
-from domain.timeutil import Interval
+from domain.timeutil import Interval, intersect, subtract
 
 
 @dataclass(frozen=True)
@@ -119,9 +119,10 @@ def build_candidates(
         if person is None or not person.auto_schedulable or not fits_hours:
             result.dropped_existing.append(s)
             continue
-        if person.availability.is_known and person.availability.conflicting_blocks(
-            s.day.weekday(), s.interval
-        ):
+        if (
+            person.availability.is_known
+            and person.availability.conflicting_blocks(s.day.weekday(), s.interval)
+        ) or intersect([s.interval], person.off_on(s.day)):
             result.dropped_existing.append(s)
             continue
         add(cand)
@@ -142,6 +143,7 @@ def build_candidates(
                 avail = person.availability.available_within(wd, open_ivs)
             else:
                 avail = open_ivs  # not_entered: allowed but heavily penalised (SPEC §5.1)
+            avail = subtract(avail, person.off_on(day))  # approved time off is never scheduled
             for iv in avail:
                 for start in range(_align_up(iv.start, start_step), iv.end, start_step):
                     if scope.frozen(day, start):

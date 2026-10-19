@@ -278,7 +278,7 @@ def _low_threshold(ctx: ScheduleContext, week: int) -> int:
 
 def _quick_no(ctx: ScheduleContext, person: Person, shifts: Sequence[Shift], s: Shift) -> bool:
     """Cheap filters before running the suite: unavailable, already working then, strict rotation."""
-    if intersect([s.interval], person.availability.unavailable_for_scheduling(s.day.weekday())):
+    if intersect([s.interval], person.blocked_on(s.day)):
         return True
     if any(o.employee_id == person.id and o.day == s.day and o.interval.overlaps(s.interval) for o in shifts):
         return True
