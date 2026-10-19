@@ -286,6 +286,20 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
   - Planning is a what-if. Applying re-checks the set and refuses if the schedule has changed since.
 - **D87 (design).** Splitting a shift retimes the original to the first part, so its ID and history survive (CLAUDE.md §2.3), and adds the second part as a new draft. Each part can go to anyone eligible, or stay open. The split is refused if either part breaks a rule, for example a part shorter than the minimum shift.
 
+## 2026-10-19 – Build session, self-service: calendar feed and time off
+
+- **D88 (design).** Each employee can turn on a private ICS link to their own published shifts (SPEC §9.2). Calendar apps can't sign in, so the link is the secret.
+  - It is 32 random bytes. Only its SHA-256 hash is stored, and the link is shown once.
+  - Making a new link or turning it off stops the old one. Archiving or erasing the employee stops it too.
+  - Events carry the time (in UTC), the location, the co-workers on at the same time (preferred names, as in the published view) and the employee's own note.
+  - It covers four weeks back to about sixteen weeks ahead. Drafts never appear.
+  - Polls aren't logged: the audit log would grow with every refresh.
+- **D89 (interpretation).** Time off (the date-specific exceptions in SPEC §5.1) is requested by the employee for one day or a date range, all day or between two times, up to 60 days per request. No reason is asked for (SPEC §11).
+  - A supervisor sees which of the employee's shifts it would clash with, published or draft, each with "who could take it?", before approving or denying.
+  - Only approved time off counts. Validation treats a shift during it as an availability error. The generator never offers that time, and suggestions skip the person.
+  - The employee can cancel a pending or approved request until it starts.
+- **D90 (interpretation, conservative).** Approving time off changes no shifts by itself. Clashing shifts show as availability conflicts until a supervisor reassigns them, so no shift moves without someone choosing it (CLAUDE.md §2.3). Deciding a request sends no email; the employee sees the status on their time-off page. Notifications stay tied to publishing (CLAUDE.md §2.2). Whether students want an email when a request is decided is open item 13.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -300,3 +314,4 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 10. Review the build-session interpretations marked for a look: D64 (new employees never alone, read conservatively), D67 (hard tag rules weighted above coverage), D68 (rebalances take hours from the busiest first), D71 (applying a generate replaces drafts) and D51 (no departments yet).
 11. Decide whether Google sign-in (D5, generic OIDC restricted to the campus domain) is needed for go-live, or whether invited local accounts are enough for spring. It needs an OAuth client from campus Google Workspace admins.
 12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).
+13. Decide whether a decision on a time-off request should email the student (D90). It doesn't today: they see it on their time-off page.
