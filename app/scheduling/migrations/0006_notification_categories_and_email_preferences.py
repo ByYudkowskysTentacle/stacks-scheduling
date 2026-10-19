@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("core", "0003_term_availability_deadline"),
         ("pghistory", "0007_auto_20250421_0444"),
-        ("scheduling", "0004_shift_exchange"),
+        ("scheduling", "0005_tag_rule_not_solo"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
