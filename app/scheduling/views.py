@@ -647,16 +647,89 @@ class NotificationsView(OrgViewMixin, TemplateView):
 
 
 class MyScheduleView(OrgViewMixin, TemplateView):
-    """An employee's own published shifts. Drafts never show here (CLAUDE.md §2.2)."""
+    """An employee's own published shifts and who else is on then. Drafts never show here
+    (CLAUDE.md §2.2)."""
 
     template_name = "scheduling/my_schedule.html"
 
     def get_context_data(self, **kwargs):
+        from app.scheduling.published import my_upcoming
+
         ctx = super().get_context_data(**kwargs)
         employee = self.request.access.employee
         if employee is None:
             raise Http404("Your account isn't linked to an employee record.")
-        ctx["shifts"] = services.published_shifts_for(employee, timezone.localdate())
+        ctx["shifts"] = my_upcoming(employee, timezone.localdate())
+        return ctx
+
+
+class PublishedScheduleView(OrgViewMixin, TemplateView):
+    """The full published schedule for one week, with co-workers' preferred names only (D6)."""
+
+    template_name = "scheduling/published.html"
+
+    def get_context_data(self, **kwargs):
+        from app.scheduling.published import published_week
+        from domain import calendar as cal
+
+        ctx = super().get_context_data(**kwargs)
+        org = self.request.organization
+        today = timezone.localdate()
+        try:
+            day = date.fromisoformat(self.request.GET.get("week", ""))
+        except ValueError:
+            day = today
+        start = cal.week_start_for(day, org.week_start)
+        ctx.update(
+            days=published_week(org, start, self.request.access.employee),
+            week_start=start,
+            prev_week=start - timedelta(days=7),
+            next_week=start + timedelta(days=7),
+            today=today,
+            me=self.request.access.employee,
+        )
+        return ctx
+
+
+class VersionExportView(PeriodMixin, View):
+    """CSV of a published version, for re-entering it into Homebase or another tool (D47)."""
+
+    permission = Perm.EDIT_SCHEDULE
+
+    def get(self, request, period_pk, number):
+        from django.http import HttpResponse
+
+        from app.scheduling.published import export_csv
+
+        period = self.get_period()
+        version = get_object_or_404(period.versions, number=number)
+        response = HttpResponse(export_csv(version), content_type="text/csv; charset=utf-8")
+        filename = f"schedule-{period.start_date:%Y-%m-%d}-v{version.number}.csv"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Cache-Control"] = "no-store"
+        return response
+
+
+class VersionPrintView(PeriodMixin, TemplateView):
+    """A published version as a printable people-by-days grid."""
+
+    permission = Perm.VIEW_DRAFTS
+    template_name = "scheduling/version_print.html"
+
+    def get_context_data(self, **kwargs):
+        from app.scheduling.published import version_grid
+
+        ctx = super().get_context_data(**kwargs)
+        period = self.get_period()
+        version = get_object_or_404(period.versions, number=self.kwargs["number"])
+        days, rows = version_grid(version)
+        weeks = []
+        for start in range(0, len(days), 7):
+            week_rows = [
+                (r.name, r.cells[start : start + 7]) for r in rows if any(r.cells[start : start + 7])
+            ]
+            weeks.append({"days": days[start : start + 7], "rows": week_rows})
+        ctx.update(period=period, version=version, weeks=weeks)
         return ctx
 
 

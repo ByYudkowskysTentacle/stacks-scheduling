@@ -116,6 +116,17 @@ urlpatterns = [
     path("schedule/desired-hours/", scheduling.DesiredHoursReviewView.as_view(), name="desired_hours"),
     path("notifications/", scheduling.NotificationsView.as_view(), name="notifications"),
     path("my-schedule/", scheduling.MyScheduleView.as_view(), name="my_schedule"),
+    path("published/", scheduling.PublishedScheduleView.as_view(), name="published_schedule"),
+    path(
+        "schedule/<int:period_pk>/versions/<int:number>/export.csv",
+        scheduling.VersionExportView.as_view(),
+        name="version_export",
+    ),
+    path(
+        "schedule/<int:period_pk>/versions/<int:number>/print/",
+        scheduling.VersionPrintView.as_view(),
+        name="version_print",
+    ),
 ]
 
 admin.site.site_header = "Stacks administration"

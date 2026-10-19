@@ -29,6 +29,9 @@ class HomeView(OrgViewMixin, TemplateView):
             ctx["setup"] = setup_checklist(org)
         if (employee := self.request.access.employee) is not None:
             from app.availability.models import Availability
+            from app.scheduling.published import my_upcoming
+
+            ctx["upcoming"] = my_upcoming(employee, timezone.localdate(), weeks=2)[:3]
 
             term = Term.current_for(org, timezone.localdate())
             if term is not None:

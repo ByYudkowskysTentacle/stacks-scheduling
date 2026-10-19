@@ -2,12 +2,16 @@
 {% block title %}My schedule{% endblock %}
 {% block content %}
 <h1>My schedule</h1>
-<p class="help">Your published shifts from today on. Changes appear here once a supervisor publishes them.</p>
+<p class="help">Your published shifts for the next four weeks. Changes appear here once a supervisor publishes them. <a href="{% url 'published_schedule' %}">See everyone's schedule</a>.</p>
 <ul class="shift-list">
-  {% for s in shifts %}
-    <li class="shift-card"><strong>{{ s.day|date:"l j M" }}</strong> {{ s.interval.label }}{% if s.note %}<br><span class="subtle">{{ s.note }}</span>{% endif %}</li>
+  {% for m in shifts %}
+    <li class="shift-card" style="--chip: {{ m.shift.color }}">
+      <strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}
+      {% if m.with_me %}<br><span class="subtle">With {{ m.with_me|join:", " }}</span>{% endif %}
+      {% if m.shift.note %}<br><span class="subtle">{{ m.shift.note }}</span>{% endif %}
+    </li>
   {% empty %}
-    <li>No upcoming published shifts.</li>
+    <li>No published shifts coming up.</li>
   {% endfor %}
 </ul>
 {% endblock %}

@@ -3,6 +3,11 @@
 {% block content %}
 <p class="no-print"><a href="{% url 'versions' period.pk %}">← Versions</a></p>
 <h1>{{ version }}</h1>
+<p class="form-actions no-print">
+  <a class="button" href="{% url 'version_print' period.pk version.number %}">Printable grid</a>
+  {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'version_export' period.pk version.number %}">Download CSV</a>{% endif %}
+</p>
+<p class="help no-print">The CSV lists every shift with names, email and pay role, for re-entering this schedule into Homebase or another tool if you ever need to fall back. It holds personal data: store it securely and delete it when done.</p>
 <p>Published {{ version.published_at|date:"j M Y H:i" }}{% if version.published_by %} by {{ version.published_by.email }}{% endif %}. Validation at the time: {{ version.validation_summary }}.</p>
 {% if changes %}
 <h2>Changes in this version</h2>

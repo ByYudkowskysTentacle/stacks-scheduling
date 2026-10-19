@@ -225,3 +225,15 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .options { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 @media (min-width: 70rem) { .options { grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr)); } }
 .option h3 { margin-top: 1.2rem; }
+
+/* Published schedule for phones (SPEC §9.2). */
+.day-list { display: grid; gap: 0.75rem; }
+@media (min-width: 60rem) { .day-list { grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); } }
+.day-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
+.day-card h2 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+.day-card--today { border-width: 2px; border-color: var(--accent); }
+.public-shift { display: flex; flex-wrap: wrap; gap: 0 0.6rem; padding: 0.3rem 0 0.3rem 0.5rem; border-left: 5px solid var(--chip, var(--accent)); margin-bottom: 0.3rem; }
+.public-shift__time { min-width: 7.5rem; font-variant-numeric: tabular-nums; }
+.public-shift--mine { background: var(--paper-alt); font-weight: 600; }
+.shift-card { border-left-color: var(--chip, var(--accent)); }
+.print-grid caption { text-align: left; font-weight: 700; padding: 0.5rem 0; }
