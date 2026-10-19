@@ -52,7 +52,17 @@ def snapshot_to_domain(row: dict[str, Any]) -> DomShift:
     )
 
 
-def domain_rules(org) -> dom.Rules:
+def domain_rules(org, term: Term | None = None) -> dom.Rules:
+    """The organization's rules as domain objects. Desired hours count only when approved
+    for `term` (D32)."""
+    from app.scheduling.models import (
+        DesiredHours,
+        DesiredStatus,
+        DutyAssignment,
+        HourTargetRule,
+        RotationAssignment,
+    )
+
     sr = SchedulingRules.for_org(org)
     caps = [c.to_domain() for c in HourCapRule.objects.filter(organization=org).select_related("tag")]
     if sr.default_weekly_cap_minutes:
@@ -60,6 +70,10 @@ def domain_rules(org) -> dom.Rules:
             0, dom.HourCap(dom.CapScope.WEEK, sr.default_weekly_cap_minutes, label="default weekly cap")
         )
     overrides = [o.to_domain() for o in CoverageOverride.objects.filter(organization=org)]
+    duties = [
+        d.to_domain()
+        for d in DutyAssignment.objects.filter(organization=org, employee__archived_at__isnull=True)
+    ]
     return dom.Rules(
         shape=sr.shape(),
         coverage=dom.CoverageRules(sr.coverage_default, dom.CoverageMode(sr.coverage_mode), overrides),
@@ -67,6 +81,19 @@ def domain_rules(org) -> dom.Rules:
         tag_rules=[
             r.to_domain() for r in TagCoverageRule.objects.filter(organization=org).select_related("tag")
         ],
+        rotation=dom.Rotation(
+            dom.RotationMode(sr.rotation_mode),
+            dict(RotationAssignment.objects.filter(organization=org).values_list("employee_id", "group")),
+        ),
+        openers=[d for d in duties if isinstance(d, dom.OpenerDuty)],
+        week_duties=[d for d in duties if isinstance(d, dom.WeekHoursDuty)],
+        targets=[t.to_domain() for t in HourTargetRule.objects.filter(organization=org)],
+        desired=[
+            dom.DesiredHours(d.employee_id, d.minutes)  # work-study priority waits for award imports (D34)
+            for d in DesiredHours.objects.filter(organization=org, term=term, status=DesiredStatus.APPROVED)
+        ]
+        if term is not None
+        else [],
     )
 
 
@@ -111,9 +138,9 @@ def build_context(period: SchedulePeriod, shifts=None) -> ScheduleContext:
     org = period.organization
     if shifts is None:
         shifts = list(period.shifts.live().select_related("employee"))
-    rules = domain_rules(org)
-    outside: dict[int, int] = {}
     term = term_for(period)
+    rules = domain_rules(org, term)
+    outside: dict[int, int] = {}
     if term is not None and any(c.scope == dom.CapScope.TERM for c in rules.caps):
         rows = (
             Shift.objects.live()

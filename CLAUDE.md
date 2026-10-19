@@ -104,7 +104,9 @@ DJANGO_DEBUG=1 uv run python manage.py runserver
 # checks CI runs
 uv run ruff format --check . && uv run ruff check .
 uv run pyright                           # strict, domain/ only (D53)
-uv run pytest -q                         # uses app.config.test_settings and Postgres
+uv run pytest -q -m "not slow"           # fast suite; uses app.config.test_settings and Postgres
+uv run pytest -q -m slow                 # engine acceptance scenarios (real solves)
+DJANGO_DEBUG=1 uv run python manage.py procrastinate worker   # runs solves queued from the web app
 uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
 
 # production (see docs/install.md once written)
@@ -126,7 +128,9 @@ docs/SPEC.md          product and domain spec (source of truth for behaviour)
 docs/adr/             architecture decision records
 docs/decisions.md     running log of spec interpretations and open questions
 domain/               pure domain model (no Django imports): timeutil, calendar, availability,
-                      rules, schedule, validation (the SPEC §8 suite); the solver model next
+                      rules, schedule, validation (the SPEC §8 suite)
+domain/engine/        the CP-SAT engine: candidates, model (tier weights documented at the
+                      top), solve, diff, explain; run() is the entry point
 adapters/             Paycom, ICS/calendar, CSV import/export
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
 app/accounts/         sign-in accounts (email login, allauth, TOTP)
@@ -136,7 +140,9 @@ app/people/           employees, pay roles and wages, tags, invitations
 app/availability/     term availability, entry form and paint grid, the availability grid
 app/imports/          roster and availability CSV imports: preview, apply, undo
 app/scheduling/       periods, draft shifts, publish and versions, rules config, review queue,
-                      call-outs, notifications; services.py builds the domain context
+                      call-outs, notifications, duties, targets, desired hours;
+                      services.py builds the domain context, solver.py runs the engine,
+                      tasks.py is the worker task
 app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
 deploy/               Caddyfile; compose.yaml and compose.dev.yaml sit at the root
@@ -144,6 +150,8 @@ fixtures/             synthetic rosters (fixtures/synthetic.py), sample import/e
 tests/domain/         unit and property tests for domain/
 tests/adapters/       parser and adapter contract tests
 tests/app/            view, permission and integration tests against PostgreSQL
+tests/engine/         engine unit and property tests, and the SPEC §12 acceptance scenarios
+                      (marked slow: `pytest -m slow`, about five minutes on 4 CPUs)
 tests/browser/        Playwright tests: paint grid, print layout (skipped without Chromium;
                       set CHROMIUM_PATH to use a local binary)
 docs/formats/         the documented import formats (D13)

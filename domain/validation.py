@@ -38,6 +38,7 @@ class Category(StrEnum):
     SHAPE = "shape"
     CAP = "cap"
     TAG_RULE = "tag_rule"
+    DUTY = "duty"
     DOUBLE_BOOKING = "double_booking"
     STATUS = "status"
     DRIFT = "drift"
@@ -52,6 +53,7 @@ CATEGORY_LABELS = {
     Category.SHAPE: ("shift shape issue", "shift shape issues"),
     Category.CAP: ("cap breach", "cap breaches"),
     Category.TAG_RULE: ("tag rule unmet", "tag rules unmet"),
+    Category.DUTY: ("duty unmet", "duties unmet"),
     Category.DOUBLE_BOOKING: ("double booking", "double bookings"),
     Category.STATUS: ("availability status warning", "availability status warnings"),
     Category.DRIFT: ("change since publishing", "changes since publishing"),
@@ -511,6 +513,62 @@ def check_tag_rules(ctx: ScheduleContext) -> list[Issue]:
     return issues
 
 
+# --- 5. Duties ------------------------------------------------------------------------------
+
+
+def check_duties(ctx: ScheduleContext) -> list[Issue]:
+    """Opener duties (scenario 3) and week-hours duties (scenario 4)."""
+    issues: list[Issue] = []
+    for o in ctx.rules.openers:
+        who = name(ctx, o.employee_id)
+        for day in ctx.period.days:
+            open_ivs = ctx.open_on(day)
+            if day.weekday() not in o.weekdays or not open_ivs:
+                continue
+            opening = open_ivs[0].start
+            if not any(
+                s.employee_id == o.employee_id and s.day == day and s.interval.start == opening
+                for s in ctx.shifts
+            ):
+                issues.append(
+                    Issue(
+                        Category.DUTY,
+                        Severity.WARNING,
+                        f"{who} has no opening shift on {day_label(day)}",
+                        day,
+                        employee_id=o.employee_id,
+                    )
+                )
+    per_week = minutes_by_person_week(ctx.shifts, ctx.period)
+    for d in ctx.rules.week_duties:
+        who = name(ctx, d.employee_id)
+        for week in range(ctx.period.weeks):
+            used = per_week.get(d.employee_id, {}).get(week, 0)
+            if week in d.weeks and used < d.minutes:
+                issues.append(
+                    Issue(
+                        Category.DUTY,
+                        Severity.WARNING,
+                        f"{who}: {hours(used)} in their {d.label} ({ctx.period.week_label(week)}), "
+                        f"{hours(d.minutes)} expected",
+                        employee_id=d.employee_id,
+                        minutes=d.minutes - used,
+                    )
+                )
+            elif week not in d.weeks and used > d.off_week_max:
+                issues.append(
+                    Issue(
+                        Category.DUTY,
+                        Severity.ERROR,
+                        f"{who}: {hours(used)} in {ctx.period.week_label(week)}, over the {hours(d.off_week_max)} "
+                        f"allowed outside their {d.label}",
+                        employee_id=d.employee_id,
+                        minutes=used - d.off_week_max,
+                    )
+                )
+    return issues
+
+
 # --- 8. Drift and open shifts ---------------------------------------------------------------
 
 
@@ -575,7 +633,15 @@ def check_drift(ctx: ScheduleContext) -> list[Issue]:
     return issues
 
 
-CHECKS = (check_coverage, check_availability, check_shape, check_caps, check_tag_rules, check_drift)
+CHECKS = (
+    check_coverage,
+    check_availability,
+    check_shape,
+    check_caps,
+    check_tag_rules,
+    check_duties,
+    check_drift,
+)
 
 
 def validate(

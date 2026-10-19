@@ -6,7 +6,7 @@ It covers what general-purpose tools like Homebase do (availability, shift sched
 
 ## Status
 
-**Milestones 1 to 3 done (foundations, availability, manual scheduling); milestone 4 (the scheduling engine) next.** Python, Django, PostgreSQL and OR-Tools CP-SAT, deployed with `docker compose`. The first release targets the spring 2027 term at a pilot library. See `CLAUDE.md` §8 for how to run it.
+**Milestones 1 to 4 done (foundations, availability, manual scheduling, the scheduling engine).** Next: the student schedule view and the Homebase fallback export for the spring release. Python, Django, PostgreSQL and OR-Tools CP-SAT, deployed with `docker compose`. The first release targets the spring 2027 term at a pilot library. See `CLAUDE.md` §8 for how to run it.
 
 ## Documents
 

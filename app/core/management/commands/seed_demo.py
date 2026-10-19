@@ -36,12 +36,18 @@ from app.people.models import Employee, EmployeePayRole, EmployeeTag, Employment
 from app.scheduling.models import (
     CallOut,
     CoverageOverride,
+    DesiredHours,
+    DutyAssignment,
+    DutyKind,
     HourCapRule,
+    HourTargetRule,
     Notification,
     PublishedVersion,
+    RotationAssignment,
     SchedulePeriod,
     SchedulingRules,
     Shift,
+    SolveRun,
     TagCoverageRule,
 )
 from domain.availability import normalise_blocks
@@ -122,6 +128,11 @@ class Command(BaseCommand):
 def delete_organization(org: Organization) -> None:
     """Development helper: remove every row of the demo organization, children first."""
     for model in (
+        SolveRun,
+        DesiredHours,
+        HourTargetRule,
+        RotationAssignment,
+        DutyAssignment,
         Notification,
         CallOut,
         PublishedVersion,
@@ -286,6 +297,25 @@ def seed_rules_and_period(org, loc, tags, spring) -> None:
         organization=org, location=loc, start_date=date(2027, 1, 16), weeks=2
     )
     opener = Employee.objects.get(organization=org, email="student01@example.edu")
+    DutyAssignment.objects.create(
+        organization=org,
+        employee=opener,
+        kind=DutyKind.OPENER,
+        weekdays=[MON, TUE, WED, THU, FRI],
+        short_weekdays=[MON, WED, FRI],
+        short_minutes=90,
+    )
+    for email, week in (("student02@example.edu", 1), ("student03@example.edu", 2)):
+        lead = Employee.objects.get(organization=org, email=email)
+        DutyAssignment.objects.create(
+            organization=org,
+            employee=lead,
+            kind=DutyKind.WEEK_HOURS,
+            weeks=[week],
+            minutes=1200,
+            off_week_max_minutes=600,
+            label="lead week",
+        )
     for offset in (2, 3, 4, 5, 6):  # Monday to Friday of week 1
         day = period.start_date + timedelta(days=offset)
         short = day.weekday() in (MON, WED, FRI)  # 9am class: a 1.5-hour opening shift

@@ -95,6 +95,13 @@ class AvailabilityEditMixin(TermMixin, FormView):
                 "open": {wd: [[iv.start, iv.end] for iv in ivs] for wd, ivs in rng.open_by_weekday.items()},
             },
         )
+        if self.employee == self.request.access.employee:
+            from app.scheduling.forms import DesiredHoursForm, desired_initial
+            from app.scheduling.models import DesiredHours
+
+            desired = DesiredHours.objects.filter(employee=self.employee, term=self.term).first()
+            ctx["desired"] = desired
+            ctx["desired_form"] = DesiredHoursForm(initial=desired_initial(desired))
         if self.availability and (location := self.get_location()):
             ctx["summary"] = week_summaries([self.employee], self.term, location, week)[self.employee.pk]
         return ctx

@@ -312,3 +312,36 @@ def test_open_shift_is_info():
 def test_summary_counts_by_category():
     r = validate(ctx([shift(1, MONDAY, 540, 600)], rules=single_day_rules()))
     assert r.summary() == "2 issues: 1 coverage gap, 1 shift shape issue"
+
+
+# --- Duties --------------------------------------------------------------------------------
+
+
+def test_opener_duty_missing_and_met():
+    from domain.rules import OpenerDuty
+
+    rules = Rules(
+        coverage=CoverageRules(default=0), openers=[OpenerDuty(1, frozenset({MON}), frozenset({MON}), 90)]
+    )
+    people = {1: person(1)}
+    missing = only(validate(ctx([shift(1, MONDAY, 480, 600)], people, rules)), Category.DUTY)
+    assert len(missing) == 1 and "no opening shift" in missing[0].message
+    met = only(validate(ctx([shift(1, MONDAY, 450, 540)], people, rules)), Category.DUTY)
+    assert met == []
+    assert (
+        only(validate(ctx([shift(1, MONDAY, 450, 540)], people, rules)), Category.SHAPE) == []
+    )  # 1.5h allowed
+
+
+def test_lead_week_duty():
+    from domain.rules import WeekHoursDuty
+
+    rules = Rules(
+        coverage=CoverageRules(default=0), week_duties=[WeekHoursDuty(1, frozenset({0}), 20 * 60, 10 * 60)]
+    )
+    people = {1: person(1)}
+    shifts = week_of_shifts(1, 0, 4) + week_of_shifts(1, 1, 3)  # 20h in the lead week, 15h after
+    issues = only(validate(ctx(shifts, people, rules, weeks=2)), Category.DUTY)
+    assert [(i.severity, i.minutes) for i in issues] == [(Severity.ERROR, 300)]
+    short = only(validate(ctx(week_of_shifts(1, 0, 3), people, rules, weeks=2)), Category.DUTY)
+    assert [(i.severity, i.minutes) for i in short] == [(Severity.WARNING, 300)]

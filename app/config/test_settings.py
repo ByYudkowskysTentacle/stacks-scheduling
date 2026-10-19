@@ -15,3 +15,8 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
+
+STACKS_SOLVE_INLINE = True
+STACKS_GENERATE_SECONDS = 8
+STACKS_REBALANCE_SECONDS = 6
+STACKS_SOLVER_WORKERS = 2

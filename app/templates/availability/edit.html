@@ -74,5 +74,14 @@
   </fieldset>
   <div class="form-actions"><button type="submit" class="button button--primary">Save availability</button></div>
 </form>
+{% if desired_form %}
+<form method="post" action="{% url 'desired_submit' %}" class="stacked-form card" novalidate>{% csrf_token %}
+  <h2>Hours you'd like</h2>
+  <input type="hidden" name="term" value="{{ term.pk }}">
+  {% if desired %}<p>Current request: {{ desired.minutes|hours }} hours a week, <strong>{{ desired.get_status_display|lower }}</strong>.</p>{% endif %}
+  {{ desired_form.as_div }}
+  <div class="form-actions"><button type="submit" class="button">Send request</button></div>
+</form>
+{% endif %}
 {% endblock %}
 {% block scripts %}<script type="module" src="{% static 'js/availability-painter.js' %}"></script>{% endblock %}

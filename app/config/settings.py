@@ -198,3 +198,9 @@ LOGGING = {
 ADMINS: list[tuple[str, str]] = []
 
 STACKS_SITE_NAME = env("STACKS_SITE_NAME", "Stacks")
+
+# Solver (ADR 0001, SPEC §7.3.2). Workers default to the CPUs given to the worker container.
+STACKS_SOLVER_WORKERS = int(env("STACKS_SOLVER_WORKERS", env("WORKER_CPUS", "4")))
+STACKS_GENERATE_SECONDS = int(env("STACKS_GENERATE_SECONDS", "300"))
+STACKS_REBALANCE_SECONDS = int(env("STACKS_REBALANCE_SECONDS", "30"))
+STACKS_SOLVE_INLINE = env_bool("STACKS_SOLVE_INLINE")  # run solves in the request (tests only)

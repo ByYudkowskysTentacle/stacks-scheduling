@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}{{ run.get_mode_display }}: {{ run.get_status_display }}{% endblock %}
+{% block extra_head %}{% if waiting %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block main_class %}main--wide{% endblock %}
+{% block content %}
+<p><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a> · <a href="{% url 'solve_start' period.pk %}">New run</a></p>
+<h1>{{ run.get_mode_display }} <span class="subtle">{{ period }}</span></h1>
+<p class="status-line"><strong>{{ run.get_status_display }}.</strong>
+  {% if run.status == Status.APPLIED %}Option "{{ run.applied_option }}" was applied as a draft on {{ run.applied_at|date:"j M H:i" }}.{% endif %}</p>
+
+{% if waiting %}
+  <div class="card card--notice" role="status">
+    <p>The solver is working{% if run.progress.seconds %}: {{ run.progress.seconds }} seconds in, still improving{% endif %}. This page refreshes every few seconds. Nothing changes until you apply an option.</p>
+  </div>
+{% elif run.status == Status.FAILED %}
+  <p class="card card--problem">{{ run.error }}</p>
+{% endif %}
+
+{% for note in run.result.notes %}<p class="card card--notice">{{ note }}</p>{% endfor %}
+
+{% if options %}
+<div class="options">
+{% for o in options %}
+  <section class="card option" aria-labelledby="opt-{{ o.name }}">
+    <h2 id="opt-{{ o.name }}">{% if o.name == "full" %}Full fix{% elif o.name == "limited" %}Limited change{% else %}Generated schedule{% endif %}</h2>
+    <p><strong>{{ o.status_label }}.</strong>{% for n in o.notes %} {{ n }}{% endfor %}</p>
+    <dl class="details">
+      <dt>Validation</dt><dd>{{ o.summary }}</dd>
+      {% if o.gap_hours %}<dt>Optimality gap</dt><dd>Up to the equivalent of {{ o.gap_hours }} person-hours of over-coverage. A longer run may do better.</dd>{% endif %}
+      {% if run.mode == "rebalance" %}<dt>Hours moved</dt><dd>{{ o.moved_minutes|hours }}{% if run.result.change_limit_minutes %} (limit {{ run.result.change_limit_minutes|hours }}){% endif %}</dd>{% endif %}
+      <dt>Shifts</dt><dd>{{ o.counts.kept }} kept, {{ o.counts.retimed }} retimed, {{ o.counts.reassigned }} reassigned, {{ o.counts.removed }} removed, {{ o.counts.added }} added</dd>
+    </dl>
+
+    {% if o.hours %}
+    <h3>Who gains and who loses hours</h3>
+    <table class="data-table">
+      <thead><tr><th scope="col">Person</th>{% for w in weeks %}<th scope="col">Week {{ w|add:1 }}</th>{% endfor %}<th scope="col">Change</th></tr></thead>
+      <tbody>{% for h in o.hours %}
+        <tr><th scope="row">{{ h.name }}</th>{% for w in weeks %}<td>{{ h.before|index:w|hours }} → {{ h.after|index:w|hours }}</td>{% endfor %}
+          <td>{% if h.delta > 0 %}+{% endif %}{{ h.delta|hours }}h</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% endif %}
+
+    {% if o.trade_offs %}<h3>Trade-offs the rules forced</h3><ul>{% for t in o.trade_offs %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+    {% if o.people %}<h3>Why some people have few hours</h3><ul>{% for p in o.people %}<li><strong>{{ p.name }}</strong>: {{ p.text }}</li>{% endfor %}</ul>{% endif %}
+    {% if o.unmet %}
+      <h3>Rules left unmet</h3>
+      <ul>{% for u in o.unmet %}<li>{{ u.message }}{% if u.reason %}: {{ u.reason }}{% endif %}.
+        {% for w in u.what_ifs %}<form method="post" action="{% url 'what_if' period.pk run.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="what_if" value="{{ w.key }}"><button type="submit" class="button button--small">What if: {{ w.label|lower }}</button></form>{% endfor %}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if o.issues %}
+      <details><summary>All validation results ({{ o.issues|length }})</summary><ul>{% for i in o.issues %}<li><span class="severity severity--{{ i.severity }}">{{ i.severity|capfirst }}</span> {{ i.message }}</li>{% endfor %}</ul></details>
+    {% endif %}
+
+    {% if run.status == Status.DONE %}
+      <form method="post" class="stacked-form">{% csrf_token %}
+        <input type="hidden" name="option" value="{{ o.name }}">
+        <div><label><input type="checkbox" name="confirm" value="yes"> Apply this option to the draft schedule</label></div>
+        <div class="form-actions"><button type="submit" name="action" value="apply" class="button button--primary">Apply as draft</button></div>
+      </form>
+    {% endif %}
+  </section>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if run.status == Status.APPLIED %}
+<form method="post" class="stacked-form card">{% csrf_token %}
+  <h2>Undo</h2>
+  <p>Puts the draft schedule back to exactly how it was before this run was applied.</p>
+  <div><label><input type="checkbox" name="confirm" value="yes"> Undo this run</label></div>
+  <div class="form-actions"><button type="submit" name="action" value="undo" class="button button--danger-outline">Undo</button></div>
+</form>
+{% endif %}
+{% endblock %}

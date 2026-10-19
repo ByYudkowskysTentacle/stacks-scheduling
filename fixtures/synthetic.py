@@ -9,9 +9,30 @@ some weekends off. Seeded, so tests and the demo are reproducible.
 from __future__ import annotations
 
 import random
+from datetime import date
 
-from domain.availability import AvailabilityBlock, BlockKind, normalise_blocks
-from domain.calendar import FRI, MON, SAT, SUN, THU, TUE, WED
+from domain.availability import (
+    AvailabilityBlock,
+    AvailabilityStatus,
+    BlockKind,
+    WeeklyAvailability,
+    normalise_blocks,
+)
+from domain.calendar import FRI, MON, SAT, SUN, THU, TUE, WED, Closure, OperatingHours
+from domain.rules import (
+    CapScope,
+    CoverageMode,
+    CoverageRules,
+    HourCap,
+    OpenerDuty,
+    Rotation,
+    RotationMode,
+    Rules,
+    TagRule,
+    TagRuleKind,
+    WeekHoursDuty,
+)
+from domain.schedule import Period, Person, ScheduleContext
 from domain.timeutil import Interval
 
 MWF_STARTS = [480, 540, 600, 660, 720, 780, 840, 900]
@@ -71,3 +92,112 @@ def opener_pattern() -> list[AvailabilityBlock]:
 
 def student_pattern(rng: random.Random) -> list[AvailabilityBlock]:
     return normalise_blocks(random_unavailability(rng, rng.randint(3, 5)) + random_preferred(rng))
+
+
+# --- A pilot-shaped roster for engine tests (SPEC §12) --------------------------------------
+
+PILOT_START = date(2027, 1, 16)  # a Saturday
+OPENER, LEAD_X, LEAD_Z, PRIORITY, NOT_ENTERED, CAPPED = 1, 2, 3, 4, 9, 10
+NEW_EMPLOYEES = (5, 6, 7, 8)
+NON_REGULAR = (101, 102, 103, 104)
+
+
+def pilot_hours() -> list[OperatingHours]:
+    return [
+        OperatingHours(
+            date(2026, 8, 1),
+            None,
+            {
+                **{wd: [Interval(450, 1320)] for wd in (MON, TUE, WED, THU)},
+                FRI: [Interval(450, 960)],
+                SAT: [Interval(720, 960)],
+                SUN: [Interval(1080, 1320)],
+            },
+        )
+    ]
+
+
+CHAPEL = Closure(reason="Chapel", weekday=WED, interval=Interval(600, 660))
+
+
+def pilot_context(
+    seed: int = 1, rotation: RotationMode = RotationMode.NONE, chapel: bool = True
+) -> ScheduleContext:
+    """28 regular students and 4 non_regular employees over a two-week, Saturday-start period,
+    with the scenario-specific people: an opener (scenario 3), two leads on different weeks
+    (scenario 4), four new employees (scenario 5), someone with no availability entered
+    (scenario 8) and someone with a 10-hour weekly cap. Mirrors the benchmark spike's roster."""
+    rng = random.Random(seed)  # noqa: S311 (synthetic data)
+    ids = list(range(1, 29))
+    general = ids[10:]
+    lead_tagged = {LEAD_X, LEAD_Z, *rng.sample(general, 5)}
+    cataloguers = set(rng.sample(ids[3:], 5))
+    processors = set(rng.sample(ids[3:], 3))
+    period = Period(PILOT_START, 2, SAT)
+    people: dict[int, Person] = {}
+    groups: dict[int, str] = {}
+    for i, pid in enumerate(ids):
+        tags: set[str] = set()
+        if pid in lead_tagged:
+            tags.add("Shift lead")
+        if pid in cataloguers:
+            tags.add("Cataloguer")
+        if pid in processors:
+            tags.add("Processor")
+        status = AvailabilityStatus.ENTERED
+        if pid == OPENER:
+            tags.add("Opener")
+            blocks = opener_pattern()
+        elif pid in (LEAD_X, LEAD_Z):
+            blocks = normalise_blocks(random_unavailability(rng, rng.randint(2, 3)))
+        elif pid == NOT_ENTERED:
+            blocks, status = [], AvailabilityStatus.NOT_ENTERED
+        else:
+            blocks = student_pattern(rng)
+        if pid in NEW_EMPLOYEES:
+            tags.add("New employee")
+        if pid not in (OPENER, LEAD_X, LEAD_Z):
+            groups[pid] = "A" if i % 2 == 0 else "B"
+        people[pid] = Person(
+            pid,
+            f"Student {pid:02d}",
+            WeeklyAvailability(status, tuple(blocks)),
+            {d: frozenset(tags) for d in period.days},
+        )
+    for pid in NON_REGULAR:
+        blocks = normalise_blocks(random_unavailability(rng, 3))
+        people[pid] = Person(
+            pid,
+            f"Staff {pid}",
+            WeeklyAvailability(AvailabilityStatus.ENTERED, tuple(blocks)),
+            {d: frozenset() for d in period.days},
+            auto_schedulable=False,
+        )
+    rules = Rules(
+        coverage=CoverageRules(default=2, mode=CoverageMode.EXACT),
+        caps=[
+            HourCap(CapScope.WEEK, 20 * 60, label="default weekly cap"),
+            HourCap(CapScope.PERIOD, 12 * 60, tag="New employee", label="new-employee period cap"),
+            HourCap(CapScope.WEEK, 10 * 60, employee_id=5),
+            HourCap(CapScope.WEEK, 10 * 60, employee_id=6),
+            HourCap(CapScope.WEEK, 10 * 60, employee_id=CAPPED),
+        ],
+        tag_rules=[
+            TagRule("Shift lead", TagRuleKind.MIN_ON_DUTY),
+            TagRule(
+                "Cataloguer",
+                TagRuleKind.MIN_ON_DUTY,
+                weekdays=frozenset({MON, TUE, WED, THU, FRI}),
+                interval=Interval(540, 1020),
+            ),
+            TagRule("Processor", TagRuleKind.MIN_WEEKLY_HOURS, minutes=15 * 60),
+            TagRule("New employee", TagRuleKind.NOT_ALONE),
+        ],
+        rotation=Rotation(rotation, groups),
+        openers=[OpenerDuty(OPENER, frozenset({MON, TUE, WED, THU, FRI}), frozenset({MON, WED, FRI}), 90)],
+        week_duties=[
+            WeekHoursDuty(LEAD_X, frozenset({0}), 20 * 60, 10 * 60),
+            WeekHoursDuty(LEAD_Z, frozenset({1}), 20 * 60, 10 * 60),
+        ],
+    )
+    return ScheduleContext(period, pilot_hours(), [CHAPEL] if chapel else [], people, rules, [])

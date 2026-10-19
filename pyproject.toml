@@ -50,6 +50,7 @@ select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "RUF"]
 ignore = [
     "RUF012",  # Django Meta and form class attributes are mutable by convention
     "RUF001", "RUF002", "RUF003",  # en dashes in time ranges are intentional
+    "E501",  # ruff format sets line length; long user-facing strings stay readable unsplit
 ]
 
 [tool.ruff.lint.per-file-ignores]
