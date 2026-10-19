@@ -22,6 +22,7 @@ from app.scheduling import services
 from app.scheduling.models import (
     DesiredHours,
     DesiredStatus,
+    EmailPreference,
     HourCapRule,
     PublishedVersion,
     SchedulePeriod,
@@ -45,6 +46,7 @@ def records_setup(org, location, supervisor, student_user, employee, pay_role):
     employee.notes = "Supervisor-only note about Avery"
     employee.default_wage = Decimal("13.50")
     employee.save()
+    EmailPreference.objects.create(organization=org, user=student_user, category="time_off", email=True)
     EmployeePayRole.objects.create(
         organization=org, employee=employee, pay_role=pay_role, wage=Decimal("14.00")
     )
@@ -121,6 +123,7 @@ def test_export_holds_the_whole_record(records_setup, employee):
     assert data["shifts"][0]["note"] == SECRET_NOTE
     assert data["published_shifts"][0]["version"] == 1
     assert data["account"]["email"] == "avery@example.edu"
+    assert data["account"]["email_settings"] == {"time_off": True}
     json.dumps(data)  # JSON-ready
 
 
@@ -203,6 +206,7 @@ def test_erasure_removes_personal_records_and_keeps_hours_history(records_setup,
     student_user.refresh_from_db()
     assert not student_user.is_active and not student_user.has_usable_password()
     assert not Membership.objects.filter(user=student_user).exists()
+    assert not EmailPreference.objects.filter(user=student_user).exists()
 
 
 def test_erasure_is_recorded_in_the_audit_log(records_setup, employee):

@@ -21,7 +21,7 @@ from itertools import combinations
 from domain.availability import AvailabilityStatus
 from domain.rules import RotationMode
 from domain.schedule import Person, ScheduleContext, Shift, minutes_by_person_week
-from domain.timeutil import Interval, intersect, subtract, total_minutes
+from domain.timeutil import SLOT_MINUTES, Interval, intersect, subtract, total_minutes
 from domain.validation import (
     Issue,
     Severity,
@@ -451,6 +451,20 @@ class MoveOption:
     warnings: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class SplitOption:
+    """Part of a donor's shift goes to the recipient; the donor keeps the rest on the original
+    shift, so its ID and history survive (D102)."""
+
+    shift: Shift  # the donor's shift as it is now
+    donor_id: int
+    donor_name: str
+    part: Interval  # what the recipient takes
+    keep: Interval  # what the donor keeps
+    preferred: bool
+    warnings: tuple[str, ...] = ()
+
+
 @dataclass
 class TargetedMove:
     recipient_id: int
@@ -460,6 +474,7 @@ class TargetedMove:
     feasible: list[MoveOption]
     notes: list[str]
     check: ChangeCheck | None = None
+    splits: list[SplitOption] = field(default_factory=list[SplitOption])
 
     @property
     def chosen_minutes(self) -> int:
@@ -467,6 +482,9 @@ class TargetedMove:
 
 
 MAX_SHIFTS_PER_MOVE = 3
+CLOSE_ENOUGH = 30  # minutes: a whole-shift set this close to the ask needs no split (D102)
+MAX_SPLITS = 3
+SPLIT_LENGTHS_TRIED = 8  # per shift, the part lengths closest to the ask
 
 
 def targeted_move(
@@ -477,12 +495,14 @@ def targeted_move(
     weeks: frozenset[int] | None = None,
 ) -> TargetedMove:
     """ "Move about 2 hours from D, T or P to J, keeping J in one week" (SPEC §7.3, scenario 10).
-    Reassigns whole shifts only, picking the set closest to the hours asked for (fewest shifts on
-    a tie), and says for each donor why they couldn't give."""
+    Picks the set of whole shifts closest to the hours asked for (fewest shifts on a tie), and
+    says for each donor why they couldn't give. When no whole-shift set comes within
+    CLOSE_ENOUGH, it also offers splits: the start or end of one donor shift (D102)."""
     recipient = ctx.people[recipient_id]
     shifts = list(ctx.shifts)
     before = _issues(ctx, shifts)
     feasible: list[MoveOption] = []
+    splittable: list[tuple[Shift, int, str]] = []
     notes: list[str] = []
     week_text = " and ".join(ctx.period.week_label(w) for w in sorted(weeks)) if weeks is not None else ""
     for donor_id in donor_ids:
@@ -507,6 +527,7 @@ def targeted_move(
             if effects:
                 protected.append((s, effects[0]))
                 continue
+            splittable.append((s, donor_id, dname))
             taker = _try(ctx, shifts, before, s, recipient, donor_id)
             if taker.eligible:
                 mine.append(MoveOption(s, donor_id, dname, taker.preferred, taker.warnings))
@@ -530,7 +551,67 @@ def targeted_move(
     chosen, check = _best_subset(ctx, feasible, recipient_id, minutes)
     if feasible and not chosen:
         notes.append("No combination of the movable shifts passes every rule together.")
-    return TargetedMove(recipient_id, recipient.name, minutes, chosen, feasible, notes, check)
+    splits: list[SplitOption] = []
+    gap = abs(sum(o.shift.minutes for o in chosen) - minutes) if chosen else None
+    if gap is None or gap > CLOSE_ENOUGH:
+        splits = _split_options(ctx, splittable, recipient, minutes, gap)
+        if splits:
+            notes.append(
+                "No set of whole shifts comes close to the hours asked for, so splits are offered too."
+            )
+    return TargetedMove(recipient_id, recipient.name, minutes, chosen, feasible, notes, check, splits)
+
+
+def split_off(
+    ctx: ScheduleContext, shift: Shift, part: Interval, recipient_id: int
+) -> tuple[list[Shift], ChangeCheck]:
+    """The schedule after `part` (the start or the end of `shift`) goes to the recipient and the
+    holder keeps the rest on the original shift, and what the checks say."""
+    iv = shift.interval
+    if part.start == iv.start and part.end < iv.end:
+        keep = Interval(part.end, iv.end)
+    elif part.end == iv.end and part.start > iv.start:
+        keep = Interval(iv.start, part.start)
+    else:
+        raise ValueError("the part must be the start or the end of the shift")
+    new = Shift(None, recipient_id, shift.day, part, shift.pay_role_id, shift.location_id)
+    after = [replace(s, interval=keep) if s is shift else s for s in ctx.shifts] + [new]
+    return after, check_change(ctx, after)
+
+
+def _split_options(
+    ctx: ScheduleContext,
+    shifts: list[tuple[Shift, int, str]],
+    recipient: Person,
+    minutes: int,
+    whole_gap: int | None,
+) -> list[SplitOption]:
+    """For each shift, the part closest to `minutes` (from its start or its end) that passes
+    every check, if it beats the best whole-shift set. Best few first."""
+    step = SLOT_MINUTES
+    found: list[tuple[int, SplitOption]] = []
+    for s, donor_id, dname in shifts:
+        lengths = sorted(range(step, s.minutes, step), key=lambda n: (abs(n - minutes), -n))
+        for n in lengths[:SPLIT_LENGTHS_TRIED]:
+            if whole_gap is not None and abs(n - minutes) >= whole_gap:
+                break
+            option = None
+            for part in (
+                Interval(s.interval.start, s.interval.start + n),
+                Interval(s.interval.end - n, s.interval.end),
+            ):
+                _, check = split_off(ctx, s, part, recipient.id)
+                if check.ok:
+                    keep = subtract([s.interval], [part])[0]
+                    option = SplitOption(
+                        s, donor_id, dname, part, keep, _preferred(recipient, s.day, part), check.warnings
+                    )
+                    break
+            if option is not None:
+                found.append((abs(n - minutes), option))
+                break
+    found.sort(key=lambda t: (t[0], not t[1].preferred, len(t[1].warnings), t[1].shift.day))
+    return [o for _, o in found[:MAX_SPLITS]]
 
 
 def _best_subset(

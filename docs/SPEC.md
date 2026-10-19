@@ -206,7 +206,7 @@ Each rule can be hard (constraint) or soft (weighted). The validation suite repo
 |---|---|
 | Generate | Build a period from scratch (existing drafts ignored or replaced after confirmation). |
 | Rebalance | Re-optimise with a strong keep-existing bonus. Returns two what-if options (§7.3.1). This was the most-used mode. |
-| Targeted move | "Move about 2 hours from X, Y or Z to W" or "give W more hours". Only reassigns or retimes whole shifts where feasible, and reports why a donor couldn't give (for example, all of Y's shifts clash with W's classes). |
+| Targeted move | "Move about 2 hours from X, Y or Z to W" or "give W more hours". Reassigns whole shifts where feasible, and reports why a donor couldn't give (for example, all of Y's shifts clash with W's classes). When no set of whole shifts comes within 30 minutes of the ask, it also offers splits: the start or end of one donor shift goes to W, and the donor keeps the rest (D102). |
 | Remove from pool | Reassign a person's future shifts to eligible others at the same times, preferring low-hour and preferred-time matches. |
 | Split shift | Split one shift into parts (for example a 4-hour shift into two 2-hour halves) and assign each part. |
 | What-if | Any mode without saving. It returns the diff and hour changes so the supervisor can compare options. |
@@ -264,7 +264,7 @@ Run after every mutation. Show results in the UI and store them with the schedul
 ### 9.1 Drafts and publishing
 
 - All edits create draft changes. Publishing is explicit, per period or per location, and shows a summary (added, changed and removed shifts per person) before confirming.
-- Notifications go out only on publish, and only to affected employees. v1 sends email over SMTP (settings from the environment) and keeps an in-app notification list. SMS and push are later. Emails carry a link and a summary of the employee's own changes, never wages, hour totals or co-workers' details.
+- Schedule notifications go out only on publish, and only to affected employees. The one other kind is a decision on a person's own request (time off, an open-shift claim, cover): the people who asked are told the outcome, and a shift change it causes still reaches the published schedule only when a supervisor publishes (D103). Every notification appears in the in-app list; email over SMTP (settings from the environment) follows each person's email settings, on by default for published schedules and availability reminders and off for decisions. SMS and push are later. Emails carry a link and a summary of the employee's own changes, never wages, hour totals or co-workers' details.
 - Published schedules keep a version history. Supervisors can compare versions and roll back drafts.
 
 ### 9.2 Employee self-service
@@ -325,7 +325,7 @@ Each of these must be an automated test with a synthetic fixture. They are drawn
 3. **Designated opener.** Student L starts at opening time every weekday in both weeks. On Mon, Wed and Fri their shift is 1.5 hours (class at 9am), as a duty exception to the 2-hour minimum.
 4. **Leads on separate weeks.** Students X and Z are shift leads. Each works 20 hours in their own lead week and no more than 10 in the other, and the lead weeks differ.
 5. **New-employee period cap.** Students tagged `New employee` total no more than 12 hours across the two weeks. Two of them also have a 10-hour weekly cap.
-6. **Priority target.** Student I, with the target "as close to 20 as possible", reaches 20 hours without breaking coverage. The hours come mostly from the busiest general staff.
+6. **Priority target.** Student I, with the target "as close to 20 as possible", reaches 20 hours without breaking coverage, moving as few hours as possible: little more than the hours Student I gains (D98). Who gives up the hours follows from the fewest changes; among equally small changes, the busiest give first.
 7. **Non-regular exclusion.** Four `non_regular` employees are never auto-scheduled.
 8. **Not-entered availability.** A student with `not_entered` status is flagged in every view, and is scheduled only when needed and with a warning.
 9. **Remove from pool.** Removing Student W reassigns their three draft shifts to eligible people at the same times, with no deletions, and coverage stays intact.

@@ -4,7 +4,7 @@
 {% block content %}
 <p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
 <h1>Move hours</h1>
-<p class="help">For requests like "give Joshua a couple of Palmer's hours". Whole shifts are reassigned, never cut, and each one is checked against the validation suite. Planning changes nothing; applying saves drafts, and nobody is notified until you publish.</p>
+<p class="help">For requests like "give Joshua a couple of Palmer's hours". Whole shifts are reassigned first; when no set of whole shifts comes close, splitting one shift is offered too, and the giver keeps the rest of it. Every option is checked against the validation suite. Planning changes nothing; applying saves drafts, and nobody is notified until you publish.</p>
 <form method="get" class="stacked-form">
   {{ form.as_div }}
   <div class="form-actions"><button type="submit" class="button button--primary">Plan the move</button></div>
@@ -22,6 +22,26 @@
     {% if move.check.warnings %}<ul>{% for w in move.check.warnings %}<li><span class="severity severity--warning">Warning</span> {{ w }}</li>{% endfor %}</ul>{% endif %}
     <div class="form-actions"><button type="submit" class="button button--primary">Apply as drafts</button></div>
   </form>
+  {% endif %}
+  {% if move.splits %}
+  <h3 id="splits-heading">{% if move.chosen %}Or split a shift{% else %}Split a shift{% endif %}</h3>
+  <table class="data-table" aria-labelledby="splits-heading">
+    <thead><tr><th scope="col">Shift</th><th scope="col">From</th><th scope="col">{{ move.recipient_name }} takes</th><th scope="col">Giver keeps</th><th scope="col">Preferred time</th><th scope="col"><span class="visually-hidden">Apply</span></th></tr></thead>
+    <tbody>{% for o in move.splits %}<tr>
+      <th scope="row">{{ o.shift.day|date:"D j M" }} {{ o.shift.interval.label }}</th>
+      <td>{{ o.donor_name }}</td>
+      <td>{{ o.part.label }} ({{ o.part.minutes|hours }}h)</td>
+      <td>{{ o.keep.label }}</td>
+      <td>{% if o.preferred %}Yes{% else %}No{% endif %}{% for w in o.warnings %}<br><span class="severity severity--warning">Warning</span> {{ w }}{% endfor %}</td>
+      <td><form method="post">{% csrf_token %}
+        <input type="hidden" name="recipient" value="{{ move.recipient_id }}">
+        <input type="hidden" name="split" value="{{ o.shift.id }}">
+        <input type="hidden" name="start" value="{{ o.part.start }}">
+        <input type="hidden" name="end" value="{{ o.part.end }}">
+        <button type="submit" class="button">Split as drafts</button>
+      </form></td>
+    </tr>{% endfor %}</tbody>
+  </table>
   {% endif %}
   <h3>Why</h3>
   <ul>{% for n in move.notes %}<li>{{ n }}</li>{% endfor %}</ul>

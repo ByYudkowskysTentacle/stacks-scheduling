@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Email settings{% endblock %}
+{% block content %}
+<p><a href="{% url 'notifications' %}">← Notifications</a></p>
+<h1>Email settings</h1>
+<p class="help">Every notification appears here in Stacks. Tick the ones you also want by email. Emails carry only your own news and a link, never anyone else's details.</p>
+<form method="post" class="stacked-form">{% csrf_token %}
+  <fieldset>
+    <legend>Also email me about</legend>
+    {% for value, label, on in rows %}
+      <div><label><input type="checkbox" name="{{ value }}" value="on"{% if on %} checked{% endif %}> {{ label }}</label></div>
+    {% endfor %}
+  </fieldset>
+  <div class="form-actions"><button type="submit" class="button button--primary">Save</button></div>
+</form>
+{% endblock %}
