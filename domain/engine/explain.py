@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from domain.engine.candidates import Scope
-from domain.rules import CapScope
+from domain.rules import CapScope, TagRuleKind
 from domain.schedule import ScheduleContext, Shift, minutes_by_person_week
 from domain.timeutil import format_minute_12h, intersect, total_minutes
 from domain.validation import Category, Issue, Report, day_label
@@ -154,6 +154,19 @@ def _tag_reason(ctx: ScheduleContext, issue: Issue) -> str:
     if rule is None:
         return "not enough people with the tag were free at those times"
     day = issue.day
+    if rule.kind in (TagRuleKind.NOT_ALONE, TagRuleKind.NOT_SOLO):
+        partner = "without the tag" if rule.kind == TagRuleKind.NOT_ALONE else "else"
+        others = [
+            p
+            for p in ctx.people.values()
+            if p.auto_schedulable
+            and (rule.kind == TagRuleKind.NOT_SOLO or not p.has_tag(rule.tag, day))
+            and p.availability.is_known
+            and intersect([issue.interval], p.availability.available_within(day.weekday(), ctx.open_on(day)))
+        ]
+        if not others:
+            return f"no one {partner} is available to work alongside them then"
+        return f"{len(others)} {'person' if len(others) == 1 else 'people'} {partner} could work then, but caps and other rules used their hours elsewhere"
     free = [
         p
         for p in ctx.people.values()
