@@ -12,6 +12,7 @@
 {% else %}
   <h1>Archive {{ employee.display_name }}</h1>
   <p>Archiving takes {{ employee.display_name }} off the roster and out of the scheduling pool. Nothing is deleted: their records stay, the change is in the audit log, and you can restore them.</p>
+  {% if upcoming %}<p class="card card--notice">{{ employee.display_name }} has {{ upcoming }} upcoming shift{{ upcoming|pluralize }}. After archiving you'll see who could take {{ upcoming|pluralize:"it,them" }}; nothing is reassigned until you confirm.</p>{% endif %}
   <form method="post" class="stacked-form">{% csrf_token %}
     <div><label><input type="checkbox" name="confirm" value="yes" required> I understand. Archive {{ employee.display_name }}.</label></div>
     <div class="form-actions">

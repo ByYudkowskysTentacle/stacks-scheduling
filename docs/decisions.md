@@ -268,6 +268,18 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 - **D80 (design).** A records request download is JSON covering everything Stacks holds about one person, including deleted shifts, published appearances, call-outs and their notifications. It needs the manage-people, view-pay and view-notes permissions (supervisors and admins). It's a read, so it writes no audit row; the server logs the employee and user IDs only.
 - **D81 (interpretation).** Reports (SPEC §14) are built from the working copy, so they include unpublished drafts and say so. The hours report shows weekly and period totals against caps, plus target and desired hours. The coverage report shows needed, scheduled, short and over person-hours per day, plus tag-rule misses. Shift leads with the view-hours grant can see the hours page without target and desired columns. CSV and JSON downloads are supervisor-only.
 
+## 2026-10-19 – Build session, suggestions and remove from pool
+
+- **D82 (design).** Suggestion queries (SPEC §7.5) don't use the solver. Each one tries the move on a copy of the schedule and runs the validation suite's person-level checks: availability, shape and double booking, caps, tag rules and duties, plus open hours and rotation.
+  - Someone is eligible exactly when the move adds no new error, so a suggestion never contradicts the validation that runs after it is accepted.
+  - New warnings, such as not-entered availability or a missed soft tag rule, are shown next to the person.
+  - Ranking: no new warnings first, then preferred time, then fewest hours that week.
+  - Each query takes under a second on the pilot roster.
+  - Accepting a suggestion is a normal audited draft edit. The person is checked again when saving, and a reassigned shift takes the new person's default pay role (scenario 15).
+- **D83 (interpretation).** For "how can I raise this person's hours?", the holder is "low themselves" when they're at or below the median weekly hours of pool members working that week, or when giving the shift up takes them below their own target or approved desired hours. "Same week / either week" (SPEC §7.5) is shown as one group per period week. A shift is protected, and left out with a count, when giving it away breaks the holder's duty or takes them below a target (scenario 13). Who-could-take still lists people for a protected shift, but says what giving it away would cause.
+- **D84 (interpretation, conservative).** "Who could cover this gap?" widens a gap shorter than the minimum shift length to that length within the same open interval, later first, and says so. Otherwise every candidate would fail the shape check. Over-coverage that the widening causes appears as a warning.
+- **D85 (design).** Remove from pool shows the plan first and changes nothing until confirmed. It covers the person's live shifts from today in every period, handled in date order so each choice accounts for the ones before it. A shift nobody can take becomes an open shift, and nothing is deleted. Unticking "in scheduling pool" or archiving someone with upcoming shifts leads to this page; cancelling leaves their shifts as they are. Suggestions and remove from pool need the edit-schedule permission. Shift leads don't get them, since the reasons expose caps and other people's rules.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

@@ -12,6 +12,7 @@
     <a href="{% url 'period' period.pk %}" class="button">Cancel</a>
     {% if shift and Perm.EDIT_SCHEDULE in access.perms %}<a href="{% url 'shift_delete' period.pk shift.pk %}" class="button button--danger-outline">Remove</a>{% endif %}
     {% if shift and shift.employee %}<a href="{% url 'call_out' period.pk shift.pk %}" class="button">Record a call-out</a>{% endif %}
+    {% if shift and Perm.EDIT_SCHEDULE in access.perms %}<a href="{% url 'shift_takers' period.pk shift.pk %}" class="button">Who could take this shift?</a>{% endif %}
   </div>
 </form>
 {% endblock %}

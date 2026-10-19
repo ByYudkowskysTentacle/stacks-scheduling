@@ -5,7 +5,7 @@
     <details{% if g.issues.0.severity == "error" %} open{% endif %} class="validation__group validation__group--{{ g.issues.0.severity }}">
       <summary><span class="severity severity--{{ g.issues.0.severity }}">{% if g.issues.0.severity == "error" %}Error{% elif g.issues.0.severity == "warning" %}Warning{% else %}Info{% endif %}</span>
         {{ g.issues|length }} {{ g.label }}</summary>
-      <ul>{% for i in g.issues %}<li>{{ i.message }}</li>{% endfor %}</ul>
+      <ul>{% for i in g.issues %}<li>{{ i.message }}{% if i.category == "coverage_gap" and i.day and i.interval and period and Perm.EDIT_SCHEDULE in access.perms %} <a class="small-link no-print" href="{% url 'gap_takers' period.pk %}?date={{ i.day|date:'Y-m-d' }}&amp;start={{ i.interval.start }}&amp;end={{ i.interval.end }}">Who could cover this?</a>{% endif %}</li>{% endfor %}</ul>
     </details>
   {% endfor %}
 </section>
