@@ -17,6 +17,7 @@ from domain.suggest import (
     gap_shift,
     opportunities,
     remove_from_pool_plan,
+    split_off,
     split_result,
     split_shift,
     targeted_move,
@@ -282,6 +283,50 @@ def test_targeted_move_respects_the_recipients_cap_across_shifts():
     # Each of D's 4h shifts fits on its own, but both are in week 2: only one can move.
     assert len(move.feasible) == 2 and move.chosen_minutes == 240
     assert move.check is not None and move.check.ok
+
+
+def test_targeted_move_offers_a_split_when_no_whole_shift_comes_close():
+    thursday = MONDAY + timedelta(days=3)
+    ctx = context([shift(D, thursday, 540, 780, sid=1)], {J: person(J, "J"), D: person(D, "D")})
+    move = targeted_move(ctx, J, [D], 120)
+    assert move.chosen_minutes == 240  # the whole shift still fits, but is twice the ask
+    assert move.splits, move.notes
+    best = move.splits[0]
+    assert best.part.minutes == 120 and best.shift.id == 1 and best.donor_id == D
+    assert {best.part, best.keep} == {Interval(540, 660), Interval(660, 780)}
+    assert any("splits are offered" in n for n in move.notes)
+
+
+def test_a_split_lets_the_recipient_take_the_part_they_are_free_for():
+    thursday = MONDAY + timedelta(days=3)
+    j = person(J, "J", unavailable(3, 540, 660))  # class Thu 9-11
+    ctx = context([shift(D, thursday, 540, 780, sid=1)], {J: j, D: person(D, "D")})
+    move = targeted_move(ctx, J, [D], 120)
+    assert not move.chosen  # the whole shift clashes with J's class
+    assert [(o.part, o.keep) for o in move.splits] == [(Interval(660, 780), Interval(540, 660))]
+    after, check = split_off(ctx, ctx.shifts[0], Interval(660, 780), J)
+    assert check.ok, check.errors
+    kept = next(s for s in after if s.id == 1)
+    assert kept.employee_id == D and kept.interval == Interval(540, 660)  # the donor keeps the ID
+
+
+def test_no_split_when_whole_shifts_are_close_enough():
+    move = targeted_move(scenario_10(), J, [D, T, P], 120, weeks=frozenset({0}))
+    assert move.chosen_minutes == 120 and move.splits == []
+
+
+def test_a_split_never_leaves_a_part_below_the_minimum():
+    thursday = MONDAY + timedelta(days=3)
+    ctx = context([shift(D, thursday, 540, 720, sid=1)], {J: person(J, "J"), D: person(D, "D")})
+    # 3h shift, 1h asked: any split leaves a part under the 2h minimum, so none is offered.
+    assert targeted_move(ctx, J, [D], 60).splits == []
+
+
+def test_split_off_takes_only_the_start_or_the_end():
+    original = shift(D, MONDAY, 540, 780, sid=1)
+    ctx = context([original], {J: person(J, "J"), D: person(D, "D")})
+    with pytest.raises(ValueError):
+        split_off(ctx, original, Interval(600, 720), J)
 
 
 # --- Split shift (scenario 11) --------------------------------------------------------------

@@ -206,7 +206,7 @@ Each rule can be hard (constraint) or soft (weighted). The validation suite repo
 |---|---|
 | Generate | Build a period from scratch (existing drafts ignored or replaced after confirmation). |
 | Rebalance | Re-optimise with a strong keep-existing bonus. Returns two what-if options (§7.3.1). This was the most-used mode. |
-| Targeted move | "Move about 2 hours from X, Y or Z to W" or "give W more hours". Only reassigns or retimes whole shifts where feasible, and reports why a donor couldn't give (for example, all of Y's shifts clash with W's classes). |
+| Targeted move | "Move about 2 hours from X, Y or Z to W" or "give W more hours". Reassigns whole shifts where feasible, and reports why a donor couldn't give (for example, all of Y's shifts clash with W's classes). When no set of whole shifts comes within 30 minutes of the ask, it also offers splits: the start or end of one donor shift goes to W, and the donor keeps the rest (D102). |
 | Remove from pool | Reassign a person's future shifts to eligible others at the same times, preferring low-hour and preferred-time matches. |
 | Split shift | Split one shift into parts (for example a 4-hour shift into two 2-hour halves) and assign each part. |
 | What-if | Any mode without saving. It returns the diff and hour changes so the supervisor can compare options. |
