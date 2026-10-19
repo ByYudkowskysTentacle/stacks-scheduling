@@ -93,6 +93,16 @@ def _purge_solve_runs(qs) -> int:
     return len(ids)
 
 
+# Suggested periods in days (D105): shown next to each field and applied only when an admin
+# clicks "Use suggested periods" and then saves. SPEC §11 gives the availability example.
+SUGGESTED = {
+    "availability_days": 365,
+    "time_off_days": 365,
+    "import_days": 30,
+    "notification_days": 180,
+    "solve_run_days": 90,
+}
+
 RULES = (
     Rule("availability_days", "Term availability", _availability, _purge_availability),
     Rule("time_off_days", "Time-off requests", _time_off, _purge_time_off),

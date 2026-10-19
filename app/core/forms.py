@@ -178,3 +178,11 @@ class RetentionPolicyForm(forms.ModelForm):
     class Meta:
         model = RetentionPolicy
         fields = ["availability_days", "time_off_days", "import_days", "notification_days", "solve_run_days"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from app.core.retention import SUGGESTED
+
+        for name, days in SUGGESTED.items():
+            field = self.fields[name]
+            field.help_text = f"{field.help_text} Suggested: {days}.".strip()

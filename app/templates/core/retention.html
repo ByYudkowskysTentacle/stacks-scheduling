@@ -6,7 +6,10 @@
 <p class="help">How long Stacks keeps each kind of personal data (SPEC §11). Leave a period blank to keep that data. Expired data is purged every night by the worker, together with its copies in the audit log. A purge can't be undone, so check the counts below first. Shifts, published schedules and hours history are never purged here; to remove one person's data, use their record's erase option.</p>
 <form method="post" class="stacked-form" novalidate>{% csrf_token %}
   {{ form.as_div }}
-  <div class="form-actions"><button type="submit" name="action" value="save" class="button button--primary">Save periods</button></div>
+  <div class="form-actions">
+    <button type="submit" name="action" value="save" class="button button--primary">Save periods</button>
+    <button type="submit" name="action" value="suggest" class="button" formnovalidate>Use suggested periods</button>
+  </div>
 </form>
 <h2>Due for purging today</h2>
 <table class="data-table">
