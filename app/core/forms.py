@@ -169,9 +169,41 @@ class TermForm(forms.ModelForm):
             "end_date",
             "availability_deadline",
             "availability_reminders",
-            "reminder_days_before",
+            "reminder_days",
         ]
         widgets = {"start_date": DateInput(), "end_date": DateInput(), "availability_deadline": DateInput()}
+
+    reminder_days = forms.CharField(
+        label="Reminder days",
+        required=False,
+        help_text="Days before the deadline to send a reminder, separated by commas, for example 7, 3, 1. "
+        "One also goes out on the deadline day.",
+    )
+
+    MAX_REMINDERS = 5
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and not self.is_bound:
+            self.initial["reminder_days"] = ", ".join(str(d) for d in self.instance.reminder_days)
+        elif not self.is_bound:
+            self.initial.setdefault("reminder_days", "3")
+
+    def clean_reminder_days(self) -> list[int]:
+        raw = self.cleaned_data.get("reminder_days") or ""
+        try:
+            days = sorted(
+                {int(part) for part in raw.replace(";", ",").split(",") if part.strip()}, reverse=True
+            )
+        except ValueError as exc:
+            raise forms.ValidationError(
+                "Use whole numbers separated by commas, for example 7, 3, 1."
+            ) from exc
+        if any(d < 1 or d > 60 for d in days):
+            raise forms.ValidationError("Each day must be between 1 and 60 days before the deadline.")
+        if len(days) > self.MAX_REMINDERS:
+            raise forms.ValidationError(f"Choose at most {self.MAX_REMINDERS} reminder days.")
+        return days
 
 
 class RetentionPolicyForm(forms.ModelForm):
