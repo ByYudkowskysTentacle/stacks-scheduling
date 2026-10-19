@@ -128,6 +128,8 @@ class WhatIfView(PeriodMixin, View):
             params["allow_published"] = True
         elif what_if == "shrink_freeze":
             params["freeze_hours"] = 0
+        elif what_if == "relax_rule" and request.POST.get("rule"):
+            params["relax_tag_rule"] = request.POST["rule"]  # just that hard rule, this run only (D97)
         elif what_if == "relax_rule":
             params["relax_tag_rules"] = True
         else:

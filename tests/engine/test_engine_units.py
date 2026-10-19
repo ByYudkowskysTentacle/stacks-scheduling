@@ -271,3 +271,58 @@ def test_generated_hours_respect_a_weekly_cap_shared_with_another_schedule():
     hours = minutes_by_person_week([s for s in option.shifts if s.employee_id], ctx.period)
     assert sum(hours.get(1, {}).values()) <= 2 * 60
     assert not [i for i in option.report.issues if i.category == Category.CAP]
+
+
+# --- Gaps a hard tag rule caused (D97) ------------------------------------------------------
+
+
+def monday_morning(tag_rule, people, caps=()):
+    window = Interval(540, 780)
+    rules = Rules(
+        coverage=CoverageRules(default=0, overrides=[CoverageOverride(frozenset({MON}), window, 1)]),
+        tag_rules=[tag_rule],
+        caps=list(caps),
+    )
+    return context(people, rules)
+
+
+def test_a_gap_left_by_a_hard_rule_names_the_rule_and_who_was_free():
+    rule = TagRule("New", TagRuleKind.NOT_SOLO, hard=True)
+    ctx = monday_morning(rule, [person(1, tags=("New",))])
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=5, workers=2)).options[0]
+    assert [i for i in option.report.issues if i.category == Category.COVERAGE_GAP]
+    text = " ".join(option.explanation.trade_offs)
+    assert 'because of the hard rule "A New never works alone": P1 was free' in text
+    unmet = next(u for u in option.explanation.unmet if u.category == Category.COVERAGE_GAP)
+    assert unmet.rule == "A New never works alone" and unmet.what_ifs == ("relax_rule",)
+    assert unmet.message.startswith("4 person-hours")
+
+
+def test_relaxing_that_rule_keeps_coverage_and_still_reports_the_rule():
+    rule = TagRule("New", TagRuleKind.NOT_SOLO, hard=True)
+    ctx = monday_morning(rule, [person(1, tags=("New",))])
+    relaxed = replace(ctx, rules=ctx.rules.softened(rule.describe()))
+    assert not relaxed.rules.tag_rules[0].hard and ctx.rules.tag_rules[0].hard
+    option = run(relaxed, SolveRequest(Mode.GENERATE, time_limit=5, workers=2)).options[0]
+    assert not [i for i in option.report.issues if i.category == Category.COVERAGE_GAP]
+    assert [i for i in option.report.issues if i.category == Category.TAG_RULE]
+
+
+def test_not_alone_gap_names_everyone_with_the_tag():
+    rule = TagRule("New", TagRuleKind.NOT_ALONE, hard=True)
+    ctx = monday_morning(rule, [person(1, tags=("New",)), person(2, tags=("New",))])
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=5, workers=2)).options[0]
+    text = " ".join(option.explanation.trade_offs)
+    assert "P1 and P2 were free, but no one without the tag was there" in text
+
+
+def test_a_gap_the_rule_did_not_cause_is_not_blamed_on_it():
+    # P2 has no tag and is free, but capped at 0 hours: the cap, not the rule, leaves the gap.
+    rule = TagRule("New", TagRuleKind.NOT_SOLO, hard=True)
+    ctx = monday_morning(
+        rule, [person(1, tags=("New",)), person(2)], caps=[HourCap(CapScope.WEEK, 0, employee_id=2)]
+    )
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=5, workers=2)).options[0]
+    assert [i for i in option.report.issues if i.category == Category.COVERAGE_GAP]
+    assert "hard rule" not in " ".join(option.explanation.trade_offs)
+    assert not [u for u in option.explanation.unmet if u.rule]

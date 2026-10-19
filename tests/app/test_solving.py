@@ -13,7 +13,7 @@ from django.urls import reverse
 
 from app.availability.models import Availability
 from app.core.models import Term
-from app.people.models import Employee
+from app.people.models import Employee, Tag
 from app.scheduling import services, solver
 from app.scheduling.models import (
     DesiredHours,
@@ -25,6 +25,7 @@ from app.scheduling.models import (
     SchedulingRules,
     Shift,
     SolveRun,
+    TagCoverageRule,
 )
 
 pytestmark = pytest.mark.django_db
@@ -182,6 +183,31 @@ def test_what_if_reruns_with_one_setting_relaxed(
         client.post(reverse("what_if", args=[period.pk, run.pk]), {"what_if": "allow_published"})
     newest = SolveRun.objects.order_by("-pk").first()
     assert newest.pk != run.pk and newest.params["allow_published"] is True
+
+
+def test_relaxing_one_hard_rule_is_a_what_if_for_that_run_only(
+    as_user, org, supervisor, period, django_capture_on_commit_callbacks
+):
+    tag = Tag.objects.create(organization=org, name="New employee")
+    TagCoverageRule.objects.create(organization=org, tag=tag, kind="not_solo", hard=True)
+    TagCoverageRule.objects.create(organization=org, tag=tag, kind="not_alone", hard=True)
+    client = as_user(supervisor)
+    with django_capture_on_commit_callbacks(execute=True):
+        run = run_solve(client, period, "rebalance")
+        client.post(
+            reverse("what_if", args=[period.pk, run.pk]),
+            {"what_if": "relax_rule", "rule": "A New employee never works alone"},
+        )
+    newest = SolveRun.objects.order_by("-pk").first()
+    assert newest.params["relax_tag_rule"] == "A New employee never works alone"
+    ctx, _ = solver.build_request(newest)
+    assert {r.describe(): r.hard for r in ctx.rules.tag_rules} == {
+        "A New employee never works alone": False,
+        "A New employee always has someone without the tag on duty": True,
+    }
+    assert TagCoverageRule.objects.filter(hard=True).count() == 2  # the saved rules are unchanged
+    page = client.get(reverse("solve_run", args=[period.pk, newest.pk])).content.decode()
+    assert "is treated as a preference in this run only" in page
 
 
 def test_solving_is_supervisor_only(as_user, lead_user, student_user, period):

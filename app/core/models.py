@@ -172,6 +172,10 @@ class Closure(models.Model):
         )
 
 
+def default_reminder_days() -> list[int]:
+    return [3]
+
+
 @audited()
 class Term(models.Model):
     """An academic period. Availability, caps and funding are term-scoped (SPEC §3.2)."""
@@ -189,10 +193,10 @@ class Term(models.Model):
         help_text="Off unless you turn it on (SPEC §5.2). Emails people who haven't entered or confirmed "
         "their availability, a few days before the deadline and on the day.",
     )
-    reminder_days_before = models.PositiveSmallIntegerField(
-        default=3,
-        validators=[MinValueValidator(1), MaxValueValidator(30)],
-        help_text="Days before the deadline.",
+    reminder_days = models.JSONField(
+        default=default_reminder_days,
+        blank=True,
+        help_text="Days before the deadline to send a reminder, for example 7, 3, 1. One also goes out on the day.",
     )
 
     class Meta:
