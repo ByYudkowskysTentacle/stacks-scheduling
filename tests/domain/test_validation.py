@@ -280,6 +280,28 @@ def test_not_alone_tag_rule():
     assert paired == []
 
 
+def test_not_alone_strict_reading_counts_two_new_employees_as_alone():
+    rule = TagRule("New employee", TagRuleKind.NOT_ALONE)
+    people = {1: person(1, tags={"New employee"}), 2: person(2, tags={"New employee"})}
+    rules = Rules(coverage=CoverageRules(default=0), tag_rules=[rule])
+    together = [shift(1, MONDAY, 540, 720), shift(2, MONDAY, 540, 720)]
+    issues = only(validate(ctx(together, people, rules)), Category.TAG_RULE)
+    assert [i.interval for i in issues] == [Interval(540, 720)]
+    assert issues[0].message.startswith("A New employee always has someone without the tag on duty")
+
+
+def test_not_solo_tag_rule_lets_new_employees_work_together():
+    rule = TagRule("New employee", TagRuleKind.NOT_SOLO)
+    people = {1: person(1, tags={"New employee"}), 2: person(2, tags={"New employee"})}
+    rules = Rules(coverage=CoverageRules(default=0), tag_rules=[rule])
+    together = [shift(1, MONDAY, 540, 720), shift(2, MONDAY, 600, 720)]
+    issues = only(validate(ctx(together, people, rules)), Category.TAG_RULE)
+    assert [i.interval for i in issues] == [Interval(540, 600)]  # alone only before 10am
+    assert issues[0].message == "A New employee never works alone: alone on duty Mon 18 Jan 9am–10am"
+    paired = [shift(1, MONDAY, 540, 720), shift(2, MONDAY, 540, 720)]
+    assert only(validate(ctx(paired, people, rules)), Category.TAG_RULE) == []
+
+
 def test_time_bound_tag_only_counts_on_its_days():
     rule = TagRule(
         "Shift lead", TagRuleKind.MIN_ON_DUTY, weekdays=frozenset({MON}), interval=Interval(540, 600)
