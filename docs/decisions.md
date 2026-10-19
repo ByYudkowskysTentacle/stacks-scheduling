@@ -249,6 +249,12 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 - **D73 (interpretation).** Explanations stay honest about time limits. A result that isn't proven optimal is labelled so, with its gap. Over-coverage is called forced only when the result is proven optimal or something specific (a duty shift ending, a closure) explains it. Otherwise it says a longer run may remove it.
 - **D74 (operations).** Solver limits come from the environment: `STACKS_GENERATE_SECONDS` (default 300), `STACKS_REBALANCE_SECONDS` (default 30) and `STACKS_SOLVER_WORKERS` (default `WORKER_CPUS`). CP-SAT's parallel search isn't deterministic, so two runs of the same solve can differ slightly. The engine tests check behaviour (coverage, caps, duties, locks, limits) rather than exact schedules, and CI runs them in their own job with `ENGINE_TEST_TIME_SCALE=2` for 2-CPU runners.
 
+## 2026-10-19 – Build session, student view and fallback export
+
+- **D75 (interpretation).** Every signed-in member can open the published schedule, one week at a time, laid out as one card per day for phones. Each shift shows only its time, location, pay-role colour and the co-worker's preferred name (D6). A shift's note shows only to the person it belongs to. "My schedule" lists the employee's own published shifts for the next four weeks, with who else is on duty at the same time. Draft changes never appear in either view.
+- **D76 (design).** The Homebase fallback (D47) is a CSV download of any published version (date, weekday, start, end, hours, full and preferred name, email, pay role, note) plus a printable people-by-days grid. The CSV is supervisor-only because it holds names and emails, and the page says to delete it after use. It's a tool-agnostic format: nothing is sent to Homebase.
+- **D77 (operations).** Backups: `deploy/backup.sh` pipes `pg_dump` straight into `age` encryption to a public key, so no unencrypted dump touches disk and the private key stays off the server. It keeps 30 days locally, and the guide says to copy backups off the server. The backup, restore and HTTPS serving steps in `docs/install.md` were run end to end on the compose stack.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -260,3 +266,6 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 7. Re-run the solver benchmark on the VPS once it is provisioned (D42).
 8. Consider mirroring these items and the SPEC §13 milestones as GitHub issues and milestones (D46).
 9. Confirm you're comfortable keeping wage rates on the off-campus VPS, or leave the wage fields blank until the hosting question (item 4) is settled (D48, D50).
+10. Review the build-session interpretations marked for a look: D64 (new employees never alone, read conservatively), D67 (hard tag rules weighted above coverage), D68 (rebalances take hours from the busiest first), D71 (applying a generate replaces drafts) and D51 (no departments yet).
+11. Decide whether Google sign-in (D5, generic OIDC restricted to the campus domain) is needed for go-live, or whether invited local accounts are enough for spring. It needs an OAuth client from campus Google Workspace admins.
+12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).

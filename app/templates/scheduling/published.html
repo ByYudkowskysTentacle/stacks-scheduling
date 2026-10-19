@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Schedule for the week of {{ week_start|date:"j M" }}{% endblock %}
+{% block content %}
+<h1>Schedule <span class="subtle">week of {{ week_start|date:"D j M Y" }}</span></h1>
+<p class="help">The published schedule. Changes appear here once a supervisor publishes them.</p>
+<nav class="pager" aria-label="Weeks">
+  <a href="?week={{ prev_week|date:'Y-m-d' }}">← Previous week</a>
+  <a href="?week={{ next_week|date:'Y-m-d' }}">Next week →</a>
+</nav>
+<div class="day-list">
+{% for d in days %}
+  <section class="day-card{% if d.day == today %} day-card--today{% endif %}" aria-labelledby="day-{{ forloop.counter }}">
+    <h2 id="day-{{ forloop.counter }}">{{ d.day|date:"l j M" }}{% if d.day == today %} <span class="badge">Today</span>{% endif %}</h2>
+    {% if d.shifts %}
+    <ul class="plain-list">
+      {% for s in d.shifts %}
+        <li class="public-shift{% if me and s.employee_id == me.pk %} public-shift--mine{% endif %}" style="--chip: {{ s.color }}">
+          <span class="public-shift__time">{{ s.interval.label }}</span>
+          <span class="public-shift__name">{% if me and s.employee_id == me.pk %}<strong>You</strong>{% else %}{{ s.name }}{% endif %}</span>
+          {% if s.note %}<span class="subtle">{{ s.note }}</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="subtle">No published shifts.</p>{% endif %}
+  </section>
+{% endfor %}
+</div>
+{% endblock %}

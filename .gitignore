@@ -28,3 +28,4 @@ spikes/**/results/*.log
 Thumbs.db
 .idea/
 .vscode/
+deploy/backup-recipient.txt

@@ -24,6 +24,7 @@
             {% if Perm.EDIT_SCHEDULE in access.perms %}
               <li><a href="{% url 'review_queue' %}"{% if request.resolver_match.url_name == 'review_queue' %} aria-current="page"{% endif %}>Review</a></li>
             {% endif %}
+            <li><a href="{% url 'published_schedule' %}"{% if request.resolver_match.url_name == 'published_schedule' %} aria-current="page"{% endif %}>Published</a></li>
             {% if access.employee %}
               <li><a href="{% url 'my_schedule' %}"{% if request.resolver_match.url_name == 'my_schedule' %} aria-current="page"{% endif %}>My schedule</a></li>
               <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>

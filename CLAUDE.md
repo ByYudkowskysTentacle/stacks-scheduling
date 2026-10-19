@@ -109,7 +109,7 @@ uv run pytest -q -m slow                 # engine acceptance scenarios (real sol
 DJANGO_DEBUG=1 uv run python manage.py procrastinate worker   # runs solves queued from the web app
 uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
 
-# production (see docs/install.md once written)
+# production: see docs/install.md (install, encrypted backups with deploy/backup.sh, restore, upgrade)
 docker compose up -d --build
 docker compose run --rm web python manage.py bootstrap --organization "Your Library" --admin-email you@example.edu
 
@@ -145,7 +145,8 @@ app/scheduling/       periods, draft shifts, publish and versions, rules config,
                       tasks.py is the worker task
 app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
-deploy/               Caddyfile; compose.yaml and compose.dev.yaml sit at the root
+deploy/               Caddyfile and backup.sh; compose.yaml and compose.dev.yaml sit at the root
+docs/install.md       install, backup, restore and upgrade guide
 fixtures/             synthetic rosters (fixtures/synthetic.py), sample import/export files
 tests/domain/         unit and property tests for domain/
 tests/adapters/       parser and adapter contract tests
