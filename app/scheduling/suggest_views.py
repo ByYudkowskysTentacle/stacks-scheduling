@@ -190,7 +190,8 @@ class RemoveFromPoolView(OrgViewMixin, View):
 
 class TargetedMoveView(PeriodMixin, View):
     """Move about N hours from some people to one person (SPEC §7.3, scenario 10). Planning is
-    a what-if; applying reassigns the chosen whole shifts as drafts."""
+    a what-if; applying reassigns the chosen whole shifts, or splits one shift (D102), as
+    drafts."""
 
     permission = Perm.EDIT_SCHEDULE
 
@@ -214,6 +215,26 @@ class TargetedMoveView(PeriodMixin, View):
     def post(self, request, period_pk):
         period = self.get_period()
         recipient = get_object_or_404(self.org_queryset(Employee), pk=request.POST.get("recipient"))
+        if request.POST.get("split"):
+            try:
+                kept, added = suggestions.apply_split_off(
+                    period,
+                    int(request.POST["split"]),
+                    int(request.POST.get("start", "")),
+                    int(request.POST.get("end", "")),
+                    recipient,
+                    request.user,
+                )
+            except (ValueError, suggestions.SuggestionError) as exc:
+                messages.error(request, str(exc))
+                return redirect("targeted_move", period_pk=period.pk)
+            flash_validation(
+                request,
+                period,
+                f"Split the shift: {added.minutes / 60:g}h to {recipient.display_name}, "
+                f"the rest stays with {kept.employee.display_name if kept.employee else 'nobody'}, as drafts.",
+            )
+            return redirect(reverse("period", args=[period.pk]))
         try:
             ids = [int(x) for x in request.POST.getlist("shift")]
             rows = suggestions.apply_move(period, recipient, ids, request.user)
