@@ -21,6 +21,7 @@ from app.scheduling.models import (
     SchedulePeriod,
     SchedulingRules,
     Shift,
+    TagCoverageRule,
 )
 from tests.conftest import make_user
 
@@ -348,6 +349,20 @@ def test_rule_change_revalidates_without_changing_shifts(as_user, org, superviso
     assert "Under the new rules" in response.content.decode()
     shift.refresh_from_db()
     assert shift.start_min == 540
+
+
+def test_new_employee_rule_strictness_is_a_setting(as_user, org, supervisor):
+    tag = Tag.objects.create(organization=org, name="New employee")
+    client = as_user(supervisor)
+    page = client.get(reverse("rules")).content.decode()
+    assert "Always with someone who doesn&#x27;t have the tag" in page
+    assert "Never working alone (anyone else on duty counts)" in page
+    client.post(
+        reverse("rules"),
+        {"form": "tag_rule", "tag": tag.pk, "kind": "not_solo", "count": 1, "minutes": "", "label": ""},
+    )
+    rule = TagCoverageRule.objects.get()
+    assert rule.kind == "not_solo" and str(rule) == "A New employee never works alone"
 
 
 def test_rules_form_uses_hours(as_user, org, supervisor):

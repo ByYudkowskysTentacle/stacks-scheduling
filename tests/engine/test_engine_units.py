@@ -26,6 +26,8 @@ from domain.rules import (
     Rotation,
     RotationMode,
     Rules,
+    TagRule,
+    TagRuleKind,
 )
 from domain.schedule import Period, Person, ScheduleContext, Shift, minutes_by_person_week
 from domain.timeutil import Interval
@@ -167,6 +169,33 @@ def test_desired_hours_go_to_whoever_is_furthest_below():
     hours = minutes_by_person_week([s for s in option.shifts if s.employee_id], ctx.period)
     a, b = sum(hours.get(1, {}).values()), sum(hours.get(2, {}).values())
     assert abs(a - b) <= 120  # split roughly evenly rather than one getting everything
+
+
+# --- New-employee rule, both readings (D96) -------------------------------------------------
+
+
+def _new_employees_only(kind):
+    rule = TagRule("New employee", kind, hard=True)
+    window = Interval(480, 720)
+    rules = Rules(
+        coverage=CoverageRules(default=0, overrides=[CoverageOverride(frozenset({MON}), window, 1)]),
+        tag_rules=[rule],
+    )
+    people = [person(1, tags={"New employee"}), person(2, tags={"New employee"})]
+    return run(context(people, rules), SolveRequest(Mode.GENERATE, time_limit=8, workers=2)).options[0]
+
+
+def test_strict_reading_leaves_a_gap_rather_than_two_new_employees_alone():
+    option = _new_employees_only(TagRuleKind.NOT_ALONE)
+    categories = {i.category for i in option.report.issues}
+    assert Category.TAG_RULE not in categories
+    assert Category.COVERAGE_GAP in categories  # no one without the tag exists to pair with
+
+
+def test_loose_reading_pairs_new_employees_and_covers():
+    option = _new_employees_only(TagRuleKind.NOT_SOLO)
+    categories = {i.category for i in option.report.issues}
+    assert Category.TAG_RULE not in categories and Category.COVERAGE_GAP not in categories
 
 
 # --- Property test: every result satisfies the hard rules or says which it couldn't -----------

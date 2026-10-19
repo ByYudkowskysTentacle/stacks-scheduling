@@ -279,6 +279,17 @@ def build_model(
                 miss = m.new_bool_var(f"alone{r_i}_{day}_{slot}")
                 add(sum((1 + k) * x[i] for i in new) + k * u - k * o - k * miss <= k * target)
                 terms["hard_tag" if rule.hard else "tag"].append((weight, miss))
+        elif rule.kind == TagRuleKind.NOT_SOLO:
+            # Whenever a tagged candidate is on, at least two people are on duty in that slot
+            # (on duty = target - under + over, as above).
+            for (day, slot), (u, o, target) in slack.items():
+                new = [i for i in by_cover.get((day, slot), []) if tagged(i, rule.tag)]
+                if not new:
+                    continue
+                miss = m.new_bool_var(f"solo{r_i}_{day}_{slot}")
+                for i in new:
+                    add(target - u + o + 2 * miss >= 2 * x[i])
+                terms["hard_tag" if rule.hard else "tag"].append((weight, miss))
 
     # Supervisor hour targets (SPEC §6.4), soft and below caps.
     for t in rules.targets:
