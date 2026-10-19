@@ -66,6 +66,7 @@ These came from building real schedules for a library of about 30 student worker
 
 ## 6. Security and privacy checklist (every PR)
 
+- Enable the commit guard once per clone: `git config core.hooksPath .githooks`. It runs gitleaks and `tools/check_sensitive.py` on staged changes; GitHub Actions runs both on every push. Never bypass it with `--no-verify`; fix the finding or, for a genuine false positive, allowlist it with a reason.
 - No personal data in logs, error messages, analytics or fixtures.
 - Authorization is checked server-side on every endpoint. Students see their own data plus the published schedule. Supervisors see their department. Admins see everything.
 - Secrets (SSO, Paycom credentials) come from environment or secret files and are never stored in the database in plain text.
@@ -85,6 +86,10 @@ These came from building real schedules for a library of about 30 student worker
 Stack approved in `docs/adr/0001-stack.md` (D43). The app commands (setup, dev server, tests, image build, synthetic seed data) are added here by the milestone 1 scaffolding; until then only the solver benchmark spike exists. Development runs in Docker Desktop (D23), so commands assume Docker.
 
 ```bash
+# once per clone: enable the secrets and personal-data commit guard
+git config core.hooksPath .githooks
+python tools/check_sensitive.py --all   # same personal-data check CI runs
+
 # solver benchmark spike (spikes/cpsat-benchmark/README.md has details)
 docker build -t stacks-bench spikes/cpsat-benchmark
 docker run --rm --cpus=4 -v "$PWD/spikes/cpsat-benchmark/results:/bench/results" stacks-bench --solver cpsat --seeds 1 2 3 --workers 4 --out runs.jsonl

@@ -189,6 +189,19 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 - **D43.** `LICENSE` holds the unmodified AGPL-3.0 text from GitHub's license API. The "or later" choice is stated in `README.md` and by the SPDX identifier `AGPL-3.0-or-later` in source file headers. Scaffolding (milestone 1) may start.
 - **Open: copyright holder.** The license notice needs a copyright holder. If the code is written as part of university employment, the university may own it under its IP policy. Check with the university before the repo goes public (D22), and before accepting outside contributions decide whether contributors keep their copyright (the usual approach, with a DCO sign-off) or assign it.
 
+## 2026-10-19 – Copyright and repository hygiene
+
+| # | Question | Decision |
+|---|---|---|
+| D44 | Copyright holder (D43) | The maintainer writes the code personally and unpaid, so the maintainer holds the copyright. |
+| D45 | Secrets and personal-data guard | Added: a pre-commit hook (`.githooks/pre-commit`) and a GitHub Actions workflow (`.github/workflows/sensitive-data.yml`) running gitleaks for secrets and `tools/check_sensitive.py` for personal data. |
+| D46 | GitHub issues and milestones | To consider later: mirror the open items below and SPEC §13 milestones as GitHub issues and milestones. Not set up yet. |
+
+### Interpretations
+
+- **D44.** Contributors will keep copyright in their own contributions under AGPL-3.0-or-later, the usual arrangement; a contributing guide with a DCO sign-off can come when outside contributions start. The README licence notice can gain a copyright line with whatever name the maintainer wants to publish under.
+- **D45.** The hook is per clone: run `git config core.hooksPath .githooks` once (CLAUDE.md §6). Locally gitleaks runs from an installed binary or the pinned Docker image, and is skipped with a warning if neither is available; CI always runs both checks over the full history. `tools/check_sensitive.py` reports file and line only, never the matched text. When the campus ID format is known, add it to `EXTRA_PATTERNS` there.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -196,5 +209,6 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 3. Share the header row of the financial aid FWS award CSV, with made-up values (D10). *Requested from financial aid on 2026-09-28.*
 4. Check with campus whether hosting student employee records on a VPS needs a data-processing agreement or registrar/counsel sign-off (D8).
 5. Confirm spring 2027 term dates (SPEC §3.2).
-6. Confirm who holds copyright in the code (you, the library or the university) before the repo goes public (D43).
+6. ~~Confirm who holds copyright~~ Resolved: the maintainer (D44). Optionally add a copyright line with your chosen name to the README notice.
 7. Re-run the solver benchmark on the VPS once it is provisioned (D42).
+8. Consider mirroring these items and the SPEC §13 milestones as GitHub issues and milestones (D46).

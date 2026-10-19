@@ -1,0 +1,28 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Blocks commits that contain secrets or real-looking personal data (CLAUDE.md section 6).
+# Enable once per clone:  git config core.hooksPath .githooks
+# The same checks run on GitHub for every push, so a skipped local check is still caught there.
+set -e
+
+GITLEAKS_IMAGE="ghcr.io/gitleaks/gitleaks:v8.30.1"
+
+PY=$(command -v python3 || command -v python || true)
+if [ -z "$PY" ]; then
+  echo "pre-commit: Python not found; personal-data check skipped locally (CI still runs it)." >&2
+else
+  "$PY" tools/check_sensitive.py --staged
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --redact --no-banner .
+elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  # pwd -W gives a Windows path under Git Bash; MSYS_NO_PATHCONV stops the mount being rewritten.
+  # GIT_CONFIG_* marks the mounted repo as safe for git running as a different user in the container.
+  REPO=$(pwd -W 2>/dev/null || pwd)
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$REPO:/repo" \
+    -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
+    "$GITLEAKS_IMAGE" git --pre-commit --staged --redact --no-banner /repo
+else
+  echo "pre-commit: gitleaks not installed and Docker not running; secrets check skipped locally (CI still runs it)." >&2
+fi
