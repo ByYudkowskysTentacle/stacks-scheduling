@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from domain.engine.candidates import Scope
-from domain.rules import CapScope, TagRuleKind
+from domain.rules import CapScope, TagRule, TagRuleKind
 from domain.schedule import ScheduleContext, Shift, minutes_by_person_week
-from domain.timeutil import format_minute_12h, intersect, total_minutes
+from domain.timeutil import Interval, format_minute_12h, intersect, total_minutes
 from domain.validation import Category, Issue, Report, day_label
 
 
@@ -28,6 +28,7 @@ class Unmet:
     message: str
     reason: str
     what_ifs: tuple[str, ...] = ()
+    rule: str = ""  # the tag rule a "relax_rule" what-if would relax, by its description (D97)
 
 
 @dataclass
@@ -40,7 +41,7 @@ class Explanation:
 WHAT_IF_LABELS = {
     "allow_published": "Allow changes to published shifts for this run",
     "shrink_freeze": "Shrink the freeze window for this run",
-    "relax_rule": "Relax this rule for this period",
+    "relax_rule": "Relax this rule for this period, keeping coverage",
 }
 
 
@@ -116,12 +117,33 @@ def explain(
             msg = f"{person.name}: {hours(got)}h of the {hours(t.minutes)}h target in {ctx.period.week_label(week)}"
             out.unmet.append(Unmet(Category.CAP, msg, reason, ("relax_rule",)))
 
-    # Forced trade-offs: over-coverage the shape rules made unavoidable (CLAUDE.md §4).
+    # Forced trade-offs: over-coverage the shape rules made unavoidable (CLAUDE.md §4), and gaps,
+    # naming the hard tag rule when one caused them (D97).
+    gaps_by_rule: dict[str, int] = {}
     for issue in report.issues:
         if issue.category == Category.OVER_COVERAGE and issue.day is not None and issue.interval is not None:
             out.trade_offs.append(_explain_over(ctx, shifts, issue, proven))
         elif issue.category == Category.COVERAGE_GAP and issue.day is not None and issue.interval is not None:
-            out.trade_offs.append(_explain_gap(ctx, issue))
+            blocked = _gap_blocked_by_rule(ctx, shifts, issue)
+            if blocked is None:
+                out.trade_offs.append(_explain_gap(ctx, issue))
+                continue
+            rule, names = blocked
+            out.trade_offs.append(_explain_rule_gap(issue.day, issue.interval, rule, names))
+            key = rule.describe()
+            gaps_by_rule[key] = gaps_by_rule.get(key, 0) + issue.minutes
+    for key, minutes in gaps_by_rule.items():
+        out.unmet.append(
+            Unmet(
+                Category.COVERAGE_GAP,
+                f'{hours(minutes)} person-hours of coverage left short by the hard rule "{key}"',
+                "hard rules outrank coverage, so the generator left the gap rather than break it. "
+                "The what-if treats this rule as a preference for this period only, so coverage comes "
+                "first; the validation suite will still show each place it is broken",
+                ("relax_rule",),
+                rule=key,
+            )
+        )
 
     # Unmet rules with what-ifs (D36).
     what_ifs: list[str] = []
@@ -142,15 +164,81 @@ def explain(
             Category.DUTY: _duty_reason(ctx, issue, proven),
         }.get(issue.category, "")
         extra = ("relax_rule",) if issue.category == Category.TAG_RULE else ()
-        out.unmet.append(Unmet(issue.category, issue.message, reason, tuple(what_ifs) + extra))
+        rule = _rule_for(ctx, issue) if issue.category == Category.TAG_RULE else None
+        out.unmet.append(
+            Unmet(
+                issue.category,
+                issue.message,
+                reason,
+                tuple(what_ifs) + extra,
+                rule=rule.describe() if rule is not None and rule.hard else "",
+            )
+        )
     return out
+
+
+def _rule_for(ctx: ScheduleContext, issue: Issue) -> TagRule | None:
+    return next((r for r in ctx.rules.tag_rules if issue.message.startswith(r.describe())), None)
+
+
+def _gap_blocked_by_rule(
+    ctx: ScheduleContext, shifts: Sequence[Shift], issue: Issue
+) -> tuple[TagRule, list[str]] | None:
+    """The hard "not alone" or "not solo" rule that kept free people off a gap, if one did: everyone
+    free for the whole gap has the tag, and no partner the rule needs is on duty or free (D97).
+    Returns None when anything else could explain the gap."""
+    if issue.day is None or issue.interval is None:
+        return None
+    day, run = issue.day, issue.interval
+    on_duty = {
+        s.employee_id
+        for s in shifts
+        if s.day == day and s.employee_id is not None and s.interval.overlaps(run)
+    }
+    free = [
+        p
+        for p in ctx.people.values()
+        if p.auto_schedulable
+        and p.id not in on_duty
+        and p.availability.is_known
+        and intersect([run], p.availability.available_within(day.weekday(), ctx.open_on(day))) == [run]
+    ]
+    if not free:
+        return None
+    for rule in ctx.rules.tag_rules:
+        if not rule.hard or rule.kind not in (TagRuleKind.NOT_ALONE, TagRuleKind.NOT_SOLO):
+            continue
+        if day.weekday() not in rule.weekdays or (
+            rule.interval is not None and not rule.interval.overlaps(run)
+        ):
+            continue
+        if not all(p.has_tag(rule.tag, day) for p in free):
+            continue
+        if rule.kind == TagRuleKind.NOT_ALONE:
+            partner = any(not ctx.people[e].has_tag(rule.tag, day) for e in on_duty if e in ctx.people)
+            if partner:
+                continue
+        elif on_duty or len(free) > 1:
+            continue  # someone else is there, or two of them could work together
+        return rule, sorted(p.name for p in free)
+    return None
+
+
+def _explain_rule_gap(day: date, run: Interval, rule: TagRule, names: list[str]) -> str:
+    who = _join(names)
+    verb = "was" if len(names) == 1 else "were"
+    partner = "else" if rule.kind == TagRuleKind.NOT_SOLO else "without the tag"
+    return (
+        f'{day_label(day)} {run.label()} is short because of the hard rule "{rule.describe()}": '
+        f"{who} {verb} free, but no one {partner} was there to work alongside."
+    )
 
 
 def _tag_reason(ctx: ScheduleContext, issue: Issue) -> str:
     """Whether anyone with the tag was free at all, from the rule named in the message."""
     if issue.day is None or issue.interval is None:
         return "not enough hours from people with the tag fit around caps and other rules"
-    rule = next((r for r in ctx.rules.tag_rules if issue.message.startswith(r.describe())), None)
+    rule = _rule_for(ctx, issue)
     if rule is None:
         return "not enough people with the tag were free at those times"
     day = issue.day

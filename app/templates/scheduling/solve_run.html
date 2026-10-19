@@ -17,6 +17,7 @@
   <p class="card card--problem">{{ run.error }}</p>
 {% endif %}
 
+{% if run.params.relax_tag_rule %}<p class="card card--notice">What-if: the hard rule "{{ run.params.relax_tag_rule }}" is treated as a preference in this run only, so coverage comes first. Your rules aren't changed. If you apply an option, the validation suite still reports each place the rule is broken.</p>{% endif %}
 {% for note in run.result.notes %}<p class="card card--notice">{{ note }}</p>{% endfor %}
 
 {% if options %}
@@ -48,7 +49,7 @@
     {% if o.unmet %}
       <h3>Rules left unmet</h3>
       <ul>{% for u in o.unmet %}<li>{{ u.message }}{% if u.reason %}: {{ u.reason }}{% endif %}.
-        {% for w in u.what_ifs %}<form method="post" action="{% url 'what_if' period.pk run.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="what_if" value="{{ w.key }}"><button type="submit" class="button button--small">What if: {{ w.label|lower }}</button></form>{% endfor %}</li>{% endfor %}</ul>
+        {% for w in u.what_ifs %}<form method="post" action="{% url 'what_if' period.pk run.pk %}" class="inline-form">{% csrf_token %}<input type="hidden" name="what_if" value="{{ w.key }}">{% if w.key == "relax_rule" and u.rule %}<input type="hidden" name="rule" value="{{ u.rule }}">{% endif %}<button type="submit" class="button button--small">What if: {{ w.label|lower }}</button></form>{% endfor %}</li>{% endfor %}</ul>
     {% endif %}
     {% if o.issues %}
       <details><summary>All validation results ({{ o.issues|length }})</summary><ul>{% for i in o.issues %}<li><span class="severity severity--{{ i.severity }}">{{ i.severity|capfirst }}</span> {{ i.message }}</li>{% endfor %}</ul></details>

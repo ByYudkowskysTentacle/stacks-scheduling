@@ -92,7 +92,11 @@ def build_request(run: SolveRun) -> tuple[ScheduleContext, SolveRequest]:
         workers=settings.STACKS_SOLVER_WORKERS,
         change_limit_minutes=scheduled * limit_pct // 100 if mode == Mode.REBALANCE else None,
     )
-    if p.get("relax_tag_rules"):
+    if p.get("relax_tag_rule"):  # one hard rule becomes a preference for this run (D97)
+        from dataclasses import replace
+
+        ctx = replace(ctx, rules=ctx.rules.softened(p["relax_tag_rule"]))
+    elif p.get("relax_tag_rules"):
         from dataclasses import replace
 
         ctx = replace(ctx, rules=replace(ctx.rules, tag_rules=[]))
@@ -169,6 +173,7 @@ def serialize_option(o: Option, names: dict[int, str]) -> dict[str, Any]:
             {
                 "message": u.message,
                 "reason": u.reason,
+                "rule": u.rule,
                 "what_ifs": [{"key": w, "label": WHAT_IF_LABELS[w]} for w in u.what_ifs],
             }
             for u in o.explanation.unmet
