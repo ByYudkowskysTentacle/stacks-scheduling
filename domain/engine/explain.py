@@ -139,6 +139,7 @@ def explain(
             Category.SHAPE: "a locked or out-of-scope shift breaks the shape rules",
             Category.DOUBLE_BOOKING: "two locked shifts overlap",
             Category.CLOSED: "a locked shift runs while the location is closed",
+            Category.DUTY: _duty_reason(ctx, issue, proven),
         }.get(issue.category, "")
         extra = ("relax_rule",) if issue.category == Category.TAG_RULE else ()
         out.unmet.append(Unmet(issue.category, issue.message, reason, tuple(what_ifs) + extra))
@@ -164,6 +165,20 @@ def _tag_reason(ctx: ScheduleContext, issue: Issue) -> str:
     if not free:
         return f"no one with the {rule.tag} tag is available at that time"
     return f"{len(free)} {rule.tag} {'person is' if len(free) == 1 else 'people are'} free then, but caps and other rules used their hours elsewhere"
+
+
+def _duty_reason(ctx: ScheduleContext, issue: Issue, proven: bool) -> str:
+    person = ctx.people.get(issue.employee_id) if issue.employee_id is not None else None
+    if person is None:
+        return "the duty couldn't be met"
+    if issue.day is not None:  # an opening shift
+        open_ivs = ctx.open_on(issue.day)
+        free = person.availability.available_within(issue.day.weekday(), open_ivs)
+        if not open_ivs or not free or free[0].start != open_ivs[0].start:
+            return f"{person.name} isn't available at opening time that day"
+    if not proven:
+        return "the solver stopped at its time limit before fitting it in; a longer run may"
+    return "a cap or a higher-priority rule left no room for it"
 
 
 def _explain_over(ctx: ScheduleContext, shifts: Sequence[Shift], issue: Issue, proven: bool = True) -> str:

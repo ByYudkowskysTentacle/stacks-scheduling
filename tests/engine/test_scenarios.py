@@ -93,13 +93,13 @@ def test_scenario_2_closure_and_forced_over_coverage(base):
 
 def test_scenario_3_opener_opens_every_weekday(base):
     ctx, option = base
-    mine = {s.day: s for s in option.shifts if s.employee_id == OPENER}
     weekdays = [d for d in ctx.period.days if d.weekday() <= FRI]
     for d in weekdays:
-        assert d in mine, f"no opening shift on {d}"
-        assert mine[d].interval.start == 450
+        # The opener may also have a second, later shift that day; the opening one is what counts.
+        opening = [s for s in option.shifts if s.employee_id == OPENER and s.day == d and s.interval.start == 450]
+        assert opening, f"no opening shift on {d}"
         if d.weekday() in (MON, WED, FRI):
-            assert mine[d].minutes == 90
+            assert opening[0].minutes == 90
 
 
 # --- Scenario 4: leads on separate weeks -----------------------------------------------------
