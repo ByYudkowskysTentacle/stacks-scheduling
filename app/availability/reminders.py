@@ -49,10 +49,8 @@ def due_people(term: Term) -> list[Due]:
 def reminder_days(term: Term) -> set[date]:
     if term.availability_deadline is None:
         return set()
-    return {
-        term.availability_deadline - timedelta(days=term.reminder_days_before),
-        term.availability_deadline,
-    }
+    before = {term.availability_deadline - timedelta(days=d) for d in term.reminder_days or []}
+    return before | {term.availability_deadline}
 
 
 def send(term: Term, today: date, *, by_hand: bool = False) -> int:

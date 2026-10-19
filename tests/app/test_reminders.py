@@ -119,13 +119,36 @@ def test_supervisor_turns_reminders_on_in_term_settings(as_user, supervisor, ter
             "end_date": "2027-05-07",
             "availability_deadline": "2027-01-08",
             "availability_reminders": "on",
-            "reminder_days_before": "5",
+            "reminder_days": "7, 3,1",
         },
     )
     assert resp.status_code == 302
     term.refresh_from_db()
-    assert term.availability_reminders and term.reminder_days_before == 5
-    assert reminders.reminder_days(term) == {date(2027, 1, 3), DEADLINE}
+    assert term.availability_reminders and term.reminder_days == [7, 3, 1]
+    assert reminders.reminder_days(term) == {date(2027, 1, 1), date(2027, 1, 5), date(2027, 1, 7), DEADLINE}
+    page = as_user(supervisor).get(reverse("term_edit", args=[term.pk])).content.decode()
+    assert 'value="7, 3, 1"' in page
+
+
+def test_reminder_days_are_validated(as_user, supervisor, term):
+    data = {"name": term.name, "start_date": "2027-01-11", "end_date": "2027-05-07"}
+    client = as_user(supervisor)
+    for bad, message in (("3, x", "whole numbers"), ("0", "between 1 and 60"), ("1,2,3,4,5,6", "at most 5")):
+        resp = client.post(reverse("term_edit", args=[term.pk]), {**data, "reminder_days": bad})
+        assert resp.status_code == 200 and message in resp.content.decode(), bad
+    term.refresh_from_db()
+    assert term.reminder_days == [3]
+
+
+def test_several_reminder_days_each_send_once(term, django_capture_on_commit_callbacks):
+    term.availability_reminders = True
+    term.reminder_days = [7, 1]
+    term.save()
+    sent = {}
+    for offset in (8, 7, 3, 1, 0):
+        with django_capture_on_commit_callbacks(execute=True):
+            sent[offset] = reminders.send_due(DEADLINE - timedelta(days=offset))
+    assert sent == {8: 0, 7: 2, 3: 0, 1: 2, 0: 2}
 
 
 def test_students_see_the_deadline(as_user, student_user, term):
