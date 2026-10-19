@@ -13,6 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from app.core.models import Department
 from app.people.models import Employee, PayRole
 from app.scheduling.models import PublishedVersion, SchedulePeriod
 from domain import calendar as cal
@@ -37,9 +38,35 @@ class PublicDay:
     shifts: list[PublicShift] = field(default_factory=lambda: [])
 
 
-def _latest_versions(org, first: date, last: date) -> list[tuple[SchedulePeriod, PublishedVersion]]:
+def student_departments(employee: Employee) -> frozenset[int] | None:
+    """The departments whose published schedules `employee` sees, and where they can swap or
+    cover (D108). None when the organization has no departments: then everything is shared."""
+    if not Department.objects.filter(organization_id=employee.organization_id).exists():
+        return None
+    return frozenset(employee.departments.values_list("pk", flat=True))
+
+
+def open_shift_departments(employee: Employee) -> frozenset[int] | None:
+    """Their own departments, plus any whose open shifts one of them has chosen to show (D108)."""
+    own = student_departments(employee)
+    if own is None:
+        return None
+    extra = {
+        int(pk)
+        for chosen in Department.objects.filter(pk__in=own).values_list("open_shifts_from", flat=True)
+        for pk in chosen or []
+    }
+    return own | frozenset(extra)
+
+
+def _latest_versions(
+    org, first: date, last: date, department_ids: frozenset[int] | None = None
+) -> list[tuple[SchedulePeriod, PublishedVersion]]:
     out = []
-    for period in SchedulePeriod.objects.filter(organization=org).select_related("location"):
+    periods = SchedulePeriod.objects.filter(organization=org).select_related("location")
+    if department_ids is not None:
+        periods = periods.filter(department_id__in=department_ids)
+    for period in periods:
         if period.end_date < first or period.start_date > last:
             continue
         latest = period.latest_version()
@@ -48,12 +75,15 @@ def _latest_versions(org, first: date, last: date) -> list[tuple[SchedulePeriod,
     return out
 
 
-def published_week(org, week_start: date, viewer: Employee | None) -> list[PublicDay]:
+def published_week(
+    org, week_start: date, viewer: Employee | None, department_ids: frozenset[int] | None = None
+) -> list[PublicDay]:
+    """One week of the published schedule; `department_ids` limits it to those departments."""
     days = cal.week_days(week_start)
     names = dict(Employee.objects.filter(organization=org).values_list("pk", "preferred_name"))
     colors = dict(PayRole.objects.filter(organization=org).values_list("pk", "color"))
     by_day: dict[date, list[PublicShift]] = defaultdict(list)
-    for period, version in _latest_versions(org, days[0], days[-1]):
+    for period, version in _latest_versions(org, days[0], days[-1], department_ids):
         for row in version.shifts:
             day = date.fromisoformat(row["date"])
             if not days[0] <= day <= days[-1]:

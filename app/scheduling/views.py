@@ -727,9 +727,21 @@ class MyScheduleView(OrgViewMixin, TemplateView):
 
 
 class PublishedScheduleView(OrgViewMixin, TemplateView):
-    """The full published schedule for one week, with co-workers' preferred names only (D6)."""
+    """The published schedule for one week, with co-workers' preferred names only (D6): for a
+    student, their own departments' (D108); for a supervisor or shift lead, the departments
+    they work with (D95)."""
 
     template_name = "scheduling/published.html"
+
+    def departments(self) -> frozenset[int] | None:
+        from app.scheduling.published import student_departments
+
+        access = self.request.access
+        if access.department_ids is not None or access.perms:  # supervisors, admins, shift leads
+            return access.department_ids
+        if access.employee is not None:
+            return student_departments(access.employee)
+        return frozenset() if self.request.organization.departments.exists() else None
 
     def get_context_data(self, **kwargs):
         from app.scheduling.published import published_week
@@ -744,7 +756,7 @@ class PublishedScheduleView(OrgViewMixin, TemplateView):
             day = today
         start = cal.week_start_for(day, org.week_start)
         ctx.update(
-            days=published_week(org, start, self.request.access.employee),
+            days=published_week(org, start, self.request.access.employee, self.departments()),
             week_start=start,
             prev_week=start - timedelta(days=7),
             next_week=start + timedelta(days=7),

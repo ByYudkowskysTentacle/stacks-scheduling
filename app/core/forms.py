@@ -162,6 +162,15 @@ class ClosureForm(forms.ModelForm):
 
 
 class DepartmentForm(forms.ModelForm):
+    open_shifts_from_choices = forms.ModelMultipleChoiceField(
+        queryset=Department.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Also show this department's people open shifts from",
+        help_text="They see only those departments' open shifts, not their schedules, and a "
+        "supervisor of that department still approves any claim (D108).",
+    )
+
     class Meta:
         model = Department
         fields = ["name", "coverage_default", "coverage_mode"]
@@ -170,6 +179,19 @@ class DepartmentForm(forms.ModelForm):
     def __init__(self, *args, organization, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
+        others = Department.objects.filter(organization=organization).exclude(pk=self.instance.pk)
+        field = self.fields["open_shifts_from_choices"]
+        if not others.exists():
+            del self.fields["open_shifts_from_choices"]
+            return
+        field.queryset = others
+        field.initial = list(others.filter(pk__in=self.instance.open_shifts_from or []))
+
+    def save(self, commit: bool = True) -> Department:
+        if "open_shifts_from_choices" in self.fields:
+            chosen = self.cleaned_data.get("open_shifts_from_choices") or []
+            self.instance.open_shifts_from = sorted(d.pk for d in chosen)
+        return super().save(commit)
 
     def clean_name(self):
         name = (self.cleaned_data.get("name") or "").strip()

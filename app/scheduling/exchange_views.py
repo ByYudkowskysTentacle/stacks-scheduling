@@ -15,7 +15,12 @@ from django.views.generic import TemplateView
 from app.core.views_base import OrgViewMixin
 from app.scheduling import exchanges
 from app.scheduling.models import ACTIVE_EXCHANGE, ExchangeKind, ExchangeStatus, Shift, ShiftExchange
-from app.scheduling.published import my_upcoming, published_week
+from app.scheduling.published import (
+    my_upcoming,
+    open_shift_departments,
+    published_week,
+    student_departments,
+)
 from domain import calendar as cal
 
 WEEKS = 4
@@ -43,15 +48,16 @@ class ShiftExchangeView(OrgViewMixin, TemplateView):
         open_shifts = [
             s
             for w in range(WEEKS)
-            for d in published_week(org, start + timedelta(days=7 * w), me)
+            for d in published_week(org, start + timedelta(days=7 * w), me, open_shift_departments(me))
             for s in d.shifts
             if s.employee_id is None and s.day >= today and s.shift_id
         ]
+        offers = active.filter(kind=ExchangeKind.COVER, status=ExchangeStatus.OPEN, shift__date__gte=today)
+        if (mine := student_departments(me)) is not None:  # co-workers in my departments (D108)
+            offers = offers.filter(shift__period__department__in=mine)
         ctx.update(
             open_shifts=[(s, s.shift_id in my_claims) for s in open_shifts],
-            offers=active.filter(kind=ExchangeKind.COVER, status=ExchangeStatus.OPEN, shift__date__gte=today)
-            .exclude(requester=me)
-            .select_related("shift__location", "requester"),
+            offers=offers.exclude(requester=me).select_related("shift__location", "requester"),
             my_shifts=[(m, m.shift.shift_id in offered) for m in my_upcoming(me, today, WEEKS)],
             swaps_for_me=active.filter(
                 kind=ExchangeKind.SWAP, status=ExchangeStatus.ASKED, taker=me
@@ -147,7 +153,7 @@ class SwapView(ShiftExchangeView):
             choices=[
                 s
                 for w in range(WEEKS)
-                for d in published_week(org, start + timedelta(days=7 * w), me)
+                for d in published_week(org, start + timedelta(days=7 * w), me, student_departments(me))
                 for s in d.shifts
                 if s.employee_id not in (None, me.pk)
                 and s.day >= today

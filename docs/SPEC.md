@@ -273,7 +273,7 @@ Run after every mutation. Show results in the UI and store them with the schedul
 - View own shifts (web and phone, plus an ICS feed).
 - View the full published schedule, with co-workers' preferred names on shared shifts. Students never see co-workers' availability, hours, wages, tags or notes (shift leads see free/busy and hours against caps, per §1).
 - Request time off (the approval flow checks coverage impact first).
-- Offer a shift for cover, propose swapping one of your shifts for a co-worker's, or claim an open shift. In a swap the co-worker accepts or declines first. The supervisor approves, and the validation suite runs on the would-be result (both moves together for a swap). Anyone on the roster may claim or swap, including non-regular staff: the scheduling pool limits only the generator and suggestions (D104).
+- Students see the published schedules of their own departments; a department can also list open shifts from departments it chooses (D108). Offer a shift for cover, propose swapping one of your shifts for a co-worker's, or claim an open shift. In a swap the co-worker accepts or declines first. The supervisor approves, and the validation suite runs on the would-be result (both moves together for a swap). Anyone on the roster may claim or swap, including non-regular staff: the scheduling pool limits only the generator and suggestions (D104).
 
 ### 9.3 Bulk operations
 
