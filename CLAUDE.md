@@ -132,9 +132,16 @@ app/accounts/         sign-in accounts (email login, allauth, TOTP)
 app/core/             organization, locations, hours, closures, terms, roles, the permission
                       layer (permissions.py), audit log helpers, management commands
 app/people/           employees, pay roles and wages, tags, invitations
+app/availability/     term availability, entry form and paint grid, the availability grid
+app/imports/          roster and availability CSV imports: preview, apply, undo
+app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
 deploy/               Caddyfile; compose.yaml and compose.dev.yaml sit at the root
-fixtures/             synthetic rosters, sample import/export files
+fixtures/             synthetic rosters (fixtures/synthetic.py), sample import/export files
 tests/domain/         unit and property tests for domain/
+tests/adapters/       parser and adapter contract tests
 tests/app/            view, permission and integration tests against PostgreSQL
+tests/browser/        Playwright tests: paint grid, print layout (skipped without Chromium;
+                      set CHROMIUM_PATH to use a local binary)
+docs/formats/         the documented import formats (D13)
 ```

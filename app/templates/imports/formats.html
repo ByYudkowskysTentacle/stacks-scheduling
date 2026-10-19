@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Import file formats{% endblock %}
+{% block content %}
+<p><a href="{% url 'imports' %}">← Import</a></p>
+<h1>Import file formats</h1>
+<p>Stacks imports two CSV files with a header row: a <strong>roster</strong> and <strong>availability</strong>. Column order and capitalisation don't matter, and files saved by Excel are fine. To move from Homebase, fill these in from Homebase's employee list and availability; its "Unavailable" and "Preferred" blocks map to the <code>type</code> column.</p>
+<p>Every import is previewed first. A file with any problem is rejected as a whole, and an applied import can be undone while it's the most recent one of its kind.</p>
+
+<h2>Roster</h2>
+<p>One row per employee, matched to existing records by email.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Column</th><th scope="col">Required</th><th scope="col">Meaning</th></tr></thead>
+  <tbody>
+    <tr><th scope="row"><code>full_name</code></th><td>Yes</td><td>Full name, shown to supervisors.</td></tr>
+    <tr><th scope="row"><code>preferred_name</code></th><td>Yes</td><td>Shown to co-workers on the published schedule.</td></tr>
+    <tr><th scope="row"><code>email</code></th><td>Yes</td><td>Matches records and receives the sign-in invitation. Unique in the file.</td></tr>
+    <tr><th scope="row"><code>campus_id</code></th><td>No</td><td>Unique across employees.</td></tr>
+    <tr><th scope="row"><code>employment_type</code></th><td>No</td><td><code>regular</code> (default), <code>non_regular</code> (never auto-scheduled) or <code>inactive</code>.</td></tr>
+    <tr><th scope="row"><code>hire_date</code></th><td>No</td><td><code>YYYY-MM-DD</code>.</td></tr>
+    <tr><th scope="row"><code>new_employee_until</code></th><td>No</td><td><code>YYYY-MM-DD</code>; new-employee rules apply until then.</td></tr>
+    <tr><th scope="row"><code>default_pay_role</code></th><td>No</td><td>Pay role name; created if new.</td></tr>
+    <tr><th scope="row"><code>tags</code></th><td>No</td><td>Tag names separated by semicolons, such as <code>Shift lead;Cataloguer</code>; created if new.</td></tr>
+  </tbody>
+</table>
+<p class="help">For existing people, blank optional cells leave current values alone and tags are only added. Wages aren't imported.</p>
+<pre class="sample">full_name,preferred_name,email,employment_type,default_pay_role,tags
+Avery Example,Avery,student01@example.edu,regular,Student Assistant,Opener</pre>
+
+<h2>Availability</h2>
+<p>One row per block, for the term you choose when uploading. Each person in the file gets exactly these blocks for that term, marked <strong>needs review</strong> until confirmed. Everyone must already be on the roster.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Column</th><th scope="col">Required</th><th scope="col">Meaning</th></tr></thead>
+  <tbody>
+    <tr><th scope="row"><code>email</code></th><td>Yes</td><td>The employee's email.</td></tr>
+    <tr><th scope="row"><code>weekday</code></th><td>Yes</td><td><code>Monday</code> to <code>Sunday</code>, or <code>Mon</code> to <code>Sun</code>.</td></tr>
+    <tr><th scope="row"><code>type</code></th><td>Yes</td><td><code>unavailable</code> or <code>preferred</code>.</td></tr>
+    <tr><th scope="row"><code>start</code>, <code>end</code></th><td>No</td><td>Times such as <code>09:00</code> or <code>9:50am</code>. Leave both blank for all day.</td></tr>
+  </tbody>
+</table>
+<p class="help">Times are kept exactly. For scheduling, unavailability widens to whole 15-minute slots, so a 9:50 end blocks until 10:00.</p>
+<pre class="sample">email,weekday,type,start,end
+student01@example.edu,Monday,unavailable,09:00,09:50
+student01@example.edu,Saturday,unavailable,,</pre>
+{% endblock %}

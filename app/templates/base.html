@@ -18,8 +18,14 @@
         <nav aria-label="Main" class="main-nav">
           <ul>
             <li><a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Home</a></li>
+            {% if access.employee %}
+              <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>
+            {% endif %}
+            {% if Perm.VIEW_FREE_BUSY in access.perms %}
+              <li><a href="{% url 'availability_grid' %}"{% if request.resolver_match.url_name == 'availability_grid' %} aria-current="page"{% endif %}>Availability grid</a></li>
+            {% endif %}
             {% if access.is_supervisor %}
-              <li><a href="{% url 'employees' %}"{% if 'employee' in request.resolver_match.url_name %} aria-current="page"{% endif %}>People</a></li>
+              <li><a href="{% url 'employees' %}"{% if 'employee' in request.resolver_match.url_name or 'import' in request.resolver_match.url_name %} aria-current="page"{% endif %}>People</a></li>
             {% endif %}
             {% if Perm.CONFIGURE in access.perms %}
               <li><a href="{% url 'locations' %}"{% if request.path|slice:':10' == '/settings/' %} aria-current="page"{% endif %}>Settings</a></li>

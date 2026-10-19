@@ -2,7 +2,9 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from app.availability import views as availability
 from app.core import views as core
+from app.imports import views as imports
 from app.people import views as people
 
 urlpatterns = [
@@ -58,6 +60,23 @@ urlpatterns = [
     path("people/<int:pk>/edit/", people.EmployeeUpdateView.as_view(), name="employee_edit"),
     path("people/<int:pk>/archive/", people.EmployeeArchiveView.as_view(), name="employee_archive"),
     path("people/<int:pk>/invite/", people.EmployeeInviteView.as_view(), name="employee_invite"),
+    path(
+        "people/<int:pk>/availability/",
+        availability.EmployeeAvailabilityView.as_view(),
+        name="employee_availability",
+    ),
+    # Availability
+    path("availability/", availability.MyAvailabilityView.as_view(), name="my_availability"),
+    path("availability/grid/", availability.AvailabilityGridView.as_view(), name="availability_grid"),
+    path(
+        "availability/<int:pk>/confirm/",
+        availability.ConfirmAvailabilityView.as_view(),
+        name="availability_confirm",
+    ),
+    # Imports
+    path("imports/", imports.ImportListView.as_view(), name="imports"),
+    path("imports/formats/", imports.ImportFormatsView.as_view(), name="import_formats"),
+    path("imports/<int:pk>/", imports.ImportDetailView.as_view(), name="import_detail"),
 ]
 
 admin.site.site_header = "Stacks administration"

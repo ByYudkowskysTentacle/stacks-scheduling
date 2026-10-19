@@ -1,0 +1,10 @@
+email,weekday,type,start,end
+student01@example.edu,Monday,unavailable,09:00,09:50
+student01@example.edu,Wednesday,unavailable,09:00,09:50
+student01@example.edu,Friday,unavailable,09:00,09:50
+student01@example.edu,Saturday,unavailable,,
+student01@example.edu,Sunday,unavailable,,
+student02@example.edu,Tue,unavailable,9:30am,10:45am
+student02@example.edu,Thu,unavailable,9:30am,10:45am
+student02@example.edu,Mon,preferred,13:00,17:00
+student03@example.edu,Wednesday,Unavailable,18:00,20:45

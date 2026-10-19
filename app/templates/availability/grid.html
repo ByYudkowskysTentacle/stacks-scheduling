@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Availability grid{% endblock %}
+{% block content %}
+<h1>Availability <span class="subtle">{{ term.name }}, week of {{ week|date:"D j M Y" }}</span></h1>
+
+<form method="get" class="filter-bar" role="search" aria-label="Filter the grid">
+  <div><label for="term">Term</label>
+    <select id="term" name="term">{% for t in terms %}<option value="{{ t.pk }}"{% if t.pk == term.pk %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div><label for="week">Week of</label><input id="week" type="date" name="week" value="{{ week|date:'Y-m-d' }}"></div>
+  <div><label for="q">Name</label><input id="q" type="search" name="q" value="{{ filters.q }}"></div>
+  {% if full_view %}
+  <div><label for="tag">Tag</label>
+    <select id="tag" name="tag"><option value="">Any</option>{% for t in tags %}<option value="{{ t.pk }}"{% if filters.tag == t.pk|stringformat:"d" %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+  {% endif %}
+  <div><label for="status">Status</label>
+    <select id="status" name="status"><option value="">Any</option>{% for v, l in statuses %}<option value="{{ v }}"{% if filters.status == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div><button type="submit" class="button">Show</button></div>
+  <div><button type="button" class="button" onclick="window.print()">Print</button></div>
+</form>
+<p class="pager">
+  <a href="?term={{ term.pk }}&amp;week={{ prev_week|date:'Y-m-d' }}">← Previous week</a>
+  <a href="?term={{ term.pk }}&amp;week={{ next_week|date:'Y-m-d' }}">Next week →</a>
+</p>
+
+{% if not location %}<p>Add a location and its operating hours first.</p>{% else %}
+<ul class="legend" aria-label="Key">
+  <li><span class="legend__key bar-seg--unavailable"></span> Can't work (hatched)</li>
+  <li><span class="legend__key bar-seg--preferred"></span> Prefers (solid)</li>
+  <li><span class="legend__key bar-seg--closed"></span> Closed (dark)</li>
+</ul>
+<div class="grid-scroll">
+<table class="avail-grid">
+  <caption class="visually-hidden">Weekly availability by employee, {{ term.name }}</caption>
+  <thead>
+    <tr>
+      <th scope="col" class="avail-grid__name">Employee</th>
+      {% for d in days %}<th scope="col">{{ d|date:"D j M" }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{% if r.summary.status == 'not_entered' %}is-not-entered{% endif %}">
+      <th scope="row" class="avail-grid__name">
+        <span class="avail-grid__person">{{ r.employee.display_name }}</span>
+        {% if r.summary.status == "not_entered" %}<span class="badge badge--not_entered">Not entered</span>
+        {% elif r.summary.status == "needs_review" %}<span class="badge badge--needs_review">Needs review</span>{% endif %}
+        {% if r.summary.status != "not_entered" %}<span class="avail-grid__hours">{{ r.summary.available_minutes|hours }} of {{ r.summary.open_minutes|hours }} h{% if r.summary.days_fully_out %}; out {{ r.summary.days_fully_out|join:", " }}{% endif %}</span>{% endif %}
+        {% if full_view %}<span class="avail-grid__tags">{% for t in r.tags %}<span class="tag">{{ t.name }}</span> {% endfor %}</span>
+          {% if r.employee.employment_type == "non_regular" %}<span class="badge">Non-regular</span>{% endif %}
+          {% if Perm.MANAGE_PEOPLE in access.perms %}<a class="small-link no-print" href="{% url 'employee_availability' r.employee.pk %}?term={{ term.pk }}">Edit<span class="visually-hidden"> {{ r.employee.display_name }}'s availability</span></a>{% endif %}{% endif %}
+      </th>
+      {% for day in r.days %}
+        <td>
+          {% if day.closed %}<span class="subtle">Closed</span>
+          {% elif r.summary.status == "not_entered" %}<span class="subtle">?</span>
+          {% else %}
+            <div class="bar" aria-hidden="true">{% for s in day.segments %}<span class="bar-seg bar-seg--{{ s.kind }}" style="left: {{ s.left }}%; width: {{ s.width }}%"></span>{% endfor %}</div>
+            <div class="bar-text">
+              {% if day.fully_free %}Free{% elif day.fully_out %}Out all day{% else %}{% if day.unavailable %}Out {{ day.unavailable|join:", " }}{% endif %}{% endif %}
+              {% if day.preferred and not day.fully_out %}<br>Prefers {{ day.preferred|join:", " }}{% endif %}
+            </div>
+          {% endif %}
+        </td>
+      {% endfor %}
+    </tr>
+  {% empty %}
+    <tr><td colspan="8">No one matches.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th scope="row">Free all open hours / part / not entered</th>
+      {% for c in coverage %}<td>{{ c.free_all_open_hours }} / {{ c.free_part }} / {{ c.not_entered }}</td>{% endfor %}
+    </tr>
+  </tfoot>
+</table>
+</div>
+{% endif %}
+{% endblock %}

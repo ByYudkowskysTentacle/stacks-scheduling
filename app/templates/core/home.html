@@ -2,6 +2,13 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 <h1>Welcome{% if access.employee %}, {{ access.employee.display_name }}{% endif %}</h1>
+{% if term %}
+  <section aria-labelledby="avail-heading" class="card">
+    <h2 id="avail-heading">Your availability for {{ term.name }}</h2>
+    <p><strong>Status:</strong> {{ availability_status }}</p>
+    <p><a class="button{% if availability_status != 'Entered' %} button--primary{% endif %}" href="{% url 'my_availability' %}?term={{ term.pk }}">{% if availability_status == "Entered" %}Review or change it{% elif availability_status == "Needs review" %}Check and confirm it{% else %}Enter it now{% endif %}</a></p>
+  </section>
+{% endif %}
 {% if setup %}
   <section aria-labelledby="setup-heading" class="card">
     <h2 id="setup-heading">Set up {{ organization.name }}</h2>
@@ -14,7 +21,7 @@
       {% endfor %}
     </ol>
   </section>
-{% else %}
-  <p>Your availability and schedule will appear here.</p>
+{% elif not term %}
+  <p>Your schedule will appear here once it's published.</p>
 {% endif %}
 {% endblock %}

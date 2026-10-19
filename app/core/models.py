@@ -195,6 +195,16 @@ class Term(models.Model):
     def contains(self, day: date) -> bool:
         return self.start_date <= day <= self.end_date
 
+    @classmethod
+    def current_for(cls, organization: Organization, today: date) -> Term | None:
+        """The term containing `today`, else the next one to start, else the most recent."""
+        terms = cls.objects.filter(organization=organization)
+        return (
+            terms.filter(start_date__lte=today, end_date__gte=today).first()
+            or terms.filter(start_date__gt=today).order_by("start_date").first()
+            or terms.order_by("-end_date").first()
+        )
+
 
 class Role(models.TextChoices):
     """Access roles (SPEC §1). Shift-lead rights are granted per employee, not by role (D25)."""

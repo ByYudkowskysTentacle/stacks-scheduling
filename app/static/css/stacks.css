@@ -121,3 +121,64 @@ legend { font-weight: 700; padding: 0 0.3rem; }
 .filter-bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
 .filter-bar label { display: block; font-size: 0.85rem; font-weight: 600; }
 .pager { display: flex; gap: 1rem; }
+
+.card--notice { border-left: 5px solid var(--warn); }
+.card--problem { border-left: 5px solid var(--danger); }
+.badge--not_entered { border-style: dotted; border-width: 2px; font-weight: 700; }
+.badge--needs_review { border-style: dashed; font-weight: 700; }
+.badge--entered { border-color: var(--ok); }
+pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; font-size: 0.85rem; }
+
+/* Hatching, solid and dark fills distinguish states without relying on colour (CLAUDE.md §2.7). */
+:root {
+  --hatch: repeating-linear-gradient(135deg, #5b6472 0 2px, transparent 2px 6px);
+  --preferred: #2f7d4f;
+  --closed: #1b1f24;
+}
+.legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; font-size: 0.9rem; }
+.legend__key { display: inline-block; width: 1.4rem; height: 0.9rem; border: 1px solid var(--ink); vertical-align: middle; position: relative; }
+
+/* Availability entry */
+.availability-table { border-collapse: collapse; width: 100%; }
+.availability-table th, .availability-table td { padding: 0.3rem 0.4rem 0.3rem 0; text-align: left; vertical-align: top; }
+.availability-table input { width: 100%; }
+@media (max-width: 30rem) {
+  .availability-table thead { display: none; }
+  .availability-table tr { display: block; border-bottom: 1px solid var(--line); padding: 0.4rem 0; }
+  .availability-table th, .availability-table td { display: block; padding: 0.15rem 0; }
+  .availability-table td::before { font-size: 0.8rem; color: var(--ink-soft); display: block; }
+  .availability-table td:nth-of-type(1)::before { content: "Can't work"; }
+  .availability-table td:nth-of-type(2)::before { content: "Prefer"; }
+}
+.painter { margin: 1rem 0; }
+.painter__toolbar { display: flex; gap: 0.5rem; position: sticky; top: 0; background: var(--paper); padding: 0.4rem 0; z-index: 2; }
+.painter__toolbar [aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.painter__toolbar [aria-pressed="true"]::before { content: "✓ "; }
+.painter__grid { overflow-x: auto; max-height: 70vh; overflow-y: auto; border: 1px solid var(--line); }
+.painter__table { border-collapse: collapse; width: 100%; min-width: 20rem; user-select: none; font-size: 0.75rem; }
+.painter__table thead td { position: sticky; top: 0; background: var(--paper); font-weight: 700; text-align: center; padding: 0.2rem; z-index: 1; }
+.painter__table td { height: 0.85rem; border-left: 1px solid var(--line); padding: 0; cursor: crosshair; }
+.painter__table td.cell--hour { border-top: 1px solid var(--line); }
+.painter__time { width: 3rem; text-align: right; padding-right: 0.3rem !important; color: var(--ink-soft); cursor: default !important; border-left: 0 !important; vertical-align: top; line-height: 1; }
+.cell--closed { background: #d9dce1; }
+.cell--unavailable, .legend__key.cell--unavailable { background: var(--hatch), #e9ebee; }
+.cell--preferred, .legend__key.cell--preferred { background: var(--preferred); }
+.legend__key.cell--closed { background: #d9dce1; }
+.cell--anchor { outline: 3px solid var(--focus); outline-offset: -3px; }
+
+/* Availability grid (SPEC §5.3) */
+.grid-scroll { overflow-x: auto; }
+.avail-grid { border-collapse: collapse; width: 100%; min-width: 60rem; font-size: 0.8rem; }
+.avail-grid th, .avail-grid td { border: 1px solid var(--line); padding: 0.3rem; vertical-align: top; text-align: left; }
+.avail-grid thead th { background: var(--paper-alt); white-space: nowrap; }
+.avail-grid__name { width: 12rem; font-weight: normal; }
+.avail-grid__person { font-weight: 700; display: block; }
+.avail-grid__hours, .avail-grid__tags { display: block; color: var(--ink-soft); }
+.avail-grid tr.is-not-entered { background: repeating-linear-gradient(45deg, transparent 0 8px, #f3f0e6 8px 10px); }
+.avail-grid tfoot th, .avail-grid tfoot td { font-weight: 700; background: var(--paper-alt); }
+.bar { position: relative; height: 0.9rem; border: 1px solid var(--ink-soft); background: var(--paper); }
+.bar-seg { position: absolute; top: 0; bottom: 0; }
+.bar-seg--unavailable, .legend__key.bar-seg--unavailable { background: var(--hatch), #e9ebee; }
+.bar-seg--preferred, .legend__key.bar-seg--preferred { background: var(--preferred); }
+.bar-seg--closed, .legend__key.bar-seg--closed { background: var(--closed); }
+.bar-text { margin-top: 0.15rem; line-height: 1.3; }

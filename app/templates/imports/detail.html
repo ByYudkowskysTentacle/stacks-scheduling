@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ batch }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'imports' %}">← Imports</a></p>
+<h1>{{ batch }}: {{ batch.get_status_display|lower }}</h1>
+<p class="subtle">{{ batch.filename }}{% if batch.term %} · {{ batch.term }}{% endif %} · uploaded {{ batch.created_at|date:"j M Y H:i" }}</p>
+
+{% if plan.problems %}
+  <section class="card card--problem" aria-labelledby="problems">
+    <h2 id="problems">{{ plan.problems|length }} problem{{ plan.problems|length|pluralize }} to fix</h2>
+    <p>Nothing has been imported. Fix these in the file and upload it again.</p>
+    <ul>{% for p in plan.problems %}<li>{{ p }}</li>{% endfor %}</ul>
+  </section>
+{% endif %}
+{% if plan.warnings %}
+  <section class="card"><h2>Warnings</h2><ul>{% for w in plan.warnings %}<li>{{ w }}</li>{% endfor %}</ul></section>
+{% endif %}
+
+{% if batch.kind == "roster" %}
+  <h2>{% if batch.status == Status.PREVIEW %}What will change{% else %}What changed{% endif %}</h2>
+  <ul>
+    <li>{{ plan.create|length }} new employee{{ plan.create|length|pluralize }}</li>
+    <li>{{ plan.update|length }} updated</li>
+    <li>{{ plan.unchanged }} unchanged</li>
+    {% if plan.new_tags %}<li>New tags: {{ plan.new_tags|join:", " }}</li>{% endif %}
+    {% if plan.new_pay_roles %}<li>New pay roles: {{ plan.new_pay_roles|join:", " }}</li>{% endif %}
+  </ul>
+  <p class="help">Imports only add tags; they never remove a tag someone already has. Blank optional cells leave existing values alone.</p>
+  {% if plan.create %}
+    <h3>New</h3>
+    <table class="data-table"><thead><tr><th scope="col">Row</th><th scope="col">Name</th><th scope="col">Email</th></tr></thead><tbody>
+      {% for c in plan.create %}<tr><td>{{ c.row }}</td><th scope="row">{{ c.name }}</th><td>{{ c.email }}</td></tr>{% endfor %}
+    </tbody></table>
+  {% endif %}
+  {% if plan.update %}
+    <h3>Updated</h3>
+    <table class="data-table"><thead><tr><th scope="col">Row</th><th scope="col">Name</th><th scope="col">Changes</th></tr></thead><tbody>
+      {% for u in plan.update %}<tr><td>{{ u.row }}</td><th scope="row">{{ u.name }}{% if u.archived %} <span class="badge">Archived</span>{% endif %}</th>
+        <td><ul class="plain-list">{% for field, change in u.changes.items %}<li><code>{{ field }}</code>: {{ change.0|default:"(blank)" }} → {{ change.1|default:"(blank)" }}</li>{% endfor %}
+          {% if u.add_tags %}<li>Add tags: {{ u.add_tags|join:", " }}</li>{% endif %}</ul></td></tr>{% endfor %}
+    </tbody></table>
+  {% endif %}
+{% else %}
+  <h2>Availability for {{ plan.term }}</h2>
+  <p class="help">Each person listed gets exactly the blocks in the file for this term, replacing what they had. Their availability is marked <strong>needs review</strong> until they or a supervisor confirm it.</p>
+  <table class="data-table"><thead><tr><th scope="col">Name</th><th scope="col">Blocks in file</th><th scope="col">Replaces</th><th scope="col">Status before</th></tr></thead><tbody>
+    {% for p in plan.people %}<tr><th scope="row">{{ p.name }}</th><td>{{ p.blocks }}</td><td>{{ p.replaces }} block{{ p.replaces|pluralize }}</td><td>{{ p.previous_status }}</td></tr>{% endfor %}
+  </tbody></table>
+{% endif %}
+
+{% if batch.status == Status.PREVIEW %}
+  <form method="post" class="form-actions">{% csrf_token %}
+    {% if not plan.problems %}<button type="submit" name="action" value="apply" class="button button--primary">Apply import</button>{% endif %}
+    <button type="submit" name="action" value="discard" class="button">Discard</button>
+  </form>
+{% elif can_undo %}
+  <form method="post" class="stacked-form card">{% csrf_token %}
+    <h2>Undo this import</h2>
+    <p>Restores every record this import changed to how it was before. Employees it created are removed, or archived if they've been used since.</p>
+    <div><label><input type="checkbox" name="confirm" value="yes"> I understand. Undo the import.</label></div>
+    <div class="form-actions"><button type="submit" name="action" value="undo" class="button button--danger">Undo import</button></div>
+  </form>
+{% endif %}
+{% endblock %}
