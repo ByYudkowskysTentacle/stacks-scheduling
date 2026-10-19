@@ -10,7 +10,7 @@ import pytest
 from django.core import mail
 from django.urls import reverse
 
-from app.core.models import Location, Membership, Role, Term
+from app.core.models import Department, Location, Membership, Role, Term
 from app.people.models import Employee, PayRole, Tag
 from app.scheduling import services
 from app.scheduling.models import (
@@ -76,8 +76,28 @@ def shift_post(employee=None, day=MONDAY, start="09:00", end="12:00", pay_role="
 
 
 def test_creating_a_period_snaps_to_the_week_start(as_user, org, supervisor, location):
-    as_user(supervisor).post(reverse("schedule_index"), {"start_date": "2027-01-20", "weeks": 2})
-    assert SchedulePeriod.objects.get().start_date == START
+    dept = Department.objects.create(organization=org, name="Circulation")
+    page = as_user(supervisor).get(reverse("schedule_index")).content.decode()
+    assert f'value="{dept.pk}" selected' in page  # the only department is preselected
+    as_user(supervisor).post(
+        reverse("schedule_index"), {"department": dept.pk, "start_date": "2027-01-20", "weeks": 2}
+    )
+    period = SchedulePeriod.objects.get()
+    assert period.start_date == START and period.department == dept
+
+
+def test_each_department_plans_its_own_period_for_the_same_week(as_user, org, supervisor, location):
+    circ = Department.objects.create(organization=org, name="Circulation")
+    special = Department.objects.create(organization=org, name="Special Collections")
+    client = as_user(supervisor)
+    for dept in (circ, special, circ):
+        client.post(
+            reverse("schedule_index"), {"department": dept.pk, "start_date": "2027-01-18", "weeks": 2}
+        )
+    assert sorted(p.department.name for p in SchedulePeriod.objects.all()) == [
+        "Circulation",
+        "Special Collections",
+    ]
 
 
 def test_saving_a_shift_runs_validation_and_says_so(as_user, supervisor, period, employee):

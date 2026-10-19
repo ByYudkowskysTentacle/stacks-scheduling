@@ -52,14 +52,23 @@ def ordered_weekday_choices(week_start: int):
 class PeriodForm(forms.ModelForm):
     class Meta:
         model = SchedulePeriod
-        fields = ["start_date", "weeks"]
+        fields = ["department", "start_date", "weeks"]
         widgets = {"start_date": DateInput()}
-        help_texts = {"start_date": "Moved back to the start of its week if needed."}
+        help_texts = {
+            "start_date": "Moved back to the start of its week if needed.",
+            "department": "Whose schedule this is. Each department plans its own (D95).",
+        }
 
-    def __init__(self, *args, organization, **kwargs):
+    def __init__(self, *args, organization, departments=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
         self.fields["weeks"].initial = organization.planning_period_weeks
+        field = self.fields["department"]
+        field.required = True
+        field.empty_label = None
+        field.queryset = departments if departments is not None else organization.departments.all()
+        if field.queryset.count() == 1:
+            field.initial = field.queryset.first()
 
     def clean_start_date(self):
         return cal.week_start_for(self.cleaned_data["start_date"], self.organization.week_start)

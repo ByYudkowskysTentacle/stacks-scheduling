@@ -14,9 +14,9 @@ from django.urls import reverse
 from django.utils import timezone
 
 from app.availability.models import Availability, AvailabilityBlock
-from app.core.models import Membership, Role, Term
+from app.core.models import Department, Membership, Role, Term
 from app.imports.models import BatchKind, ImportBatch
-from app.people.models import Employee, EmployeePayRole, EmployeeTag, Tag
+from app.people.models import Employee, EmployeeDepartment, EmployeePayRole, EmployeeTag, Tag
 from app.people.records import ErasureError, erase_employee, export_employee
 from app.scheduling import services
 from app.scheduling.models import (
@@ -47,6 +47,11 @@ def records_setup(org, location, supervisor, student_user, employee, pay_role):
     employee.default_wage = Decimal("13.50")
     employee.save()
     EmailPreference.objects.create(organization=org, user=student_user, category="time_off", email=True)
+    EmployeeDepartment.objects.create(
+        organization=org,
+        employee=employee,
+        department=Department.objects.create(organization=org, name="Circulation"),
+    )
     EmployeePayRole.objects.create(
         organization=org, employee=employee, pay_role=pay_role, wage=Decimal("14.00")
     )
@@ -118,6 +123,7 @@ def test_export_holds_the_whole_record(records_setup, employee):
     assert data["employee"]["default_wage"] == "13.50"
     assert data["pay_role_rates"][0]["wage"] == "14.00"
     assert data["tags"][0]["tag"] == "Opener"
+    assert data["departments"] == ["Circulation"]
     assert data["availability"][0]["blocks"][0]["start"] == 600
     assert data["desired_hours"][0]["hours"] == 10
     assert data["shifts"][0]["note"] == SECRET_NOTE
@@ -194,6 +200,7 @@ def test_erasure_removes_personal_records_and_keeps_hours_history(records_setup,
     assert not DesiredHours.objects.filter(employee=employee).exists()
     assert not EmployeePayRole.objects.filter(employee=employee).exists()
     assert not EmployeeTag.objects.filter(employee=employee).exists()
+    assert not EmployeeDepartment.objects.filter(employee=employee).exists()
     assert not HourCapRule.objects.filter(employee=employee).exists()
     # Shifts and published versions survive, without notes.
     shift = Shift.objects.get(pk=records_setup["shift"].pk)

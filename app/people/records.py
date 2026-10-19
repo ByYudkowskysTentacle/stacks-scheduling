@@ -80,6 +80,7 @@ def export_employee(employee: Employee) -> dict[str, Any]:
             {"pay_role": r.pay_role.name, "wage": _plain(r.wage)}
             for r in employee.pay_roles.select_related("pay_role")
         ],
+        "departments": [d.name for d in employee.departments.all()],
         "tags": [
             {"tag": t.tag.name, "from": _plain(t.valid_from), "to": _plain(t.valid_to)}
             for t in employee.employee_tags.select_related("tag")
@@ -223,6 +224,7 @@ def erase_employee(employee: Employee) -> None:
             model.objects.filter(employee=employee).delete()
         employee.pay_roles.all().delete()
         employee.employee_tags.all().delete()
+        employee.department_links.all().delete()
         CallOut.objects.filter(called_out=employee).update(note="")
         Shift.objects.filter(employee=employee).update(note="")
 

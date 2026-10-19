@@ -3,9 +3,9 @@
 {% block content %}
 {% include "core/settings_nav.html" %}
 <h1>Roles</h1>
-<p class="help">Supervisors manage people, schedules and settings. Admins can also change roles. Employees join by invitation from their record in People. Shift-lead rights are granted on each employee's record, not here.</p>
+<p class="help">Supervisors manage people, schedules and settings for their departments. Admins see every department and can also change roles. Employees join by invitation from their record in People. Shift-lead rights are granted on each employee's record, not here.</p>
 <table class="data-table">
-  <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col"><span class="visually-hidden">Change</span></th></tr></thead>
+  <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col"><span class="visually-hidden">Change</span></th><th scope="col">Departments</th></tr></thead>
   <tbody>
   {% for m in members %}
     <tr>
@@ -20,6 +20,17 @@
           </select>
           <button type="submit" class="button button--small">Change</button>
         </form>
+      </td>
+      <td>
+        {% if m.role == "supervisor" %}
+        <form method="post" class="inline-form">{% csrf_token %}
+          <input type="hidden" name="membership" value="{{ m.pk }}"><input type="hidden" name="action" value="departments">
+          <fieldset><legend class="visually-hidden">Departments {{ m.user.email }} manages</legend>
+          {% for d in departments %}<label><input type="checkbox" name="department" value="{{ d.pk }}"{% if d in m.departments.all %} checked{% endif %}> {{ d.name }}</label> {% endfor %}
+          </fieldset>
+          <button type="submit" class="button button--small">Save</button>
+        </form>
+        {% elif m.role == "admin" %}All{% else %}—{% endif %}
       </td>
     </tr>
   {% endfor %}

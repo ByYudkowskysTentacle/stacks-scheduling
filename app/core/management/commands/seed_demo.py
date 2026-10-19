@@ -23,6 +23,7 @@ from app.accounts.models import User
 from app.availability.models import Availability, AvailabilityBlock, AvailabilityReminder, Status, TimeOff
 from app.core.models import (
     Closure,
+    Department,
     Location,
     Membership,
     OpenInterval,
@@ -30,10 +31,19 @@ from app.core.models import (
     Organization,
     RetentionPolicy,
     Role,
+    SupervisorDepartment,
     Term,
 )
 from app.imports.models import ImportBatch
-from app.people.models import Employee, EmployeePayRole, EmployeeTag, EmploymentType, PayRole, Tag
+from app.people.models import (
+    Employee,
+    EmployeeDepartment,
+    EmployeePayRole,
+    EmployeeTag,
+    EmploymentType,
+    PayRole,
+    Tag,
+)
 from app.scheduling.models import (
     CalendarFeed,
     CallOut,
@@ -163,6 +173,7 @@ def delete_organization(org: Organization) -> None:
         ImportBatch,
         AvailabilityBlock,
         Availability,
+        EmployeeDepartment,
         EmployeeTag,
         EmployeePayRole,
         Employee,
@@ -172,6 +183,7 @@ def delete_organization(org: Organization) -> None:
         OperatingHoursSet,
         Closure,
         Term,
+        Department,
     ):
         model.objects.filter(organization=org).delete()
     Location.objects.filter(organization=org).delete()
@@ -182,6 +194,8 @@ def delete_organization(org: Organization) -> None:
 def build_demo(rng: random.Random) -> Organization:
     org = Organization.objects.create(name=DEMO_ORG)
     loc = Location.objects.create(organization=org, name="Main library")
+    # One department, so every employee below joins it automatically (D95).
+    circulation = Department.objects.create(organization=org, name="Circulation")
     hours = OperatingHoursSet.objects.create(
         organization=org, location=loc, name="Regular term hours", effective_from=date(2026, 8, 1)
     )
@@ -215,7 +229,9 @@ def build_demo(rng: random.Random) -> Organization:
 
     for email, role in (("admin@example.edu", Role.ADMIN), ("supervisor@example.edu", Role.SUPERVISOR)):
         user = User.objects.filter(email=email).first() or User.objects.create_user(email, DEMO_PASSWORD)
-        Membership.objects.create(user=user, organization=org, role=role)
+        membership = Membership.objects.create(user=user, organization=org, role=role)
+        if role == Role.SUPERVISOR:
+            SupervisorDepartment.objects.create(membership=membership, department=circulation)
 
     names = [(first, rng.choice(LAST)) for first in rng.sample(FIRST, 32)]
     for i, (first, last) in enumerate(names, start=1):
@@ -312,7 +328,11 @@ def seed_rules_and_period(org, loc, tags, spring) -> None:
     )
     TagCoverageRule.objects.create(organization=org, tag=tags["New employee"], kind="not_alone")
     period = SchedulePeriod.objects.create(
-        organization=org, location=loc, start_date=date(2027, 1, 16), weeks=2
+        organization=org,
+        location=loc,
+        department=Department.objects.get(organization=org),
+        start_date=date(2027, 1, 16),
+        weeks=2,
     )
     opener = Employee.objects.get(organization=org, email="student01@example.edu")
     DutyAssignment.objects.create(

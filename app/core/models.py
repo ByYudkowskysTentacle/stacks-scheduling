@@ -233,17 +233,52 @@ class Role(models.TextChoices):
 
 
 @audited()
+class Department(models.Model):
+    """A team with its own schedules, for example Circulation or Special Collections (D95).
+    Employees can belong to several. An admin assigns each supervisor one or more."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="departments")
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["organization", "name"], name="department_name_once")]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@audited()
 class Membership(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships")
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE)
     created_at = models.DateTimeField(auto_now_add=True)
+    departments = models.ManyToManyField(
+        Department, through="SupervisorDepartment", related_name="supervisors", blank=True
+    )
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["user", "organization"], name="membership_unique")]
 
     def __str__(self) -> str:
         return f"{self.user} ({self.get_role_display()})"
+
+
+@audited()
+class SupervisorDepartment(models.Model):
+    """A department a supervisor manages (D95). Admins manage every department."""
+
+    membership = models.ForeignKey(Membership, on_delete=models.CASCADE, related_name="department_links")
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="supervisor_links")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["membership", "department"], name="supervisor_department_once")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.membership}: {self.department}"
 
 
 def _days(label: str, help_text: str) -> models.PositiveIntegerField:

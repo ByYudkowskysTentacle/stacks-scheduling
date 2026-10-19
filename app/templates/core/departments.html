@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Departments{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Departments</h1>
+<p class="help">Each department plans its own schedules with its own roster. Someone can be in several departments; their hours across all of them count toward their caps. Put people in departments from their record in People, and give supervisors their departments under Roles. Admins see every department.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Department</th><th scope="col">Supervisors</th></tr></thead>
+  <tbody>
+  {% for d in object_list %}
+    <tr><th scope="row"><a href="{% url 'department_edit' d.pk %}">{{ d.name }}</a></th>
+      <td>{% for m in d.supervisors.all %}{{ m.user.email }}{% if not forloop.last %}, {% endif %}{% empty %}None yet{% endfor %}</td></tr>
+  {% empty %}
+    <tr><td colspan="2">No departments yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><a class="button" href="{% url 'department_add' %}">Add a department</a></p>
+{% endblock %}

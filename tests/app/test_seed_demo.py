@@ -11,9 +11,9 @@ from django.core.management import call_command
 from django.test import override_settings
 
 from app.availability.models import TimeOff
-from app.core.models import Organization
+from app.core.models import Department, Organization
 from app.people.models import Employee
-from app.scheduling.models import ExchangeKind, ExchangeStatus, Shift, ShiftExchange
+from app.scheduling.models import ExchangeKind, ExchangeStatus, SchedulePeriod, Shift, ShiftExchange
 
 pytestmark = pytest.mark.django_db
 
@@ -33,6 +33,22 @@ def test_reset_removes_everything_the_demo_grew():
     call_command("seed_demo", "--reset", stdout=StringIO())
     assert Organization.objects.filter(name="Demo Library").count() == 1
     assert not TimeOff.objects.exists() and not ShiftExchange.objects.exists()
+    org = Organization.objects.get(name="Demo Library")
+    dept = Department.objects.get(organization=org)  # one department holding everyone (D95)
+    assert not Employee.objects.filter(organization=org).exclude(departments=dept).exists()
+    assert SchedulePeriod.objects.get(organization=org).department == dept
+
+
+def test_bootstrap_starts_with_one_department(monkeypatch):
+    monkeypatch.setenv("STACKS_ADMIN_PASSWORD", "a-long-synthetic-password-42")
+    call_command(
+        "bootstrap", "--organization", "Test Library", "--admin-email", "boot@example.edu", stdout=StringIO()
+    )
+    call_command(
+        "bootstrap", "--organization", "Test Library", "--admin-email", "boot@example.edu", stdout=StringIO()
+    )
+    org = Organization.objects.get(name="Test Library")
+    assert [d.name for d in Department.objects.filter(organization=org)] == ["General"]
 
 
 def test_refuses_without_debug():

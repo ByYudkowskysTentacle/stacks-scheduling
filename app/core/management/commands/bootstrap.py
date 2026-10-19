@@ -19,7 +19,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from app.accounts.models import User
-from app.core.models import Location, Membership, Organization, Role
+from app.core.models import Department, Location, Membership, Organization, Role
 
 
 class Command(BaseCommand):
@@ -46,6 +46,8 @@ class Command(BaseCommand):
                 name=opts["organization"], defaults={"time_zone": opts["time_zone"]}
             )
             Location.objects.get_or_create(organization=org, name=opts["location"])
+            if not org.departments.exists():  # one to start; admins can rename it or add more (D95)
+                Department.objects.get_or_create(organization=org, name="General")
             if user is None:
                 user = User.objects.create_user(email, password)
             Membership.objects.update_or_create(user=user, organization=org, defaults={"role": Role.ADMIN})
