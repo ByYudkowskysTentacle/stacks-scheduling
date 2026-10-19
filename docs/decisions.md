@@ -384,6 +384,14 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 - **D107 (resolves part of open item 16).** Once an organization has departments, the audit log shows each supervisor the changes to records in their own departments (people, schedules, shifts, requests, time off, availability), plus changes to organization-wide settings. Admins see everything. Changes to another department's records, including wages and notes, are no longer visible to that department's outsiders.
 - **D108 (resolves part of open item 16).** Students see the published schedules of their own departments only, and can claim open shifts and propose swaps only within them. A department's supervisor can turn on a setting that also lists open shifts from other departments to their employees, choosing which departments. *Interpretation:* the setting belongs to the employees' department (the one whose people may look elsewhere), and lists the chosen departments' open shifts only, not their full schedules. A claim still goes to the supervisor of the shift's department, and the validation suite still runs on it.
 - **D109 (revises D93/D105 and the retention purge).** Purging expired data no longer removes the audit history of that data. The audit log gets its own retention period under Settings, Retention, blank by default (keep). When it is set, audit entries older than that are purged on the same nightly run. Erasure still leaves the audit log as it is (D100).
+  *Built:*
+  - **Purges keep the audit history.** They delete the live rows only: availability, time off and solver runs are deleted, notifications are deleted, and import batches have their data blanked. The audit history of each stays, including the delete itself.
+  - **New setting.** `RetentionPolicy.audit_days` ("Audit log" on Settings, Retention) runs last in the nightly purge. It removes every audit entry recorded before the cutoff from each event table that carries the organization, plus the organization's own entries.
+  - **Preview.** The preview counts them like the other periods.
+  - *Interpretation:*
+    - The audit period has no suggested value, so "Use suggested periods" leaves it blank (keep).
+    - Entries for models without an organization, such as a supervisor's department link, aren't purged; they hold no student data.
+    - The audit log's shared context rows (who and which action) stay. They hold an account id and an action name, never the changed data.
 
 ## Open items for the maintainer
 

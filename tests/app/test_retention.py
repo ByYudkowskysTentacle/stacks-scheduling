@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Retention settings per data type (SPEC §11): off until set, previewed, purged with their
-audit snapshots, administrators only."""
+"""Retention settings per data type (SPEC §11): off until set, previewed, purged from the live
+records while the audit log keeps its history until its own period (D109), administrators
+only."""
 
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from app.core import retention
 from app.core.models import Term
 from app.imports.models import BatchKind, BatchStatus, ImportBatch
 from app.imports.services import can_undo
+from app.people.models import Employee
 from app.scheduling.models import Notification, SchedulePeriod, SolveRun
 
 pytestmark = pytest.mark.django_db
@@ -87,7 +89,7 @@ def test_preview_counts_without_removing(org, data):
     assert Availability.objects.count() == 2
 
 
-def test_purge_removes_expired_rows_and_their_audit_snapshots(org, data):
+def test_purge_removes_expired_rows_and_keeps_their_audit_history(org, data):
     set_policy(
         org,
         availability_days=365,
@@ -110,20 +112,11 @@ def test_purge_removes_expired_rows_and_their_audit_snapshots(org, data):
     batch = ImportBatch.objects.get()
     assert (batch.payload, batch.plan, batch.undo) == ([], {}, {}) and batch.filename == ""
     assert not can_undo(batch)  # its undo data is gone
+    # The audit log keeps the history, including the removal itself (D109).
     events = apps.get_model("availability", "AvailabilityEvent").objects
-    assert not events.filter(pgh_obj_id=data["a_old"].pk).exists()
-    assert events.filter(pgh_obj_id=data["a_new"].pk).exists()
-    assert (
-        not apps.get_model("availability", "AvailabilityBlockEvent")
-        .objects.filter(availability_id=data["a_old"].pk)
-        .exists()
-    )
-    assert (
-        not apps.get_model("availability", "TimeOffEvent")
-        .objects.filter(pgh_obj_id=data["t_old"].pk)
-        .exists()
-    )
-    assert not apps.get_model("imports", "ImportBatchEvent").objects.exclude(payload=[]).exists()
+    assert events.filter(pgh_obj_id=data["a_old"].pk, pgh_label="delete").exists()
+    assert apps.get_model("availability", "TimeOffEvent").objects.filter(pgh_obj_id=data["t_old"].pk).exists()
+    assert apps.get_model("imports", "ImportBatchEvent").objects.exclude(payload=[]).exists()
     policy = retention.policy_for(org)
     assert policy.last_purge_counts == counts and policy.last_purged_at is not None
 
@@ -169,3 +162,42 @@ def test_suggested_periods_fill_the_form_but_save_nothing(as_user, admin_user, o
     assert 'name="availability_days" value="365"' in html
     assert retention.policy_for(org).availability_days is None  # not saved
     assert Notification.objects.exists()  # and nothing purged
+
+
+def _age_audit(days: int) -> None:
+    """Pretend every audit entry so far was recorded `days` before TODAY."""
+    from pghistory.models import Event
+
+    when = timezone.make_aware(timezone.datetime(TODAY.year, TODAY.month, TODAY.day)) - timedelta(days=days)
+    for model in apps.get_models():
+        if issubclass(model, Event):
+            model.objects.update(pgh_created_at=when)
+
+
+def test_the_audit_log_is_kept_until_its_own_period(org, other_org, data):
+    TimeOff.objects.create(
+        organization=other_org,
+        employee=Employee.objects.create(
+            organization=other_org, full_name="Other Person", preferred_name="O"
+        ),
+        start_date=date(2027, 2, 1),
+        end_date=date(2027, 2, 2),
+    )
+    _age_audit(400)
+    events = apps.get_model("availability", "TimeOffEvent").objects
+    assert {d.label: d.count for d in retention.preview(org, TODAY)}["Audit log"] == 0  # blank keeps
+    set_policy(org, audit_days=365)
+    due = {d.label: d.count for d in retention.preview(org, TODAY)}["Audit log"]
+    assert due > 0 and events.filter(organization_id=org.pk).exists()
+    counts = retention.purge(org, TODAY)
+    assert counts["Audit log"] == due
+    assert not events.filter(organization_id=org.pk).exists()
+    assert events.filter(organization_id=other_org.pk).exists()  # another organization's stays
+    assert TimeOff.objects.filter(organization=org).count() == 2  # live data untouched
+
+
+def test_recent_audit_entries_stay(org, data):
+    set_policy(org, audit_days=365)
+    _age_audit(30)
+    assert retention.purge(org, TODAY).get("Audit log") == 0
+    assert apps.get_model("availability", "TimeOffEvent").objects.filter(organization_id=org.pk).exists()
