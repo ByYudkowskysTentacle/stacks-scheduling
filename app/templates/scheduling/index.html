@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Schedules{% endblock %}
+{% block content %}
+<h1>Schedules</h1>
+<table class="data-table">
+  <thead><tr><th scope="col">Period</th><th scope="col">Published</th><th scope="col">Unpublished changes</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <th scope="row"><a href="{% url 'period' r.period.pk %}">{{ r.period }}</a> <span class="subtle">({{ r.period.weeks }} week{{ r.period.weeks|pluralize }})</span></th>
+      <td>{% if r.latest %}Version {{ r.latest.number }}, {{ r.latest.published_at|date:"j M H:i" }}{% else %}Not yet{% endif %}</td>
+      <td>{% if r.pending_people %}{{ r.pending_people }} employee{{ r.pending_people|pluralize }} affected{% else %}None{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="3">No schedule periods yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if can_create %}
+<form method="post" class="stacked-form card" novalidate>
+  {% csrf_token %}
+  <h2>Start a planning period</h2>
+  {{ form.as_div }}
+  <div class="form-actions"><button type="submit" class="button button--primary">Create period</button></div>
+</form>
+{% endif %}
+{% endblock %}

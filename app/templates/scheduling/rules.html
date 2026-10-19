@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Scheduling rules{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Scheduling rules</h1>
+<p class="help">After any change, the current period is validated right away and its new issues are shown. Nothing in the schedule changes on its own.</p>
+
+<form method="post" class="stacked-form card" novalidate>{% csrf_token %}
+  <input type="hidden" name="form" value="rules">
+  <h2>Coverage, shift shape and caps</h2>
+  {{ rules_form.as_div }}
+  <div class="form-actions"><button type="submit" class="button button--primary">Save</button></div>
+</form>
+
+<section class="card" aria-labelledby="ov-h">
+  <h2 id="ov-h">Coverage overrides</h2>
+  <ul class="plain-list">
+    {% for o in overrides %}<li>{{ o }} on {% for wd in o.weekdays %}{{ wd|weekday_short }}{% if not forloop.last %}, {% endif %}{% endfor %}
+      {% include "scheduling/_remove.html" with kind="override" pk=o.pk %}</li>{% empty %}<li>None. The default applies at all open hours.</li>{% endfor %}
+  </ul>
+  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="override">
+    {{ override_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add override</button></div></form>
+</section>
+
+<section class="card" aria-labelledby="cap-h">
+  <h2 id="cap-h">Hour caps</h2>
+  <ul class="plain-list">
+    {% for c in caps %}<li>{{ c }}{% if c.label %} ({{ c.label }}){% endif %} {% include "scheduling/_remove.html" with kind="cap" pk=c.pk %}</li>{% empty %}<li>Only the default weekly cap above.</li>{% endfor %}
+  </ul>
+  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="cap">
+    {{ cap_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add cap</button></div></form>
+</section>
+
+<section class="card" aria-labelledby="tr-h">
+  <h2 id="tr-h">Tag coverage rules</h2>
+  <ul class="plain-list">
+    {% for r in tag_rules %}<li>{{ r }} ({% if r.hard %}hard{% else %}soft{% endif %}) {% include "scheduling/_remove.html" with kind="tag_rule" pk=r.pk %}</li>{% empty %}<li>None yet.</li>{% endfor %}
+  </ul>
+  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="tag_rule">
+    {{ tag_rule_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add rule</button></div></form>
+</section>
+{% endblock %}

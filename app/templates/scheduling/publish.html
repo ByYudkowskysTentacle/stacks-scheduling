@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Publish {{ period }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>Publish {{ period }}</h1>
+{% if latest %}<p>The current published version is {{ latest.number }}, from {{ latest.published_at|date:"j M Y H:i" }}.</p>{% endif %}
+
+<section class="card" aria-labelledby="changes-heading">
+  <h2 id="changes-heading">{% if changes %}{{ changes|length }} employee{{ changes|length|pluralize }} will get one summary each{% else %}No changes to publish{% endif %}</h2>
+  {% if changes %}
+  <table class="data-table">
+    <thead><tr><th scope="col">Employee</th><th scope="col">Added</th><th scope="col">Removed</th></tr></thead>
+    <tbody>
+    {% for e, c in changes %}
+      <tr><th scope="row">{{ e.display_name }}{% if not e.user_id %} <span class="badge">Not invited: won't be notified</span>{% endif %}</th>
+        <td>{{ c.added|join:"; "|default:"—" }}</td><td>{{ c.removed|join:"; "|default:"—" }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="help">Each email holds only that person's own changes and a link. No wages, hour totals or co-workers' details.</p>
+  {% endif %}
+</section>
+
+{% include "scheduling/_report.html" %}
+
+{% if changes or not latest %}
+<form method="post" class="stacked-form card">{% csrf_token %}
+  {% if report.errors %}<p><strong>The schedule still has {{ report.errors|length }} error{{ report.errors|length|pluralize }}.</strong> You can publish anyway; they'll be recorded with this version.</p>{% endif %}
+  <div><label><input type="checkbox" name="confirm" value="yes"> Publish and notify the employees listed</label></div>
+  <div class="form-actions"><button type="submit" class="button button--primary">Publish</button>
+    <a href="{% url 'period' period.pk %}" class="button">Not yet</a></div>
+</form>
+{% endif %}
+{% endblock %}

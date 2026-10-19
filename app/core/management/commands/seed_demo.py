@@ -11,7 +11,7 @@ DJANGO_DEBUG is on, so it can't touch a production database by accident.
 from __future__ import annotations
 
 import random
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pghistory
@@ -33,6 +33,17 @@ from app.core.models import (
 )
 from app.imports.models import ImportBatch
 from app.people.models import Employee, EmployeePayRole, EmployeeTag, EmploymentType, PayRole, Tag
+from app.scheduling.models import (
+    CallOut,
+    CoverageOverride,
+    HourCapRule,
+    Notification,
+    PublishedVersion,
+    SchedulePeriod,
+    SchedulingRules,
+    Shift,
+    TagCoverageRule,
+)
 from domain.availability import normalise_blocks
 from domain.calendar import FRI, MON, SAT, SUN, THU, TUE, WED
 from fixtures import synthetic
@@ -111,6 +122,15 @@ class Command(BaseCommand):
 def delete_organization(org: Organization) -> None:
     """Development helper: remove every row of the demo organization, children first."""
     for model in (
+        Notification,
+        CallOut,
+        PublishedVersion,
+        Shift,
+        SchedulePeriod,
+        TagCoverageRule,
+        HourCapRule,
+        CoverageOverride,
+        SchedulingRules,
         ImportBatch,
         AvailabilityBlock,
         Availability,
@@ -230,4 +250,52 @@ def build_demo(rng: random.Random) -> Organization:
                 )
                 for b in normalise_blocks(blocks)
             )
+
+    seed_rules_and_period(org, loc, tags, spring)
     return org
+
+
+def seed_rules_and_period(org, loc, tags, spring) -> None:
+    """The pilot's rules (SPEC §6) and a spring period with a few draft shifts."""
+    SchedulingRules.for_org(org)
+    HourCapRule.objects.create(
+        organization=org,
+        scope="period",
+        minutes=720,
+        tag=tags["New employee"],
+        label="New employees' period cap",
+    )
+    tenth = Employee.objects.filter(organization=org).order_by("email")[9]
+    HourCapRule.objects.create(
+        organization=org, scope="week", minutes=600, employee=tenth, label="Other campus job"
+    )
+    TagCoverageRule.objects.create(organization=org, tag=tags["Shift lead"], kind="min_on_duty")
+    TagCoverageRule.objects.create(
+        organization=org,
+        tag=tags["Cataloguer"],
+        kind="min_on_duty",
+        weekdays=[0, 1, 2, 3, 4],
+        start_min=540,
+        end_min=1020,
+    )
+    TagCoverageRule.objects.create(
+        organization=org, tag=tags["Processor"], kind="min_weekly_hours", minutes=900
+    )
+    TagCoverageRule.objects.create(organization=org, tag=tags["New employee"], kind="not_alone")
+    period = SchedulePeriod.objects.create(
+        organization=org, location=loc, start_date=date(2027, 1, 16), weeks=2
+    )
+    opener = Employee.objects.get(organization=org, email="student01@example.edu")
+    for offset in (2, 3, 4, 5, 6):  # Monday to Friday of week 1
+        day = period.start_date + timedelta(days=offset)
+        short = day.weekday() in (MON, WED, FRI)  # 9am class: a 1.5-hour opening shift
+        Shift.objects.create(
+            organization=org,
+            location=loc,
+            period=period,
+            employee=opener,
+            date=day,
+            start_min=450,
+            end_min=540 if short else 570,
+            pay_role=opener.default_pay_role,
+        )

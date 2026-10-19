@@ -1,0 +1,5 @@
+<form method="post" class="inline-form remove-form">{% csrf_token %}
+  <input type="hidden" name="form" value="delete"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="pk" value="{{ pk }}">
+  <label><input type="checkbox" name="confirm" value="yes"> <span class="visually-hidden">Confirm removal</span></label>
+  <button type="submit" class="button button--small button--danger-outline">Remove</button>
+</form>

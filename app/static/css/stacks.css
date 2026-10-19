@@ -25,6 +25,7 @@
 body { margin: 0; }
 main { max-width: 72rem; margin: 0 auto; padding: var(--space); }
 main:focus { outline: none; }
+main.main--wide { max-width: 100rem; }
 h1 { font-size: 1.6rem; margin: 0.5rem 0 1rem; }
 h2 { font-size: 1.25rem; }
 h3 { font-size: 1.05rem; }
@@ -182,3 +183,40 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .bar-seg--preferred, .legend__key.bar-seg--preferred { background: var(--preferred); }
 .bar-seg--closed, .legend__key.bar-seg--closed { background: var(--closed); }
 .bar-text { margin-top: 0.15rem; line-height: 1.3; }
+
+/* Schedule grid (SPEC §14). Draft state is spelled out in text, not just colour. */
+.validation details { margin: 0.3rem 0; }
+.validation summary { cursor: pointer; font-weight: 600; }
+.severity { display: inline-block; font-size: 0.75rem; font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 0.3rem; margin-right: 0.3rem; }
+.severity--error { color: var(--danger); }
+.severity--warning { color: var(--warn); }
+.severity--info { color: var(--ink-soft); }
+.status-line { margin: 0 0 0.5rem; }
+.schedule-grid { border-collapse: collapse; width: 100%; min-width: 56rem; font-size: 0.85rem; }
+.schedule-grid th, .schedule-grid td { border: 1px solid var(--line); padding: 0.25rem; vertical-align: top; text-align: left; }
+.schedule-grid thead th { background: var(--paper-alt); white-space: nowrap; }
+.schedule-grid__person { min-width: 9rem; }
+.schedule-grid tfoot th, .schedule-grid tfoot td { background: var(--paper-alt); font-size: 0.8rem; }
+.open-row th { font-style: italic; }
+.chip {
+  display: block; margin: 0 0 0.2rem; padding: 0.15rem 0.3rem 0.15rem 0.45rem; border-radius: 4px; text-decoration: none;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--ink-soft); border-left: 6px solid var(--chip, var(--accent));
+  white-space: nowrap; font-size: 0.8rem;
+}
+.chip--new, .chip--changed { border-style: dashed; border-left-style: solid; background: #fff8e6; }
+.chip--open { border-left-color: var(--ink-soft); border-style: dotted; }
+.chip__state { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+.add-link { display: inline-block; min-width: 1.6rem; text-align: center; text-decoration: none; border: 1px dashed var(--line); border-radius: 4px; color: var(--ink-soft); }
+.hours-cell { white-space: nowrap; }
+.hours-cell.is-over { font-weight: 700; color: var(--danger); }
+.meter { display: block; height: 0.35rem; background: var(--paper-alt); border: 1px solid var(--line); margin-top: 0.15rem; overflow: hidden; }
+.meter span { display: block; height: 100%; max-width: 100%; background: var(--ink-soft); }
+.is-over .meter span { background: var(--danger); }
+.coverage-table .slot--short { background: #fdecea; }
+.coverage-table .slot--over { background: #fff8e6; }
+.coverage-table .slot--closed { background: #e4e6ea; color: var(--ink-soft); }
+.shift-list { list-style: none; padding: 0; }
+.shift-card { border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
+.notification-body { white-space: pre-wrap; font-family: inherit; margin: 0; }
+.remove-form label { display: inline; }
+.count { font-weight: 700; }

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}My schedule{% endblock %}
+{% block content %}
+<h1>My schedule</h1>
+<p class="help">Your published shifts from today on. Changes appear here once a supervisor publishes them.</p>
+<ul class="shift-list">
+  {% for s in shifts %}
+    <li class="shift-card"><strong>{{ s.day|date:"l j M" }}</strong> {{ s.interval.label }}{% if s.note %}<br><span class="subtle">{{ s.note }}</span>{% endif %}</li>
+  {% empty %}
+    <li>No upcoming published shifts.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

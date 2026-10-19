@@ -23,3 +23,10 @@ a { color: #000; text-decoration: none; }
 .avail-grid__name { width: 18%; }
 .bar { border-color: #000; }
 .badge, .tag { font-size: 6.5pt; padding: 0 2pt; }
+
+/* Schedule grid: fit the page; draft markers stay visible as text. */
+.schedule-grid { min-width: 0 !important; width: 100%; font-size: 7.5pt; table-layout: fixed; }
+.schedule-grid th, .schedule-grid td { border: 1px solid #555; padding: 1.5pt; overflow-wrap: anywhere; }
+.schedule-grid thead { display: table-header-group; }
+.chip { white-space: normal; font-size: 7pt; border-color: #000; }
+.add-link, .validation details:not([open]) { display: none !important; }

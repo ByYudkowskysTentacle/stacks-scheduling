@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<h1>Notifications</h1>
+{% for n in items %}
+  <article class="card{% if not n.read_at %} card--notice{% endif %}">
+    <h2>{{ n.subject }}{% if not n.read_at %} <span class="badge">New</span>{% endif %}</h2>
+    <p class="subtle">{{ n.created_at|date:"j M Y H:i" }}</p>
+    <pre class="notification-body">{{ n.body }}</pre>
+    {% if n.link %}<p><a href="{{ n.link }}">Open</a></p>{% endif %}
+  </article>
+{% empty %}
+  <p>No notifications.</p>
+{% endfor %}
+{% endblock %}

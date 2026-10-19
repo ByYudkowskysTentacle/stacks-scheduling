@@ -45,6 +45,8 @@ jobs:
       - name: Migrations are up to date
         run: uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
       - name: Tests
+        env:
+          REQUIRE_BROWSER: "1"
         run: uv run pytest -q
 
   image:
