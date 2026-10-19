@@ -3,6 +3,7 @@
 {% block content %}
 <p><a href="{% url 'employee_detail' employee.pk %}">← {{ employee.display_name }}</a></p>
 <h1>Remove {{ employee.display_name }} from the scheduling pool</h1>
+{% if scoped %}<p class="help">Only your departments' schedules are shown and changed. Shifts on other departments' schedules stay as they are for their supervisors to handle.</p>{% endif %}
 <p>The generator and suggestions will stop using {{ employee.display_name }}. Their shifts from {{ today|date:"j M Y" }} on are reassigned to eligible people at the same times, preferring preferred-time matches and the fewest hours. Nothing is deleted: a shift nobody can take becomes an open shift. All changes are drafts until you publish.</p>
 {% if plans %}
   {% for p in plans %}

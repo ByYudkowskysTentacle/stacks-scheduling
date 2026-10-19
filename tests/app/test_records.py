@@ -47,11 +47,6 @@ def records_setup(org, location, supervisor, student_user, employee, pay_role):
     employee.default_wage = Decimal("13.50")
     employee.save()
     EmailPreference.objects.create(organization=org, user=student_user, category="time_off", email=True)
-    EmployeeDepartment.objects.create(
-        organization=org,
-        employee=employee,
-        department=Department.objects.create(organization=org, name="Circulation"),
-    )
     EmployeePayRole.objects.create(
         organization=org, employee=employee, pay_role=pay_role, wage=Decimal("14.00")
     )
@@ -117,7 +112,13 @@ def _archive(employee):
 # --- Export ---------------------------------------------------------------------------------
 
 
+def in_circulation(employee):
+    dept = Department.objects.create(organization=employee.organization, name="Circulation")
+    EmployeeDepartment.objects.create(organization=employee.organization, employee=employee, department=dept)
+
+
 def test_export_holds_the_whole_record(records_setup, employee):
+    in_circulation(employee)
     data = export_employee(employee)
     assert data["employee"]["full_name"] == "Avery Example"
     assert data["employee"]["default_wage"] == "13.50"
@@ -190,6 +191,7 @@ def test_erasure_keeps_the_audit_log_and_stored_messages(records_setup, employee
 
 
 def test_erasure_removes_personal_records_and_keeps_hours_history(records_setup, employee, student_user):
+    in_circulation(employee)
     _archive(employee)
     pk = employee.pk
     erase_employee(employee)

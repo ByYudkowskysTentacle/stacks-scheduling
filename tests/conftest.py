@@ -107,3 +107,12 @@ def as_user(client):
         return client
 
     return login
+
+
+def manages(user, *departments):
+    """Give a supervisor their departments (D95)."""
+    from app.core.models import SupervisorDepartment
+
+    membership = Membership.objects.get(user=user)
+    for d in departments:
+        SupervisorDepartment.objects.get_or_create(membership=membership, department=d)

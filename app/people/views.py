@@ -87,6 +87,7 @@ class EmployeeEditMixin(OrgObjectMixin):
             organization=self.request.organization,
             can_view_pay=access.has(Perm.VIEW_PAY),
             can_view_notes=access.has(Perm.VIEW_NOTES),
+            department_ids=access.department_ids,
         )
         return kwargs
 

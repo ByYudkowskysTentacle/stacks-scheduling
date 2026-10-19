@@ -23,7 +23,7 @@ from app.scheduling.models import (
     Shift,
     TagCoverageRule,
 )
-from tests.conftest import make_user
+from tests.conftest import make_user, manages
 
 pytestmark = pytest.mark.django_db
 START = date(2027, 1, 16)  # Saturday
@@ -77,6 +77,7 @@ def shift_post(employee=None, day=MONDAY, start="09:00", end="12:00", pay_role="
 
 def test_creating_a_period_snaps_to_the_week_start(as_user, org, supervisor, location):
     dept = Department.objects.create(organization=org, name="Circulation")
+    manages(supervisor, dept)
     page = as_user(supervisor).get(reverse("schedule_index")).content.decode()
     assert f'value="{dept.pk}" selected' in page  # the only department is preselected
     as_user(supervisor).post(
@@ -89,6 +90,7 @@ def test_creating_a_period_snaps_to_the_week_start(as_user, org, supervisor, loc
 def test_each_department_plans_its_own_period_for_the_same_week(as_user, org, supervisor, location):
     circ = Department.objects.create(organization=org, name="Circulation")
     special = Department.objects.create(organization=org, name="Special Collections")
+    manages(supervisor, circ, special)
     client = as_user(supervisor)
     for dept in (circ, special, circ):
         client.post(

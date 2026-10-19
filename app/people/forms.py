@@ -55,13 +55,27 @@ class EmployeeForm(forms.ModelForm):
         help_text="The departments whose schedules this person is on. Someone in none appears on no schedule.",
     )
 
-    def __init__(self, *args, organization, can_view_pay: bool, can_view_notes: bool, **kwargs):
+    def __init__(
+        self,
+        *args,
+        organization,
+        can_view_pay: bool,
+        can_view_notes: bool,
+        department_ids: frozenset[int] | None = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.instance.organization = organization
         self.fields["default_pay_role"].queryset = PayRole.objects.filter(
             organization=organization, is_active=True
         )
         departments = organization.departments.all()
+        if department_ids is not None:  # a supervisor assigns only their own departments (D95)
+            departments = departments.filter(pk__in=department_ids)
+            self.fields["department_choices"].required = True
+            self.fields[
+                "department_choices"
+            ].help_text = "The departments whose schedules this person is on: at least one of yours."
         self.fields["department_choices"].queryset = departments
         if self.instance.pk:
             self.fields["department_choices"].initial = list(self.instance.departments.all())
@@ -76,11 +90,13 @@ class EmployeeForm(forms.ModelForm):
         return (self.cleaned_data.get("email") or "").strip().lower()
 
     def save_departments(self, employee: Employee) -> None:
-        """Make the employee's department links match the ticked boxes (D95)."""
+        """Make the employee's department links match the ticked boxes (D95). Links to
+        departments this form doesn't offer (another supervisor's) are left alone."""
         wanted = set(self.cleaned_data.get("department_choices") or [])
+        offered = set(self.fields["department_choices"].queryset)
         current = {link.department: link for link in employee.department_links.select_related("department")}
         for dept, link in current.items():
-            if dept not in wanted:
+            if dept in offered and dept not in wanted:
                 link.delete()
         for dept in wanted - set(current):
             EmployeeDepartment.objects.create(

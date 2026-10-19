@@ -153,9 +153,7 @@ class ConfirmAvailabilityView(TermMixin, View):
     """Confirm imported availability (`needs_review` to `entered`), by the employee or a supervisor."""
 
     def post(self, request, pk):
-        availability = get_object_or_404(
-            Availability.objects.filter(organization=request.organization), pk=pk
-        )
+        availability = get_object_or_404(self.org_queryset(Availability), pk=pk)
         own = request.access.employee is not None and availability.employee_id == request.access.employee.pk
         if not (own or request.access.has(Perm.MANAGE_PEOPLE)):
             raise Http404
@@ -306,13 +304,10 @@ class TimeOffReviewView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        org = self.request.organization
-        pending = TimeOff.objects.filter(organization=org, status=TimeOffStatus.PENDING).select_related(
-            "employee"
-        )
+        pending = self.org_queryset(TimeOff).filter(status=TimeOffStatus.PENDING).select_related("employee")
         ctx["pending"] = [(t, time_off.clashes(t)) for t in pending]
         ctx["recent"] = (
-            TimeOff.objects.filter(organization=org)
+            self.org_queryset(TimeOff)
             .exclude(status=TimeOffStatus.PENDING)
             .select_related("employee", "decided_by")
             .order_by("-decided_at", "-created_at")[:20]
@@ -320,9 +315,7 @@ class TimeOffReviewView(OrgViewMixin, TemplateView):
         return ctx
 
     def post(self, request, *args, **kwargs):
-        t = get_object_or_404(
-            TimeOff.objects.filter(organization=request.organization), pk=request.POST.get("request")
-        )
+        t = get_object_or_404(self.org_queryset(TimeOff), pk=request.POST.get("request"))
         approve = request.POST.get("action") == "approve"
         try:
             time_off.decide(t, request.user, approve)
