@@ -797,3 +797,46 @@ class DesiredHoursReviewView(OrgViewMixin, TemplateView):
         desired.save()
         messages.success(request, f"{desired.employee.display_name}: {desired.get_status_display().lower()}.")
         return redirect("desired_hours")
+
+
+class ReportsView(PeriodMixin, TemplateView):
+    """Hours against limits and coverage for a period (SPEC §14), printable, with CSV and JSON."""
+
+    permission = Perm.VIEW_HOURS
+    template_name = "scheduling/reports.html"
+
+    def get(self, request, *args, **kwargs):
+        from django.http import HttpResponse
+
+        from app.scheduling import reports
+
+        fmt = request.GET.get("format")
+        if fmt in ("csv", "json"):
+            if not request.access.has(Perm.EDIT_SCHEDULE):
+                raise PermissionDenied
+            period = self.get_period()
+            kind = "coverage" if request.GET.get("report") == "coverage" else "hours"
+            lines = reports.coverage_report(period) if kind == "coverage" else reports.hours_report(period)
+            body = reports.to_csv(lines) if fmt == "csv" else reports.to_json(lines, period, kind)
+            response = HttpResponse(
+                body, content_type="text/csv; charset=utf-8" if fmt == "csv" else "application/json"
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="{kind}-{period.start_date:%Y-%m-%d}.{fmt}"'
+            )
+            response["Cache-Control"] = "no-store"
+            return response
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        from app.scheduling import reports
+
+        ctx = super().get_context_data(**kwargs)
+        period = self.get_period()
+        ctx.update(
+            period=period,
+            hours=reports.hours_report(period),
+            coverage=reports.coverage_report(period) if self.request.access.has(Perm.VIEW_DRAFTS) else [],
+            weeks=range(period.weeks),
+        )
+        return ctx

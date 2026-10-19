@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Erase {{ employee.display_name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'employee_detail' employee.pk %}">← {{ employee.display_name }}</a></p>
+<h1>Erase {{ employee.display_name }}'s personal data</h1>
+<p>This can't be undone. Download their records first if the request needs a copy.</p>
+<h2>What is removed</h2>
+<ul>
+  <li>Name, email, campus ID, hire dates, wages and supervisor notes. The record becomes "Erased employee {{ employee.pk }}".</li>
+  <li>Availability, desired hours, pay-role rates, tags, hour caps, hour targets, duties and rotation group.</li>
+  <li>Notes on their shifts and call-outs, their name in stored validation messages, solver explanations and notifications, and their rows in import batches.</li>
+  <li>Their sign-in account: membership and notifications here, and the account itself if it belongs to no other organization.</li>
+  <li>The same details in the audit log's earlier snapshots.</li>
+</ul>
+<h2>What is kept</h2>
+<p>Their shifts, without notes, stay in drafts and published versions so that hours totals and past schedules stay correct. The audit log records that the erasure happened and who did it.</p>
+<form method="post" class="stacked-form">{% csrf_token %}
+  <div>
+    <label for="confirm_name">Type their full name, <strong>{{ employee.full_name }}</strong>, to confirm</label>
+    <input type="text" id="confirm_name" name="confirm_name" autocomplete="off" required>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="button button--danger">Erase personal data</button>
+    <a href="{% url 'employee_detail' employee.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}
