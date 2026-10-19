@@ -8,6 +8,7 @@
     <li><a href="{% url 'tags' %}"{% if name == 'tags' %} aria-current="page"{% endif %}>Tags</a></li>
     <li><a href="{% url 'organization_settings' %}"{% if name == 'organization_settings' %} aria-current="page"{% endif %}>Organization</a></li>
     {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'members' %}"{% if name == 'members' %} aria-current="page"{% endif %}>Roles</a></li>{% endif %}
+    {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'retention' %}"{% if name == 'retention' %} aria-current="page"{% endif %}>Retention</a></li>{% endif %}
     {% if Perm.VIEW_AUDIT in access.perms %}<li><a href="{% url 'audit_log' %}"{% if name == 'audit_log' %} aria-current="page"{% endif %}>Audit log</a></li>{% endif %}
     {% endwith %}
   </ul>

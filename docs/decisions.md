@@ -311,6 +311,16 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
   - Nothing is emailed: the change reaches the published schedule and notifications when a supervisor publishes (CLAUDE.md §2.2).
 - **D92 (scope).** Two-way trades (swapping one shift for another) aren't built. An offer plus a volunteer covers the common case. Non-regular staff can't be approved for a claimed shift, because the check treats the scheduling pool as a rule. A supervisor can still assign them by editing the shift. Both are open item 14.
 
+## 2026-10-19 – Build session, retention
+
+- **D93 (design, conservative).** Retention periods (SPEC §11) are set per data type: term availability (days after the term ends), time-off requests (after they end), import data (after the import), in-app notifications and solver runs.
+  - Blank means keep, and every period starts blank, so nothing is purged until an administrator chooses to. The settings page shows what's due before anything goes.
+  - The worker purges nightly; administrators can also purge now, with a confirmation.
+  - A purge deletes the rows and their audit snapshots, and records only counts.
+  - Import batches keep their record (who imported which file, when) but lose the rows, preview and undo data, so they can no longer be undone.
+  - Shifts, published versions, hours history and employee records are never purged by retention: erasing one person is the way to remove those (D78).
+  - Backups age out separately (D77). The install guide says to match backup retention to the policy.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -327,3 +337,4 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).
 13. Decide whether a decision on a time-off request should email the student (D90). It doesn't today: they see it on their time-off page.
 14. Decide whether two-way shift trades are needed, and whether non-regular staff may claim open shifts (D92).
+15. Choose retention periods under Settings, Retention once the registrar or counsel has answered item 4 (D93). SPEC §11 suggests one year after the term ends for availability.

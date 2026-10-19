@@ -10,8 +10,15 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, UpdateView
 
-from app.core import audit_log
-from app.core.forms import ClosureForm, LocationForm, OperatingHoursForm, OrganizationForm, TermForm
+from app.core import audit_log, retention
+from app.core.forms import (
+    ClosureForm,
+    LocationForm,
+    OperatingHoursForm,
+    OrganizationForm,
+    RetentionPolicyForm,
+    TermForm,
+)
 from app.core.models import Closure, Location, Membership, OperatingHoursSet, Role, Term
 from app.core.permissions import Perm
 from app.core.views_base import OrgObjectMixin, OrgViewMixin
@@ -274,3 +281,41 @@ class AuditLogView(OrgViewMixin, TemplateView):
         ctx["page"] = page
         ctx["rows"] = audit_log.describe(page.object_list)
         return ctx
+
+
+class RetentionView(OrgViewMixin, TemplateView):
+    """Retention periods per data type (SPEC §11), what they would purge today, and a
+    confirmed "purge now". Administrators only: a purge can't be undone."""
+
+    permission = Perm.MANAGE_MEMBERS
+    template_name = "core/retention.html"
+
+    def get_context_data(self, form=None, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        policy = retention.policy_for(self.request.organization)
+        ctx.update(
+            form=form or RetentionPolicyForm(instance=policy),
+            policy=policy,
+            due=retention.preview(self.request.organization),
+        )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        org = request.organization
+        policy = retention.policy_for(org)
+        if request.POST.get("action") == "purge":
+            if request.POST.get("confirm") != "yes":
+                messages.error(request, "Tick the confirmation box to purge.")
+                return redirect("retention")
+            counts = retention.purge(org)
+            summary = ", ".join(f"{label}: {n}" for label, n in counts.items()) or "no periods are set"
+            messages.success(request, f"Purged expired data ({summary}).")
+            return redirect("retention")
+        form = RetentionPolicyForm(request.POST, instance=policy)
+        if not form.is_valid():
+            return self.render_to_response(self.get_context_data(form=form))
+        form.save()
+        messages.success(
+            request, "Retention periods saved. Nothing is purged until the nightly run or Purge now."
+        )
+        return redirect("retention")

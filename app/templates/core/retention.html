@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Retention{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Data retention</h1>
+<p class="help">How long Stacks keeps each kind of personal data (SPEC §11). Leave a period blank to keep that data. Expired data is purged every night by the worker, together with its copies in the audit log. A purge can't be undone, so check the counts below first. Shifts, published schedules and hours history are never purged here; to remove one person's data, use their record's erase option.</p>
+<form method="post" class="stacked-form" novalidate>{% csrf_token %}
+  {{ form.as_div }}
+  <div class="form-actions"><button type="submit" name="action" value="save" class="button button--primary">Save periods</button></div>
+</form>
+<h2>Due for purging today</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Data</th><th scope="col">Kept for</th><th scope="col">Due now</th></tr></thead>
+  <tbody>{% for d in due %}<tr><th scope="row">{{ d.label }}</th><td>{% if d.days %}{{ d.days }} days{% else %}Kept (no period set){% endif %}</td><td>{% if d.days %}{{ d.count }}{% else %}–{% endif %}</td></tr>{% endfor %}</tbody>
+</table>
+{% if policy.last_purged_at %}<p>Last purge {{ policy.last_purged_at|date:"j M Y H:i" }}: {% for k, v in policy.last_purge_counts.items %}{{ k }} {{ v }}{% if not forloop.last %}, {% endif %}{% empty %}nothing removed{% endfor %}.</p>{% endif %}
+<form method="post" class="stacked-form">{% csrf_token %}
+  <div><label><input type="checkbox" name="confirm" value="yes" required> I understand this permanently removes the data counted above.</label></div>
+  <div class="form-actions"><button type="submit" name="action" value="purge" class="button button--danger">Purge now</button></div>
+</form>
+{% endblock %}

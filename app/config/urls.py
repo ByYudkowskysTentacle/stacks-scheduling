@@ -49,6 +49,7 @@ urlpatterns = [
     path("settings/terms/<int:pk>/", core.TermUpdateView.as_view(), name="term_edit"),
     path("settings/members/", core.MemberListView.as_view(), name="members"),
     path("settings/audit/", core.AuditLogView.as_view(), name="audit_log"),
+    path("settings/retention/", core.RetentionView.as_view(), name="retention"),
     path("settings/pay-roles/", people.PayRoleListView.as_view(), name="pay_roles"),
     path("settings/pay-roles/add/", people.PayRoleCreateView.as_view(), name="pay_role_add"),
     path("settings/pay-roles/<int:pk>/", people.PayRoleUpdateView.as_view(), name="pay_role_edit"),
