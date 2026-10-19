@@ -1,8 +1,8 @@
 # ADR 0001: Technology stack
 
-- **Status:** Proposed. Awaiting maintainer approval; no scaffolding until approved (CLAUDE.md §1).
-- **Date:** 2026-10-01
-- **Decision log:** `docs/decisions.md` (D1–D28) records the maintainer answers this ADR builds on.
+- **Status:** Accepted by the maintainer on 2026-10-19 (D43).
+- **Date:** proposed 2026-10-01, accepted 2026-10-19
+- **Decision log:** `docs/decisions.md` (D1–D43) records the maintainer answers this ADR builds on.
 
 ## Context
 
@@ -92,7 +92,7 @@ See **Benchmark results** below.
 
 ### License
 
-**AGPL-3.0-or-later** (D3). All planned runtime dependencies are compatible:
+**AGPL-3.0-or-later** (D3, confirmed in D43). The full text is in `LICENSE`, and every source file carries the SPDX identifier `AGPL-3.0-or-later`. All planned runtime dependencies are compatible:
 
 | License | Dependencies |
 |---|---|
@@ -137,8 +137,6 @@ Full tables: `spikes/cpsat-benchmark/results/SUMMARY.md`. Method: `spikes/cpsat-
 - **Rebalances can't always meet every target in 30 seconds,** and sometimes no schedule can. The engine must say which, using the gap and the explanation: "best found, not proven" versus "proven impossible from this starting point".
 - **Hosting and FERPA:** the VPS is internet-facing and may need a campus data-processing agreement (D8). The compose stack keeps the database private and TLS on by default.
 
-## Open for the maintainer
+## Follow-ups
 
-1. Approve or amend this ADR.
-2. Confirm AGPL-3.0-or-later (rather than AGPL-3.0-only).
-3. When the VPS is provisioned, allow a benchmark run on it to confirm the timings.
+1. When the VPS is provisioned, re-run the benchmark on it to confirm the timings.

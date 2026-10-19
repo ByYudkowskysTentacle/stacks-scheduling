@@ -82,16 +82,16 @@ These came from building real schedules for a library of about 30 student worker
 
 ## 8. Commands
 
-_Fill in after the stack ADR is approved._
+Stack approved in `docs/adr/0001-stack.md` (D43). The app commands (setup, dev server, tests, image build, synthetic seed data) are added here by the milestone 1 scaffolding; until then only the solver benchmark spike exists. Development runs in Docker Desktop (D23), so commands assume Docker.
 
+```bash
+# solver benchmark spike (spikes/cpsat-benchmark/README.md has details)
+docker build -t stacks-bench spikes/cpsat-benchmark
+docker run --rm --cpus=4 -v "$PWD/spikes/cpsat-benchmark/results:/bench/results" stacks-bench --solver cpsat --seeds 1 2 3 --workers 4 --out runs.jsonl
+python spikes/cpsat-benchmark/summarize.py   # writes results/SUMMARY.md
 ```
-# setup
-# run dev server
-# run tests
-# run solver benchmarks
-# build docker image
-# seed synthetic demo data
-```
+
+On Windows Git Bash, prefix `docker run` with `MSYS_NO_PATHCONV=1` so the volume path isn't rewritten.
 
 ## 9. Where things live
 

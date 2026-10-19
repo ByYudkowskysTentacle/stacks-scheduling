@@ -178,6 +178,17 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 
 - **D42.** From the solver benchmark (`spikes/cpsat-benchmark/results/SUMMARY.md`), recorded in ADR 0001: CP-SAT with presolve off meets the SPEC §7.3 targets on 4 CPUs; rebalances need the completed warm start; both rebalance options (D29) are solved in parallel on half the CPUs each under one 30-second deadline; a rebalance never returns a result worse than its starting schedule; the model stays linear so CBC remains a fallback. Open: the benchmark should be re-run on the provisioned VPS.
 
+## 2026-10-19 – Stack approved
+
+| # | Question | Decision |
+|---|---|---|
+| D43 | Stack ADR and license form | ADR 0001 accepted as written. License is **AGPL-3.0-or-later**. |
+
+### Interpretations
+
+- **D43.** `LICENSE` holds the unmodified AGPL-3.0 text from GitHub's license API. The "or later" choice is stated in `README.md` and by the SPDX identifier `AGPL-3.0-or-later` in source file headers. Scaffolding (milestone 1) may start.
+- **Open: copyright holder.** The license notice needs a copyright holder. If the code is written as part of university employment, the university may own it under its IP policy. Check with the university before the repo goes public (D22), and before accepting outside contributions decide whether contributors keep their copyright (the usual approach, with a DCO sign-off) or assign it.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -185,3 +196,5 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 3. Share the header row of the financial aid FWS award CSV, with made-up values (D10). *Requested from financial aid on 2026-09-28.*
 4. Check with campus whether hosting student employee records on a VPS needs a data-processing agreement or registrar/counsel sign-off (D8).
 5. Confirm spring 2027 term dates (SPEC §3.2).
+6. Confirm who holds copyright in the code (you, the library or the university) before the repo goes public (D43).
+7. Re-run the solver benchmark on the VPS once it is provisioned (D42).
