@@ -255,6 +255,19 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 - **D76 (design).** The Homebase fallback (D47) is a CSV download of any published version (date, weekday, start, end, hours, full and preferred name, email, pay role, note) plus a printable people-by-days grid. The CSV is supervisor-only because it holds names and emails, and the page says to delete it after use. It's a tool-agnostic format: nothing is sent to Homebase.
 - **D77 (operations).** Backups: `deploy/backup.sh` pipes `pg_dump` straight into `age` encryption to a public key, so no unencrypted dump touches disk and the private key stays off the server. It keeps 30 days locally, and the guide says to copy backups off the server. The backup, restore and HTTPS serving steps in `docs/install.md` were run end to end on the compose stack.
 
+## 2026-10-19 – Build session, reports and records requests
+
+- **D78 (design).** Erasure anonymises rather than deletes. It is admin-only, needs the employee archived first, and needs their full name typed to confirm. It removes:
+  - the name, email, campus ID, dates, wages and notes on the employee record
+  - their availability, desired hours, pay-role rates, tags, personal caps, targets, duties and rotation group
+  - notes on their shifts and call-outs
+  - their sign-in account: membership and notifications here, and the account itself if it belongs to no other organization
+
+  The employee row and their shifts stay, so past schedules and hour totals stay correct. The audit log is scrubbed too: personal fields in earlier snapshots are redacted, and availability and desired-hours history is dropped. Erasure is the one place Stacks rewrites audit history; the erasure itself is recorded as an update under the `erase_employee` context. A test searches every database table for the person's name, email, campus ID and notes after erasure and expects none.
+- **D79 (interpretation, conservative).** Validation messages, solver explanations and notifications are stored as text, and they name people. Erasure replaces the erased person's full and preferred names, matched as whole words, with "Erased employee N" in that stored text. A co-worker who shares a preferred name, such as a second "Sam", is redacted in those old messages too. That over-redacts history but never leaves the erased person's name behind. Import batches drop the person's rows, preview entries and undo data.
+- **D80 (design).** A records request download is JSON covering everything Stacks holds about one person, including deleted shifts, published appearances, call-outs and their notifications. It needs the manage-people, view-pay and view-notes permissions (supervisors and admins). It's a read, so it writes no audit row; the server logs the employee and user IDs only.
+- **D81 (interpretation).** Reports (SPEC §14) are built from the working copy, so they include unpublished drafts and say so. The hours report shows weekly and period totals against caps, plus target and desired hours. The coverage report shows needed, scheduled, short and over person-hours per day, plus tag-rule misses. Shift leads with the view-hours grant can see the hours page without target and desired columns. CSV and JSON downloads are supervisor-only.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

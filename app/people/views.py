@@ -1,9 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import json
+import logging
+
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Prefetch, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -12,7 +17,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from app.core.permissions import Perm
 from app.core.views_base import OrgObjectMixin, OrgViewMixin
-from app.people import invitations
+from app.people import invitations, records
 from app.people.forms import (
     EmployeeForm,
     PayRoleForm,
@@ -21,6 +26,8 @@ from app.people.forms import (
     employee_tag_formset,
 )
 from app.people.models import Employee, EmployeeTag, EmploymentType, PayRole, Tag
+
+logger = logging.getLogger(__name__)
 
 
 class EmployeeListView(OrgViewMixin, ListView):
@@ -226,3 +233,44 @@ class TagUpdateView(OrgObjectMixin, UpdateView):
 
     def get_success_url(self):
         return reverse("tags")
+
+
+class EmployeeExportView(OrgViewMixin, View):
+    """Everything held about one person as JSON, for a records request (CLAUDE.md §6)."""
+
+    permission = Perm.MANAGE_PEOPLE
+
+    def get(self, request, pk):
+        if not (request.access.has(Perm.VIEW_PAY) and request.access.has(Perm.VIEW_NOTES)):
+            raise PermissionDenied
+        employee = get_object_or_404(self.org_queryset(Employee), pk=pk)
+        # A read, so no audit row; log IDs only, never personal data.
+        logger.info(
+            "employee record exported", extra={"employee_id": employee.pk, "by_user_id": request.user.pk}
+        )
+        body = json.dumps(records.export_employee(employee), indent=2, default=str)
+        response = HttpResponse(body, content_type="application/json")
+        response["Content-Disposition"] = f'attachment; filename="employee-{employee.pk}-records.json"'
+        return response
+
+
+class EmployeeEraseView(OrgViewMixin, View):
+    """Erase an archived employee's personal data. Admin only, typed confirmation (CLAUDE.md §2.3)."""
+
+    permission = Perm.MANAGE_MEMBERS
+
+    def get_employee(self, pk) -> Employee:
+        return get_object_or_404(self.org_queryset(Employee), pk=pk, archived_at__isnull=False)
+
+    def get(self, request, pk):
+        return render(request, "people/employee_erase.html", {"employee": self.get_employee(pk)})
+
+    def post(self, request, pk):
+        employee = self.get_employee(pk)
+        typed = request.POST.get("confirm_name", "").strip()
+        if typed != employee.full_name:
+            messages.error(request, "Type the employee's full name exactly to confirm.")
+            return render(request, "people/employee_erase.html", {"employee": employee}, status=400)
+        records.erase_employee(employee)
+        messages.success(request, f"Erased the personal data of employee {employee.pk}.")
+        return redirect("employee_detail", pk=pk)

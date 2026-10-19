@@ -14,6 +14,7 @@
   {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'solve_start' period.pk %}">Generate or rebalance</a>{% endif %}
   {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}<a class="button" href="{% url 'shift_add' period.pk %}">Add a shift</a>{% endif %}
   <a class="button" href="{% url 'versions' period.pk %}">Versions</a>
+  {% if Perm.VIEW_HOURS in access.perms %}<a class="button" href="{% url 'reports' period.pk %}">Hours and coverage reports</a>{% endif %}
   {% if latest and pending and Perm.EDIT_SCHEDULE in access.perms %}<a class="button button--danger-outline" href="{% url 'discard_drafts' period.pk %}">Discard drafts</a>{% endif %}
   <button type="button" class="button" onclick="window.print()">Print</button>
 </div>

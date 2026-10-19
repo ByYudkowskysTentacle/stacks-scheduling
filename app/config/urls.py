@@ -62,6 +62,8 @@ urlpatterns = [
     path("people/<int:pk>/edit/", people.EmployeeUpdateView.as_view(), name="employee_edit"),
     path("people/<int:pk>/archive/", people.EmployeeArchiveView.as_view(), name="employee_archive"),
     path("people/<int:pk>/invite/", people.EmployeeInviteView.as_view(), name="employee_invite"),
+    path("people/<int:pk>/records.json", people.EmployeeExportView.as_view(), name="employee_export"),
+    path("people/<int:pk>/erase/", people.EmployeeEraseView.as_view(), name="employee_erase"),
     path(
         "people/<int:pk>/availability/",
         availability.EmployeeAvailabilityView.as_view(),
@@ -99,6 +101,7 @@ urlpatterns = [
         name="call_out",
     ),
     path("schedule/<int:period_pk>/publish/", scheduling.PublishView.as_view(), name="publish"),
+    path("schedule/<int:period_pk>/reports/", scheduling.ReportsView.as_view(), name="reports"),
     path("schedule/<int:period_pk>/versions/", scheduling.VersionListView.as_view(), name="versions"),
     path(
         "schedule/<int:period_pk>/versions/<int:number>/",

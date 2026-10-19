@@ -34,5 +34,11 @@
   {% endif %}
   <a class="button button--danger-outline" href="{% url 'employee_archive' object.pk %}">{% if object.is_archived %}Restore{% else %}Archive{% endif %}</a>
 </div>
+<h2>Records requests</h2>
+<div class="form-actions">
+  {% if Perm.VIEW_PAY in access.perms and Perm.VIEW_NOTES in access.perms %}<a class="button" href="{% url 'employee_export' object.pk %}">Download everything held about {{ object.display_name }} (JSON)</a>{% endif %}
+  {% if object.is_archived and Perm.MANAGE_MEMBERS in access.perms %}<a class="button button--danger-outline" href="{% url 'employee_erase' object.pk %}">Erase personal data</a>{% endif %}
+</div>
+<p class="help">The download holds personal data, including wages and notes: store it securely and delete it when the request is done.{% if not object.is_archived %} To erase someone's data, archive them first; an administrator can then erase it.{% endif %}</p>
 {% endif %}
 {% endblock %}

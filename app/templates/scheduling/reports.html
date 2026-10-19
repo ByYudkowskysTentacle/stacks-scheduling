@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Reports {{ period }}{% endblock %}
+{% block main_class %}main--wide{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<h1>Hours and coverage <span class="subtle">{{ period }}</span></h1>
+<p class="help">From the working schedule, so unpublished drafts are included.</p>
+<p class="form-actions no-print">
+  <button type="button" class="button" onclick="window.print()">Print</button>
+  {% if Perm.EDIT_SCHEDULE in access.perms %}
+    <a class="button" href="?report=hours&amp;format=csv">Hours CSV</a>
+    <a class="button" href="?report=hours&amp;format=json">Hours JSON</a>
+    <a class="button" href="?report=coverage&amp;format=csv">Coverage CSV</a>
+    <a class="button" href="?report=coverage&amp;format=json">Coverage JSON</a>
+  {% endif %}
+</p>
+
+<section aria-labelledby="hours-h">
+  <h2 id="hours-h">Scheduled hours against limits</h2>
+  <div class="grid-scroll">
+  <table class="data-table report-table">
+    <thead><tr><th scope="col">Person</th>{% for w in weeks %}<th scope="col">Week {{ w|add:1 }}</th>{% endfor %}<th scope="col">Period</th>{% if Perm.EDIT_SCHEDULE in access.perms %}<th scope="col">Target</th><th scope="col">Desired</th>{% endif %}<th scope="col">Status</th></tr></thead>
+    <tbody>
+    {% for r in hours %}
+      <tr{% if r.over_limit %} class="is-over"{% endif %}>
+        <th scope="row">{{ r.name }}</th>
+        {% for w in weeks %}{% with h=r.weeks|index:w cap=r.weekly_caps|index:w %}
+          <td>{{ h|floatformat:"-2" }}{% if cap is not None %} / {{ cap|floatformat:"-2" }}{% endif %}
+            {% if cap %}<span class="meter" aria-hidden="true"><span style="width: {% widthratio h cap 100 %}%"></span></span>{% endif %}</td>
+        {% endwith %}{% endfor %}
+        <td>{{ r.period_hours|floatformat:"-2" }}{% if r.period_cap is not None %} / {{ r.period_cap|floatformat:"-2" }}{% endif %}</td>
+        {% if Perm.EDIT_SCHEDULE in access.perms %}<td>{{ r.target|default_if_none:"—" }}</td>
+        <td>{{ r.desired|default_if_none:"—" }}</td>{% endif %}
+        <td>{% if r.over_limit %}<strong>Over a limit</strong>{% elif r.below_target and Perm.EDIT_SCHEDULE in access.perms %}Below target{% else %}OK{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if coverage %}
+<section aria-labelledby="cov-h">
+  <h2 id="cov-h">Coverage by day</h2>
+  <table class="data-table report-table">
+    <thead><tr><th scope="col">Day</th><th scope="col">Open hours</th><th scope="col">Person-hours needed</th><th scope="col">Scheduled</th><th scope="col">Short</th><th scope="col">Over</th><th scope="col">Tag rules missed</th></tr></thead>
+    <tbody>
+    {% for c in coverage %}
+      <tr><th scope="row">{{ c.day|date:"D j M" }}</th><td>{{ c.open_hours|floatformat:"-2" }}</td><td>{{ c.needed_person_hours|floatformat:"-2" }}</td>
+        <td>{{ c.scheduled_person_hours|floatformat:"-2" }}</td><td>{% if c.short_person_hours %}<strong>{{ c.short_person_hours|floatformat:"-2" }}</strong>{% else %}0{% endif %}</td>
+        <td>{{ c.over_person_hours|floatformat:"-2" }}</td><td>{{ c.tag_rule_misses }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}
