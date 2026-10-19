@@ -14,7 +14,8 @@ This is **not** the production engine. The real engine will live in `domain/` wi
   - `gen_strict`: generate from scratch, strict A/B rotation.
   - `rb_target`: rebalance after adding a priority 20-hour target (scenario 6).
   - `rb_rotation`: rebalance after relaxing the rotation from strict to preferred (scenario 12).
-  - `rb_cap`: rebalance after the busiest person's weekly cap drops to 10.
+  - `rb_cap`: rebalance after the busiest person's weekly cap drops to 4 hours below their peak week.
+- **Two options** (`two_options.py`): solves the full-fix and limited-change rebalance options (SPEC §7.3.1) one after the other and in parallel, to check both fit in 30 seconds.
 
 ## Running
 
@@ -25,7 +26,11 @@ docker build -t stacks-bench spikes/cpsat-benchmark
 docker run --rm --cpus=2 -v "$PWD/spikes/cpsat-benchmark/results:/bench/results" stacks-bench --solver cpsat --seeds 1 2 3 --workers 2
 ```
 
-Results are appended to `results/runs.jsonl`, one JSON line per run.
+Results are appended to `results/<--out>.jsonl`, one JSON line per run. `python summarize.py` writes `results/SUMMARY.md`. The `smoke*` files are early runs from before the warm-start and presolve fixes, kept for the record and excluded from the summary.
+
+```bash
+docker run --rm --cpus=4 -v "$PWD/spikes/cpsat-benchmark/results:/bench/results" --entrypoint python stacks-bench two_options.py --seeds 1 2 3 --limit-pct 10
+```
 
 ## Results
 

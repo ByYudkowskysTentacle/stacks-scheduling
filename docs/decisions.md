@@ -122,6 +122,62 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 
 - **D27.** Saturday is the default week start for new organizations and the pilot's setting, but it stays a configuration value (CLAUDE.md §7). Weekly caps, the two-week planning period and rotation weeks all count Saturday to Friday.
 
+## 2026-10-02 – Rebalancing Q&A, round 1
+
+| # | Question (SPEC ref) | Decision |
+|---|---|---|
+| D29 | Churn vs fixing rules (§7.3, scenario 14) | A rebalance returns **two what-if options** side by side: (1) the **full fix**, meeting as many rules as possible regardless of how many shifts move; (2) the **best result without a substantial change**, meeting as many rules as possible within a churn limit. The supervisor picks one to apply as a draft. |
+| D30 | Published shifts (§9.1) | Locked during rebalance unless the supervisor ticks "allow changes to published shifts" for that run. |
+| D31 | Freeze window | Shifts starting within a configurable window (default 48 hours) are never moved by the solver; only by hand. |
+| D32 | Hour goals (§6.4) | Students can state desired weekly hours; they only count once a supervisor approves them. Approved desired hours are a soft goal below supervisor-set hour targets. |
+
+### Interpretations
+
+- **D29.** Option 2 is solved lexicographically: the same tiers as the full fix, but subject to a churn budget, so it fixes the most important rules first within that budget. Both options show the validation report, the diff, and per-person hour changes (CLAUDE.md §2.4, §2.5). How "substantial" is measured is round 2. This resolves the scenario 14 ambiguity seen in the benchmark (relaxing a strict rotation moved 25–28% of shifts to fix tag coverage): the full-fix option may exceed 25% churn; the limited option must not.
+- **D30.** Locked published shifts are hard constraints in the model (as locked shifts, SPEC §7.1), and the explanation says when a rule couldn't be met because of a locked published shift.
+- **D31.** Applies to solver runs only. Manual edits inside the window are allowed (with the normal validation and draft/publish flow). Default 48 hours, configurable per organization; 0 disables it.
+- **D32.** New fields: `desired_hours` (per employee per term, a range or single value), with status `pending`/`approved`/`declined` and an audit entry on approval. Unapproved values are shown to the supervisor but ignored by the solver. Priority order becomes: caps (hard) ≫ supervisor hour targets ≫ approved desired hours ≫ fairness.
+
+## 2026-10-02 – Rebalancing Q&A, round 2
+
+| # | Question (SPEC ref) | Decision |
+|---|---|---|
+| D33 | What "substantial change" measures (D29) | Hours moved. |
+| D34 | Priority when approved desired hours exceed available hours (D32) | Work-study (FWS) students with award remaining first, then everyone else. |
+| D35 | VPS size (D8) | 4 vCPU. |
+| D36 | Rules left unmet in both options (D29) | Explain and suggest: name the rule and the reason, and offer one-click what-ifs (allow published changes, shrink the freeze window for this run, relax that rule for this period). |
+
+### Interpretations
+
+- **D33.** "Hours moved" = the hours of existing shifts that don't survive unchanged: a shift removed or reassigned counts its full length; a retimed shift counts only the part that no longer overlaps its old time. Added shifts filling gaps don't count, since they disrupt nobody. Default limit set in D37.
+- **D34.** Work-study priority applies only up to each student's approved desired hours and never past their funding cap (SPEC §10.3) or any other cap. Within each group (work-study and others), hours go to whoever is furthest below their desired hours. Tier order: caps (hard) ≫ supervisor hour targets ≫ approved desired hours for work-study students ≫ approved desired hours for others ≫ fairness. Until award amounts are imported (D10), nobody counts as work-study for this rule, and the explanation says so.
+- **D35.** The `worker` container may use all 4 CPUs while solving. Web and database load is light during a solve, so CPU is shared rather than partitioned. The benchmark adds a 3-worker run to confirm results hold with the web app and database competing for CPU.
+- **D36.** Suggestions are what-if runs: nothing is saved or published until the supervisor applies an option (CLAUDE.md §2.2). Relaxing a rule "for this period" is recorded with the schedule version and audited.
+
+## 2026-10-02 – Rebalancing Q&A, round 3
+
+| # | Question (SPEC ref) | Decision |
+|---|---|---|
+| D37 | Default "substantial change" limit (D33) | 30%. |
+| D38 | Retime vs reassign | Prefer retiming a student's own shift over reassigning it to someone else. |
+| D39 | Rebalance scope (§7.3) | Any selectable span of time up to four weeks, optionally restricted to selected people. Benchmarks stay at two weeks for now. |
+| D40 | After a rule change | Run validation immediately, show the new issues, and offer a "Rebalance" button. Nothing changes until the supervisor clicks it. |
+
+### Interpretations
+
+- **D37.** Read as 30% of the scheduled hours inside the rebalance scope (about 90 hours for a full two-week pilot schedule), configurable per organization and per run. In the benchmark, full fixes moved at most about 28% of shifts, so with this default the two options will often be identical; when they are, the screen shows one option and says the full fix is already within the limit, instead of two identical cards.
+- **D38.** Implemented as a lower "hours moved" cost for a retimed shift (only its non-overlapping part counts, per D33) plus a small extra cost on reassignment, both in the keep-existing tier. A retime still has to respect availability, the shape rules and the freeze window (D31).
+- **D39.** Shifts outside the selected span or people are fixed (treated as locked) but still count toward weekly and period caps, coverage and tag rules, so a partial rebalance can't break the rest of the schedule. Spans over two weeks are allowed but not benchmarked; the solver time limit and the "not proven optimal" label (CLAUDE.md §4) cover them until they are. Selected people: their shifts may change, and the solver may give their hours to anyone eligible (otherwise most moves would be impossible); the diff makes clear who else is affected.
+- **D40.** Matches CLAUDE.md §2.4 (validate after every change) and §7 (no automatic changes).
+
+## 2026-10-02 – Housekeeping
+
+- **D41.** `docs/SPEC.md` updated for D29–D40: glossary (desired hours, freeze window), §6.4 desired hours and priority order, §7.3.1 rebalance options and limits, the 4 vCPU performance target, scenario 14 restated in hours moved, and new acceptance scenarios 19–22.
+
+## 2026-10-02 – Benchmark findings
+
+- **D42.** From the solver benchmark (`spikes/cpsat-benchmark/results/SUMMARY.md`), recorded in ADR 0001: CP-SAT with presolve off meets the SPEC §7.3 targets on 4 CPUs; rebalances need the completed warm start; both rebalance options (D29) are solved in parallel on half the CPUs each under one 30-second deadline; a rebalance never returns a result worse than its starting schedule; the model stays linear so CBC remains a fallback. Open: the benchmark should be re-run on the provisioned VPS.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

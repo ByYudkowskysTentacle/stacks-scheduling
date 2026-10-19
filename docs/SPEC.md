@@ -47,7 +47,9 @@ Use these terms exactly, in code and in the UI.
 | Open shift | A shift with no assignee that eligible employees can claim. |
 | Coverage target | How many people must be on duty per time slot, optionally with tag requirements. |
 | Hour cap | A maximum on scheduled hours, per week, per planning period, per term, or derived from funding. |
-| Hour target | A soft goal that raises or protects someone's hours, for example "as close to 20 as possible". |
+| Hour target | A soft goal set by a supervisor that raises or protects someone's hours, for example "as close to 20 as possible". |
+| Desired hours | The weekly hours an employee says they want for a term. Used by the generator only after a supervisor approves it. |
+| Freeze window | A span starting now (default 48 hours) inside which the solver never moves shifts. |
 | Duty assignment | A standing rule that a specific employee fills a specific role, for example "Student L opens every weekday". |
 | Funding source | Where pay comes from, for example Federal Work-Study (FWS) or department funds. It can have an award amount. |
 | Timecard | Actual worked time (clock in and out) used for payroll. |
@@ -85,7 +87,7 @@ Use these terms exactly, in code and in the UI.
 
 ### 4.1 Employee record
 
-- Name, preferred name, campus ID (optional), email, employment type, hire date, `new_employee_until` date (optional), pay roles with wages, default pay role, tags, funding sources, caps and targets, notes (supervisor-only).
+- Name, preferred name, campus ID (optional), email, employment type, hire date, `new_employee_until` date (optional), pay roles with wages, default pay role, tags, funding sources, caps and targets, desired hours (§6.4), notes (supervisor-only).
 - `non_regular` employees appear on rosters and in availability views, but the generator never schedules them. They can still be assigned by hand.
 - Removing someone from the scheduling pool (a flag, not a delete) must offer to reassign their future draft shifts (§9.4).
 
@@ -164,6 +166,8 @@ Each rule can be hard (constraint) or soft (weighted). The validation suite repo
 - **Term cap** and **funding cap** (§10.3).
 - **Hour targets** (soft): "bring Student I as close to 20 as possible", "raise Student J's hours" or "keep Student J's hours in one week". Targets have a priority, so the supervisor can emphasise one person over another.
 - **Protected minimum** (soft): avoid pushing low-hour students lower when rebalancing. In the pilot, taking hours from the busiest people first was consistently what the supervisor wanted.
+- **Desired hours** (soft): employees can state the weekly hours they want for a term (a single value or a range). A supervisor approves or declines each one, with an audit entry; pending or declined values are shown to the supervisor but ignored by the generator. When approved desired hours add up to more than the hours available, work-study (FWS) students with award remaining come first, then everyone else; within each group, hours go to whoever is furthest below their desired hours. Work-study priority never goes past a student's desired hours, funding cap or any other cap.
+- Priority order: caps (hard) ≫ supervisor hour targets ≫ approved desired hours for work-study students ≫ approved desired hours for others ≫ fairness.
 - A cap always beats a target. When a target can't be met, the explanation names the binding cap or availability conflict.
 
 ### 6.5 Rotation patterns and duties
@@ -193,7 +197,7 @@ Each rule can be hard (constraint) or soft (weighted). The validation suite repo
 - Enumerate candidate shifts per person and day: every start on a slot boundary and every allowed length that fits inside operating hours, avoids closures and doesn't overlap `unavailable` blocks. Add special candidates for duty exceptions.
 - Binary decision per candidate. Coverage per slot is the sum of the candidates covering it, plus shortfall and overage slack variables.
 - Hard constraints: availability, shift shape (§6.1), caps (§6.4), duties (§6.5), locked shifts, and hard tag rules.
-- Objective in priority tiers: coverage shortfall ≫ hard-ish tag rules ≫ over-coverage ≫ hour targets ≫ fairness (minimise the highest hours among general staff, and penalise cuts to low-hour staff) ≫ keeping existing shifts ≫ fewer shifts ≫ preference bonus.
+- Objective in priority tiers: coverage shortfall ≫ hard-ish tag rules ≫ over-coverage ≫ hour targets ≫ desired hours (§6.4) ≫ fairness (minimise the highest hours among general staff, and penalise cuts to low-hour staff) ≫ keeping existing shifts (retiming preferred over reassigning) ≫ fewer shifts ≫ preference bonus.
 - Candidate starts every 30 minutes were enough in practice and roughly halved the problem size. Keep 15-minute starts available as an option.
 
 ### 7.3 Modes
@@ -201,14 +205,32 @@ Each rule can be hard (constraint) or soft (weighted). The validation suite repo
 | Mode | Behaviour |
 |---|---|
 | Generate | Build a period from scratch (existing drafts ignored or replaced after confirmation). |
-| Rebalance | Re-optimise with a strong keep-existing bonus, returning the smallest diff that meets new rules. This was the most-used mode. |
+| Rebalance | Re-optimise with a strong keep-existing bonus. Returns two what-if options (§7.3.1). This was the most-used mode. |
 | Targeted move | "Move about 2 hours from X, Y or Z to W" or "give W more hours". Only reassigns or retimes whole shifts where feasible, and reports why a donor couldn't give (for example, all of Y's shifts clash with W's classes). |
 | Remove from pool | Reassign a person's future shifts to eligible others at the same times, preferring low-hour and preferred-time matches. |
 | Split shift | Split one shift into parts (for example a 4-hour shift into two 2-hour halves) and assign each part. |
 | What-if | Any mode without saving. It returns the diff and hour changes so the supervisor can compare options. |
 
+#### 7.3.1 Rebalance options and limits
+
+- **Two options.** Every rebalance returns two options side by side, each with its diff, validation report and per-person hour changes:
+  1. **Full fix:** meets as many rules as possible, however many hours move.
+  2. **Limited change:** meets as many rules as possible, in priority order, while moving no more than the change limit.
+
+  The supervisor applies one as a draft, or neither. When the full fix is already within the limit, the screen shows a single option and says so.
+- **Hours moved** measures change: a shift removed or reassigned counts its full length; a retimed shift counts only the part that no longer overlaps its old time; added shifts don't count. The change limit defaults to 30% of the scheduled hours in scope, configurable per organization and per run.
+- **Retime before reassign.** When hours must move, prefer moving a person's own shift within their availability over giving it to someone else.
+- **Published shifts are locked** unless the supervisor allows changes to them for that run.
+- **Freeze window.** Shifts starting within the freeze window (default 48 hours, configurable, 0 to disable) are never moved by the solver. Manual edits there are still allowed.
+- **Scope.** Any span up to four weeks, optionally limited to selected people. Shifts outside the scope are held fixed but still count toward caps, coverage and tag rules. Hours from selected people may go to anyone eligible, and the diff shows who else is affected.
+- **Never worse.** A rebalance never returns a result that scores worse than the schedule it started from. If the solver doesn't beat it within the time limit, it says so and keeps the existing schedule.
+- **Unmet rules.** If a rule can't be met in either option, the screen names the rule and the reason and offers one-click what-ifs: allow changes to published shifts, shrink the freeze window for this run, or relax that rule for this period (recorded with the schedule version and audited).
+- **After a rule change,** the validation suite runs immediately and the new issues are shown with a "Rebalance" button. Nothing changes until the supervisor clicks it.
+
+#### 7.3.2 Running solves
+
 - Solving runs in the background with a time limit and progress, and must not block the UI.
-- Performance target for the pilot size (about 30 people, 2 weeks, about 150 hours a week of coverage): a rebalance returns in under 30 seconds, and a full generation in under 5 minutes. Record benchmarks in CI.
+- Performance target for the pilot size (about 30 people, 2 weeks, about 150 hours a week of coverage) on a 4 vCPU server: a rebalance returns in under 30 seconds, and a full generation in under 5 minutes. Record benchmarks in CI. Spans over two weeks are allowed but not yet benchmarked.
 
 ### 7.4 Explanations
 
@@ -311,18 +333,22 @@ Each of these must be an automated test with a synthetic fixture. They are drawn
 11. **Split shift.** Split Friday 12–4pm into 12–2pm and 2–4pm and assign each half to a different person. Coverage and caps still pass.
 12. **Relaxed rotation.** Switching the rotation from `strict` to `preferred` lets people work in both weeks, and a rebalance changes only a small fraction of shifts.
 13. **Opportunities query.** "How can I raise Student E's hours?" lists the takeable shifts with each current holder's hours, grouped by week, and excludes shifts protected by duties or targets.
-14. **Minimal churn.** After any rule change, a rebalance keeps at least 75% of existing shifts when a feasible solution exists that does.
+14. **Minimal churn.** After any rule change, the limited-change option moves no more hours than the change limit (§7.3.1), and the full-fix option reports how many hours it moves. With the limit set to 25%, the limited-change option keeps at least 75% of existing scheduled hours.
 15. **Pay role on reassignment.** Reassigning a shift to someone with a different default pay role updates the shift's pay role and colour.
 16. **Publish gate.** No notification is sent for any draft change. Publishing sends exactly one summary per affected employee.
 17. **Shift lead drafts.** A shift lead's edits and day-of call-out records stay drafts, send no notifications, and appear in the supervisor's review queue. The shift lead can't see any co-worker's wage, funding or notes.
 18. **Punch relay failure.** With the fake `PunchRelay` set to fail, an in-app punch is refused with an instruction to clock in in Paycom, and no local punch is kept. Set to time out, the punch shows "unknown, check Paycom" and is not retried.
+19. **Two rebalance options.** After relaxing a strict rotation, a rebalance returns a full-fix option and a limited-change option. The limited option moves no more than the limit, and each option lists the rules it leaves unmet with a reason and one-click what-ifs. When both options are identical, one is shown with a note.
+20. **Locks.** A rebalance never moves a published shift unless allowed for that run, never moves a shift inside the freeze window, and never changes shifts outside the selected span or people.
+21. **Desired hours.** Pending desired hours are ignored. When approved desired hours exceed the hours available, a work-study student with award remaining gets their hours before others, without passing their funding cap.
+22. **Never worse.** When the solver can't beat the existing schedule within the time limit, the rebalance keeps it and says so.
 
 ## 13. Milestones
 
 1. **Foundations.** Stack ADR, auth (local accounts first), organization, location, operating hours, closures, employees, tags, pay roles, audit log.
 2. **Availability.** Term availability entry on the weekly grid, `not_entered` tracking, the printable availability grid, and roster/availability CSV import.
 3. **Manual scheduling.** Shift CRUD with drafts, the week and period grid, the validation suite, publish with email notifications, version history, and shift-lead permissions.
-4. **Engine v1.** Candidate model, coverage, shape rules, caps, duties, tag rules, generate and rebalance, what-if, and explanations. Acceptance scenarios 1–8, 12 and 14.
+4. **Engine v1.** Candidate model, coverage, shape rules, caps, duties, tag rules, desired hours, generate and rebalance (both options, locks, freeze window, scope), what-if, and explanations. Acceptance scenarios 1–8, 12, 14 and 19–22.
 5. **Engine v2.** Targeted moves, split, remove from pool, and suggestion queries. Scenarios 9–11, 13 and 15.
 6. **Self-service.** Student phone views, time off, trades, open shifts and ICS feeds.
 7. **Time and pay.** Paycom actuals import, FWS award import and funding tracking, then clock in and out with Paycom punch relay once API access is granted. Scenario 18.

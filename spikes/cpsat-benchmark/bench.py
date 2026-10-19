@@ -137,8 +137,9 @@ def main():
                               or setattr(r.get("S04"), "target_priority", 3)),
                 # Scenario 12: strict rotation relaxed to preferred.
                 "rb_rotation": ("strict", lambda r, shifts: setattr(r.rules, "rotation", "preferred")),
-                # The busiest general person's weekly cap drops from 20 to 10.
-                "rb_cap": ("none", lambda r, shifts: setattr(r.get(busiest(r, shifts)), "weekly_cap", 10.0)),
+                # The busiest general person's weekly cap drops to 4 hours below their peak week, so it binds.
+                "rb_cap": ("none", lambda r, shifts: setattr(r.get(busiest(r, shifts)[0]), "weekly_cap",
+                                                             max(2.0, busiest(r, shifts)[1] - 4.0))),
             }
             for name, (rotation, change) in rebalances.items():
                 if name not in args.scenarios or not starts.get(rotation):
@@ -155,12 +156,15 @@ def main():
 
 
 def busiest(roster, shifts):
+    """(employee, peak weekly hours) for the general staff member with the highest week."""
     special = {roster.duties.opener, *dict(roster.duties.leads)}
-    totals = {}
+    weekly = {}
     for s in shifts:
         if s.emp not in special:
-            totals[s.emp] = totals.get(s.emp, 0) + s.length
-    return max(totals, key=totals.get)
+            k = (s.emp, week_of(s.day))
+            weekly[k] = weekly.get(k, 0) + s.length
+    (emp, _week), peak = max(weekly.items(), key=lambda kv: (kv[1], kv[0]))
+    return emp, peak / 4
 
 
 if __name__ == "__main__":

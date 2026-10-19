@@ -193,6 +193,7 @@ def build_model(
     existing: set[tuple] | None = None,
     keep_weight: int = 0,
     protect: dict[tuple[str, int], int] | None = None,
+    max_moved_slots: int | None = None,
 ) -> Built:
     t0 = time.perf_counter()
     r, d = roster.rules, roster.duties
@@ -371,6 +372,14 @@ def build_model(
             backend.hint(x[i], 1 if kept else 0)
         if coef:
             obj.append((coef, x[i]))
+
+    # Limited-change option (SPEC §7.3.1): hours moved within the limit. The spike counts a
+    # shift as kept only if it survives identically, so retimes count in full (conservative).
+    if existing is not None and max_moved_slots is not None:
+        index = {c.key: i for i, c in enumerate(cands)}
+        total = sum(k[3] - k[2] for k in existing)
+        kept_terms = [(k[3] - k[2], x[index[k]]) for k in existing if k in index]
+        add(backend.expr(kept_terms) >= total - max_moved_slots)
 
     backend.minimize(obj)
     return Built(backend, cands, x, unders, n_cons, time.perf_counter() - t0)

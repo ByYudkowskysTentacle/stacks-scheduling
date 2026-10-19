@@ -37,8 +37,8 @@ Each solver was benchmarked on the same candidate-shift model; details in `spike
 | Solver | Notes |
 |---|---|
 | **OR-Tools CP-SAT** | Apache-2.0. Parallel workers, solution hints for warm starts, and a progress callback for showing progress in the UI. |
-| CBC via PuLP | EPL-2.0. The prototype's solver. Single-threaded in practice, weak on this model class. |
-| HiGHS via PuLP | MIT. A modern open-source MIP solver, and the best non-CP-SAT baseline. |
+| CBC via PuLP | EPL-2.0. The prototype's solver. Runs as a command-line subprocess and reports only its final answer. |
+| HiGHS via PuLP | MIT. A modern open-source MIP solver. |
 
 See **Benchmark results** below.
 
@@ -57,7 +57,9 @@ See **Benchmark results** below.
   - **Presolve off** (`cp_model_presolve = false`) for this model class. Default presolve spent most of a 10 to 30 second budget simplifying the model before any search on 4 workers, so a rebalance couldn't even return its starting schedule.
   - **Warm-start completion:** fix the existing shifts, solve for the slack and penalty variables (about 1 second), then hint the full assignment. Hinting only the shift choices left CP-SAT unable to use the existing schedule.
   - **Never worse than the start:** a rebalance or targeted move compares its result with the completed warm start, and keeps the existing schedule if the solver didn't beat it within the time limit. The result says so plainly.
-  - **Workers = CPUs given to the worker container.** The objective uses tiered weights, documented next to the model (CLAUDE.md §4). Every result reports its status and gap; a time-limited result is never presented as optimal.
+  - **Two rebalance options in parallel** (SPEC §7.3.1): the full-fix and limited-change solves run at the same time, each with half the CPUs, under one shared 30-second deadline. This was faster and better than running them one after the other. When the full fix is already within the change limit, the limited solve is skipped.
+  - **Workers = CPUs given to the worker container**, 4 on the pilot VPS (D35). The deadline covers model building and warm-start completion, not just the search. The objective uses tiered weights, documented next to the model (CLAUDE.md §4). Every result reports its status and gap; a time-limited result is never presented as optimal.
+  - **Keep the model linear** (no CP-only constraint types), so CBC remains a drop-in fallback if CP-SAT ever becomes a problem. The benchmark shows CBC is viable on this formulation.
 - **Background solving:** **Procrastinate**, a PostgreSQL-backed task queue, so there's no Redis to run. Solves run in a dedicated `worker` container with its own CPU limit. Progress and results are written to the database and polled by the page via HTMX, so the UI never blocks (SPEC §7.3).
 
 ### Auth, audit and email
@@ -105,7 +107,25 @@ Dev-only tools (Hypothesis, MPL-2.0; Playwright, Apache-2.0) don't affect distri
 
 ## Benchmark results
 
-_To be filled in from `spikes/cpsat-benchmark/results/SUMMARY.md` once the runs complete._
+Full tables: `spikes/cpsat-benchmark/results/SUMMARY.md`. Method: `spikes/cpsat-benchmark/README.md`.
+
+**Setup.** Three seeded synthetic rosters of the pilot's shape (28 students, the §3.1 hours and Chapel closure, the §12 opener, leads, new employees, a `not_entered` student and soft tag rules). Each has about 17,000 candidate shifts and 20,000 variables. Scenarios: generate (no rotation and strict rotation, 5-minute limit) and three rebalances after a rule change (add a priority 20-hour target, relax strict rotation, cut the busiest person's cap; 30-second limit). Every result was rechecked by an independent checker. Runs used Docker with CPUs capped at 2, 3 or 4, on a 16-core workstation with several containers running at once.
+
+**Findings.**
+
+| Question | Result |
+|---|---|
+| Does CP-SAT meet the targets on 4 CPUs? | **Yes, with presolve off.** Every run had zero coverage shortfall and zero hard-rule violations. Generate reached the minimum over-coverage (2 to 3 hours) on all seeds, proven optimal in 50 to 156 s or within 0.04 slots of optimal at 5 minutes. Rebalances found a first solution in under 1 s from the warm start. Cap rebalances were proven optimal in 7 to 19 s; rotation rebalances were optimal on 2 of 3 seeds (the third within 0.2 slots); target rebalances ended 0.5 to 2.9 slots from optimal. |
+| What did default presolve do? | In the logged run, presolve took about 12 s before any search. Rebalances got no first solution for 6 to 9 s, ended up to 12.6 slots from optimal at 30 s, and met the 20-hour target on 0 of 3 seeds (presolve off: 2 of 3). In an early short run, default presolve returned 42 to 81 hours of over-coverage. |
+| Is 2 vCPU enough? | Mostly. Generate quality matched 4 CPUs. Rebalances were slightly weaker (target met on 1 of 3 seeds, worst case 1 hour short at 30 s). The pilot plans for 4 vCPU (D35). |
+| Does the web app and database competing for CPU matter? | 3 workers on 3 CPUs matched 4 CPUs on every scenario, so leaving a core for `web` and `db` costs little. |
+| Can both rebalance options fit in 30 s? | **Yes, in parallel.** Two solves at the same time on 2 workers each finished in 13.6 to 31.4 s wall time in total, and were proven optimal in 11 of 12 solves. One after the other (15 s each on 4 workers), 5 of 12 solves ended short of optimal. At the 30% default limit, all six full fixes moved 27.5 to 80 of about 295 hours, so only one option would have been shown. At a 10% limit the limited option left real issues (up to 25.5 hours of over-coverage, or the target up to 10.5 hours short), which is the case the "explain and suggest" screen (D36) is for. |
+| How does CBC compare? | **Better than the prototype suggested.** On this candidate formulation CBC matched CP-SAT's final quality on all 3 seeds: zero shortfall, every target met, strict generate optimal in 30 to 134 s. But through PuLP it reports nothing until it finishes, so there's no progress to show, no anytime answer, and no usable warm-start signal. The prototype's time-limit trouble was likely the formulation, not only the solver. |
+| How does HiGHS compare? | **Not reliable here.** It overran its time limits (up to 48 s on a 30 s budget), and one rebalance came back with 21.5 hours of coverage shortfall. |
+
+**Caveats.** The runs shared one workstation, so absolute times are indicative. Re-run the same Docker benchmark on the actual VPS once it's provisioned, and keep it in CI to catch regressions as duties, tag rules and desired hours are added to the real engine. The spike counts a retimed shift fully as "moved"; the real engine credits retimes (D33), so real churn will be lower than reported here.
+
+**Solver decision: CP-SAT,** for its parallel search, sub-second warm starts, live progress, and an anytime best answer that supports the never-worse rule and the two-option design. Keep the model linear so CBC remains a fallback.
 
 ## Consequences
 
@@ -113,10 +133,12 @@ _To be filled in from `spikes/cpsat-benchmark/results/SUMMARY.md` once the runs 
 - **Django's batteries** (ORM and migrations, admin for supervisor configuration, forms, CSRF, sessions) shorten the path to the spring date.
 - **The engine gets the best-supported CP-SAT binding,** sharing types with the validation suite and the CLI. Property tests sit next to the model.
 - **The hardest UI piece,** the interactive schedule grid, may need a TypeScript island and a small esbuild step in CI. Everything else stays HTMX.
-- **Solver settings are tied to this model's shape.** Presolve-off and the warm-start completion are benchmark findings, not universal truths. The CI benchmark guards against regressions as the model grows (duties and tag rules in milestone 4, D20).
+- **Solver settings are tied to this model's shape.** Presolve off, the warm-start completion and the parallel two-option solve are benchmark findings, not universal truths. The CI benchmark guards against regressions as the model grows (duties, tag rules and desired hours in milestone 4, D20, D32).
+- **Rebalances can't always meet every target in 30 seconds,** and sometimes no schedule can. The engine must say which, using the gap and the explanation: "best found, not proven" versus "proven impossible from this starting point".
 - **Hosting and FERPA:** the VPS is internet-facing and may need a campus data-processing agreement (D8). The compose stack keeps the database private and TLS on by default.
 
 ## Open for the maintainer
 
 1. Approve or amend this ADR.
 2. Confirm AGPL-3.0-or-later (rather than AGPL-3.0-only).
+3. When the VPS is provisioned, allow a benchmark run on it to confirm the timings.
