@@ -150,12 +150,34 @@ def test_erasure_needs_the_employee_archived_first(records_setup, employee):
         erase_employee(employee)
 
 
-def test_erasure_leaves_no_trace_of_name_email_or_notes(records_setup, employee, student_user):
+# Stored messages that name people and are kept as the record (D101).
+STORED_MESSAGES = {"scheduling_publishedversion", "scheduling_solverun", "imports_importbatch"}
+
+
+def _live(found: dict[str, int]) -> dict[str, int]:
+    """Drop audit-log tables (kept intact, D100) and pghistory's context table."""
+    return {t: n for t, n in found.items() if not t.endswith("event") and t != "pghistory_context"}
+
+
+def test_erasure_clears_personal_data_from_live_records(records_setup, employee, student_user):
     _archive(employee)
-    assert _rows_mentioning("avery")  # sanity: the setup really did store it
+    assert _live(_rows_mentioning("avery"))  # sanity: the setup really did store it
     erase_employee(employee)
-    for text in ("avery", "S-0001", "dentist", "Supervisor-only note"):
-        assert _rows_mentioning(text) == {}, text
+    for text in ("S-0001", "dentist", "Supervisor-only note"):
+        assert _live(_rows_mentioning(text)) == {}, text
+    left = set(_live(_rows_mentioning("avery")))
+    assert left <= STORED_MESSAGES, left - STORED_MESSAGES
+
+
+def test_erasure_keeps_the_audit_log_and_stored_messages(records_setup, employee):
+    _archive(employee)
+    erase_employee(employee)
+    names = set(
+        Employee.pgh_event_model.objects.filter(pgh_obj_id=employee.pk).values_list("full_name", flat=True)
+    )
+    assert "Avery Example" in names  # earlier snapshots are not rewritten (D100)
+    assert "Avery Example" in str(SolveRun.objects.get().result)  # stored messages untouched (D101)
+    assert ImportBatch.objects.get().payload[0]["email"] == "avery@example.edu"
 
 
 def test_erasure_removes_personal_records_and_keeps_hours_history(records_setup, employee, student_user):
