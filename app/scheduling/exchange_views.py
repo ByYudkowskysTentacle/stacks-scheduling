@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Open shifts and cover offers for employees (SPEC §9.2)."""
+"""Open shifts, cover offers and swaps for employees (SPEC §9.2, D104)."""
 
 from __future__ import annotations
 
@@ -37,7 +37,9 @@ class ShiftExchangeView(OrgViewMixin, TemplateView):
         start = cal.week_start_for(today, org.week_start)
         active = ShiftExchange.objects.filter(organization=org, status__in=ACTIVE_EXCHANGE)
         my_claims = set(active.filter(taker=me, kind=ExchangeKind.CLAIM).values_list("shift_id", flat=True))
-        offered = set(active.values_list("shift_id", flat=True))
+        offered = set(active.values_list("shift_id", flat=True)) | set(
+            active.exclude(other_shift=None).values_list("other_shift_id", flat=True)
+        )
         open_shifts = [
             s
             for w in range(WEEKS)
@@ -51,8 +53,11 @@ class ShiftExchangeView(OrgViewMixin, TemplateView):
             .exclude(requester=me)
             .select_related("shift__location", "requester"),
             my_shifts=[(m, m.shift.shift_id in offered) for m in my_upcoming(me, today, WEEKS)],
+            swaps_for_me=active.filter(
+                kind=ExchangeKind.SWAP, status=ExchangeStatus.ASKED, taker=me
+            ).select_related("shift", "other_shift", "requester"),
             my_requests=ShiftExchange.objects.filter(Q(requester=me) | Q(taker=me))
-            .select_related("shift", "requester", "taker")
+            .select_related("shift", "other_shift", "requester", "taker")
             .order_by("-updated_at")[:20],
             me=me,
         )
@@ -80,7 +85,7 @@ class ShiftExchangeView(OrgViewMixin, TemplateView):
                         request,
                         "Offered your shift. You're still on it until a supervisor approves a volunteer.",
                     )
-            elif action in ("volunteer", "withdraw"):
+            elif action in ("volunteer", "withdraw", "accept_swap", "decline_swap"):
                 ex = get_object_or_404(
                     ShiftExchange.objects.filter(organization=me.organization),
                     pk=request.POST.get("exchange"),
@@ -88,9 +93,85 @@ class ShiftExchangeView(OrgViewMixin, TemplateView):
                 if action == "volunteer":
                     exchanges.volunteer(me, ex, today)
                     messages.success(request, "Thanks. A supervisor will confirm before it's yours.")
+                elif action == "accept_swap":
+                    exchanges.respond(me, ex, True, today)
+                    messages.success(request, "Accepted. A supervisor will confirm the swap.")
+                elif action == "decline_swap":
+                    exchanges.respond(me, ex, False, today)
+                    messages.success(request, "Declined. Your shift stays as it is.")
                 else:
                     exchanges.withdraw(me, ex)
                     messages.success(request, "Withdrawn.")
         except exchanges.ExchangeError as exc:
             messages.error(request, str(exc))
+        return redirect("shift_exchange")
+
+
+class SwapView(ShiftExchangeView):
+    """Pick a co-worker's published shift to swap one of yours for (D104)."""
+
+    template_name = "scheduling/swap.html"
+
+    def mine(self, me) -> Shift:
+        shift = get_object_or_404(
+            Shift.objects.live().filter(organization=me.organization, employee=me).select_related("period"),
+            pk=self.kwargs["shift_pk"],
+        )
+        return shift
+
+    def get_context_data(self, **kwargs):
+        ctx = TemplateView.get_context_data(self, **kwargs)
+        me = self.employee()
+        org = me.organization
+        shift = self.mine(me)
+        today = timezone.localdate()
+        start = cal.week_start_for(today, org.week_start)
+        busy = set(
+            ShiftExchange.objects.filter(organization=org, status__in=ACTIVE_EXCHANGE).values_list(
+                "shift_id", flat=True
+            )
+        ) | set(
+            ShiftExchange.objects.filter(organization=org, status__in=ACTIVE_EXCHANGE)
+            .exclude(other_shift=None)
+            .values_list("other_shift_id", flat=True)
+        )
+        mine = [
+            (s.day, s.interval)
+            for w in range(WEEKS)
+            for d in published_week(org, start + timedelta(days=7 * w), me)
+            for s in d.shifts
+            if s.employee_id == me.pk and s.shift_id != shift.pk
+        ]
+        ctx.update(
+            shift=shift,
+            choices=[
+                s
+                for w in range(WEEKS)
+                for d in published_week(org, start + timedelta(days=7 * w), me)
+                for s in d.shifts
+                if s.employee_id not in (None, me.pk)
+                and s.day >= today
+                and s.shift_id
+                and s.shift_id not in busy
+                and not any(day == s.day and iv.overlaps(s.interval) for day, iv in mine)
+            ],
+        )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        me = self.employee()
+        shift = self.mine(me)
+        other = get_object_or_404(
+            Shift.objects.filter(organization=me.organization).select_related("period", "employee"),
+            pk=request.POST.get("other"),
+        )
+        try:
+            exchanges.swap(me, shift, other, timezone.localdate())
+        except exchanges.ExchangeError as exc:
+            messages.error(request, str(exc))
+            return redirect("shift_swap", shift_pk=shift.pk)
+        messages.success(
+            request,
+            "Asked. If your co-worker accepts, a supervisor decides. Your shift stays yours until then.",
+        )
         return redirect("shift_exchange")

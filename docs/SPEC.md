@@ -264,7 +264,7 @@ Run after every mutation. Show results in the UI and store them with the schedul
 ### 9.1 Drafts and publishing
 
 - All edits create draft changes. Publishing is explicit, per period or per location, and shows a summary (added, changed and removed shifts per person) before confirming.
-- Schedule notifications go out only on publish, and only to affected employees. The one other kind is a decision on a person's own request (time off, an open-shift claim, cover): the people who asked are told the outcome, and a shift change it causes still reaches the published schedule only when a supervisor publishes (D103). Every notification appears in the in-app list; email over SMTP (settings from the environment) follows each person's email settings, on by default for published schedules and availability reminders and off for decisions. SMS and push are later. Emails carry a link and a summary of the employee's own changes, never wages, hour totals or co-workers' details.
+- Schedule notifications go out only on publish, and only to affected employees. The one other kind is a decision on a person's own request (time off, an open-shift claim, cover, a swap): the people who asked are told the outcome, and a shift change it causes still reaches the published schedule only when a supervisor publishes (D103). Every notification appears in the in-app list; email over SMTP (settings from the environment) follows each person's email settings, on by default for published schedules and availability reminders and off for decisions. SMS and push are later. Emails carry a link and a summary of the employee's own changes, never wages, hour totals or co-workers' details.
 - Published schedules keep a version history. Supervisors can compare versions and roll back drafts.
 
 ### 9.2 Employee self-service
@@ -272,7 +272,7 @@ Run after every mutation. Show results in the UI and store them with the schedul
 - View own shifts (web and phone, plus an ICS feed).
 - View the full published schedule, with co-workers' preferred names on shared shifts. Students never see co-workers' availability, hours, wages, tags or notes (shift leads see free/busy and hours against caps, per §1).
 - Request time off (the approval flow checks coverage impact first).
-- Offer a shift for trade or cover, or claim an open shift. The supervisor approves, and the validation suite runs on the would-be result.
+- Offer a shift for cover, propose swapping one of your shifts for a co-worker's, or claim an open shift. In a swap the co-worker accepts or declines first. The supervisor approves, and the validation suite runs on the would-be result (both moves together for a swap). Anyone on the roster may claim or swap, including non-regular staff: the scheduling pool limits only the generator and suggestions (D104).
 
 ### 9.3 Bulk operations
 
