@@ -321,6 +321,16 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
   - Shifts, published versions, hours history and employee records are never purged by retention: erasing one person is the way to remove those (D78).
   - Backups age out separately (D77). The install guide says to match backup retention to the policy.
 
+## 2026-10-19 – Build session, availability deadline and reminders
+
+- **D94 (interpretation).** A term can have an availability deadline (SPEC §5.2), shown to employees on their home and availability pages and to supervisors on the grid.
+  - Reminder emails are off until a supervisor ticks "Email availability reminders" on the term. They then go out a set number of days before the deadline (default 3) and on the day itself.
+  - A supervisor can also send them by hand, with a confirmation.
+  - They go to current employees with a sign-in account whose availability is not entered or is imported and unconfirmed, at most once a day each.
+  - Each email carries only a greeting, the term, the deadline and a link, and an in-app notification goes with it.
+  - The reminders page lists everyone who still needs to act, including people without an account, who can't be reminded until they're invited.
+  - CLAUDE.md §7's "don't auto-notify" is read as "never without a supervisor turning it on", which is how SPEC §5.2 puts it.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

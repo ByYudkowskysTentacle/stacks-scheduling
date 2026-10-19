@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Availability reminders{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'availability_grid' %}?term={{ term.pk }}">← Availability grid</a></p>
+<h1>Availability reminders <span class="subtle">{{ term.name }}</span></h1>
+{% if terms|length > 1 %}
+<form method="get" class="filter-bar" aria-label="Choose a term">
+  <div><label for="term-select">Term</label>
+    <select id="term-select" name="term">{% for t in terms %}<option value="{{ t.pk }}"{% if t.pk == term.pk %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div><button type="submit" class="button">Show</button></div>
+</form>
+{% endif %}
+<p>
+  {% if term.availability_deadline %}Deadline: <strong>{{ term.availability_deadline|date:"l j F Y" }}</strong>.{% else %}No deadline set.{% endif %}
+  {% if term.availability_reminders and reminder_days %}Scheduled reminders are on: {% for d in reminder_days %}{{ d|date:"D j M" }}{% if not forloop.last %} and {% endif %}{% endfor %}.{% else %}Scheduled reminders are off.{% endif %}
+  {% if Perm.CONFIGURE in access.perms %}<a href="{% url 'term_edit' term.pk %}">Change these in the term's settings</a>.{% endif %}
+</p>
+<p class="help">Reminders go only to current employees with a sign-in account, at most once a day each, and say only the term, the deadline and a link. People with no account yet are listed but can't be reminded: invite them from People.</p>
+<h2>Not entered or not confirmed ({{ due|length }})</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Person</th><th scope="col">Status</th></tr></thead>
+  <tbody>{% for d in due %}<tr><th scope="row">{{ d.employee.display_name }}</th><td>{% if d.status == "needs_review" %}Imported, needs confirming{% else %}Not entered{% endif %}{% if not d.can_remind %}; no sign-in account yet{% endif %}</td></tr>{% empty %}<tr><td colspan="2">Everyone has entered and confirmed their availability.</td></tr>{% endfor %}</tbody>
+</table>
+{% if due %}
+<form method="post" class="stacked-form">{% csrf_token %}<input type="hidden" name="term" value="{{ term.pk }}">
+  <div><label><input type="checkbox" name="confirm" value="yes" required> Email a reminder now to everyone above with a sign-in account.</label></div>
+  <div class="form-actions"><button type="submit" class="button button--primary">Send reminders now</button></div>
+</form>
+{% endif %}
+{% if sent %}<h2>Sent</h2><ul>{% for s in sent %}<li>{{ s.sent_on|date:"D j M Y" }}: {{ s.n }}</li>{% endfor %}</ul>{% endif %}
+{% endblock %}

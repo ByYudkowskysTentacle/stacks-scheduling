@@ -4,16 +4,24 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from django.contrib import messages
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import FormView, TemplateView, View
 
-from app.availability import time_off
+from app.availability import reminders, time_off
 from app.availability.forms import TimeOffForm, WeeklyAvailabilityForm
-from app.availability.models import NOT_ENTERED, Availability, Status, TimeOff, TimeOffStatus
+from app.availability.models import (
+    NOT_ENTERED,
+    Availability,
+    AvailabilityReminder,
+    Status,
+    TimeOff,
+    TimeOffStatus,
+)
 from app.availability.services import (
     confirm_availability,
     grid_range,
@@ -333,3 +341,40 @@ class TimeOffReviewView(OrgViewMixin, TemplateView):
         )
         messages.success(request, f"Approved {t.employee.display_name}'s time off for {t.label()}.{extra}")
         return redirect("time_off_review")
+
+
+class AvailabilityRemindersView(TermMixin, TemplateView):
+    """Who hasn't entered or confirmed availability, and reminders: scheduled ones only when
+    turned on for the term, or "send now" with confirmation (SPEC §5.2)."""
+
+    permission = Perm.MANAGE_PEOPLE
+    template_name = "availability/reminders.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        term = self.get_term()
+        ctx.update(
+            term=term,
+            terms=self.org_queryset(Term),
+            due=reminders.due_people(term),
+            reminder_days=sorted(reminders.reminder_days(term)),
+            sent=AvailabilityReminder.objects.filter(term=term)
+            .values("sent_on")
+            .annotate(n=Count("pk"))
+            .order_by("-sent_on")[:10],
+        )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        term = self.get_term()
+        if request.POST.get("confirm") != "yes":
+            messages.error(request, "Tick the confirmation box to send reminders.")
+        else:
+            n = reminders.send(term, timezone.localdate(), by_hand=True)
+            messages.success(
+                request,
+                f"Sent {n} reminder{'s' if n != 1 else ''}."
+                if n
+                else "Nobody needed a reminder (or they already had one today).",
+            )
+        return redirect(reverse("availability_reminders") + f"?term={term.pk}")

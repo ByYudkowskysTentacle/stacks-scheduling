@@ -198,6 +198,10 @@ LOGGING = {
 ADMINS: list[tuple[str, str]] = []
 
 STACKS_SITE_NAME = env("STACKS_SITE_NAME", "Stacks")
+# Absolute links in emails sent by the worker, which has no request to read the host from.
+STACKS_SITE_URL = env(
+    "STACKS_SITE_URL", f"https://{os.environ['SITE_ADDRESS']}" if os.environ.get("SITE_ADDRESS") else ""
+)
 
 # Solver (ADR 0001, SPEC §7.3.2). Workers default to the CPUs given to the worker container.
 STACKS_SOLVER_WORKERS = int(env("STACKS_SOLVER_WORKERS", env("WORKER_CPUS", "4")))

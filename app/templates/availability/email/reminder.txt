@@ -1,0 +1,7 @@
+Hi {{ employee.display_name }},
+
+{% if needs_review %}Your availability for {{ term.name }} was imported and needs you to check and confirm it{% else %}Please enter your availability for {{ term.name }}{% endif %}{% if term.availability_deadline %} by {{ term.availability_deadline|date:"l j F" }}{% endif %}. It takes a few minutes: paint the times you can't work on the weekly grid. You don't need to say why.
+
+{{ link }}
+
+If you've already done this, you can ignore this email.

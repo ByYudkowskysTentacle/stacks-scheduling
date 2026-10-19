@@ -180,6 +180,20 @@ class Term(models.Model):
     name = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField()
+    availability_deadline = models.DateField(
+        null=True, blank=True, help_text="Optional. Shown to employees on their home and availability pages."
+    )
+    availability_reminders = models.BooleanField(
+        "Email availability reminders",
+        default=False,
+        help_text="Off unless you turn it on (SPEC §5.2). Emails people who haven't entered or confirmed "
+        "their availability, a few days before the deadline and on the day.",
+    )
+    reminder_days_before = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(30)],
+        help_text="Days before the deadline.",
+    )
 
     class Meta:
         ordering = ["-start_date"]

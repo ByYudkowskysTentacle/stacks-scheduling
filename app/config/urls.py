@@ -84,6 +84,11 @@ urlpatterns = [
     path("calendar/<str:token>.ics", feed_views.CalendarFeedView.as_view(), name="calendar_feed"),
     path("availability/grid/", availability.AvailabilityGridView.as_view(), name="availability_grid"),
     path(
+        "availability/reminders/",
+        availability.AvailabilityRemindersView.as_view(),
+        name="availability_reminders",
+    ),
+    path(
         "availability/<int:pk>/confirm/",
         availability.ConfirmAvailabilityView.as_view(),
         name="availability_confirm",

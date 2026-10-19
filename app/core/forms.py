@@ -163,8 +163,15 @@ class ClosureForm(forms.ModelForm):
 class TermForm(forms.ModelForm):
     class Meta:
         model = Term
-        fields = ["name", "start_date", "end_date"]
-        widgets = {"start_date": DateInput(), "end_date": DateInput()}
+        fields = [
+            "name",
+            "start_date",
+            "end_date",
+            "availability_deadline",
+            "availability_reminders",
+            "reminder_days_before",
+        ]
+        widgets = {"start_date": DateInput(), "end_date": DateInput(), "availability_deadline": DateInput()}
 
 
 class RetentionPolicyForm(forms.ModelForm):
