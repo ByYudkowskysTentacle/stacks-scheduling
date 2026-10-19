@@ -177,6 +177,18 @@ class SchedulingRulesForm(forms.ModelForm):
         return cleaned
 
 
+def _department_field(form: forms.ModelForm, organization) -> None:
+    """Which department's schedules a coverage rule is for; none means all of them (D95). With
+    one department or none, the choice is hidden: the rule applies everywhere."""
+    field = form.fields["department"]
+    departments = organization.departments.all() if organization is not None else None
+    if departments is None or departments.count() < 2:
+        del form.fields["department"]
+        return
+    field.queryset = departments
+    field.empty_label = "Every department"
+
+
 class CoverageOverrideForm(forms.ModelForm):
     weekdays = forms.TypedMultipleChoiceField(coerce=int, widget=forms.CheckboxSelectMultiple)
     start_min = MinuteField(label="From")
@@ -184,11 +196,12 @@ class CoverageOverrideForm(forms.ModelForm):
 
     class Meta:
         model = CoverageOverride
-        fields = ["weekdays", "start_min", "end_min", "count"]
+        fields = ["department", "weekdays", "start_min", "end_min", "count"]
 
-    def __init__(self, *args, week_start: int, **kwargs):
+    def __init__(self, *args, week_start: int, organization=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["weekdays"].choices = ordered_weekday_choices(week_start)
+        _department_field(self, organization)
 
     def clean(self):
         cleaned = super().clean()
@@ -236,12 +249,24 @@ class TagRuleForm(forms.ModelForm):
 
     class Meta:
         model = TagCoverageRule
-        fields = ["tag", "kind", "hard", "count", "minutes", "weekdays", "start_min", "end_min", "label"]
+        fields = [
+            "department",
+            "tag",
+            "kind",
+            "hard",
+            "count",
+            "minutes",
+            "weekdays",
+            "start_min",
+            "end_min",
+            "label",
+        ]
 
     def __init__(self, *args, organization, week_start: int, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["tag"].queryset = Tag.objects.filter(organization=organization)
         self.fields["weekdays"].choices = ordered_weekday_choices(week_start)
+        _department_field(self, organization)
 
     def clean(self):
         cleaned = super().clean()

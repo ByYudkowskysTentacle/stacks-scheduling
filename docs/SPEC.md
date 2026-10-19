@@ -33,7 +33,7 @@ Use these terms exactly, in code and in the UI.
 | Organization | One installation's owner, for example a university library system. |
 | Location | A service point with its own hours, for example the main library or a branch. |
 | Term | An academic period (semester or quarter) with start and end dates. Availability is scoped to a term. |
-| Department | A team with its own schedules and roster, for example Circulation or Special Collections. An employee can be in several; their hours in every department count toward their caps. Supervisors manage the departments an admin assigns them; admins manage all (D95). |
+| Department | A team with its own schedules, roster and (optionally) coverage, for example Circulation or Special Collections. An employee can be in several; their hours in every department count toward their caps. Supervisors manage the departments an admin assigns them; admins manage all (D95). |
 | Planning period | The span a schedule is built for, for example two weeks, for one department at one location. Caps can apply per period. |
 | Operating hours | When a location is open, per weekday. |
 | Closure | A time the location is closed inside operating hours. It can be recurring (Chapel, Wednesdays 10–11am) or dated (holiday, event). |

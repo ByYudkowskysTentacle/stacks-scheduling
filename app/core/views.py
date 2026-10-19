@@ -281,7 +281,7 @@ class DepartmentCreateView(DepartmentFormMixin, CreateView):
 
 
 class DepartmentUpdateView(DepartmentFormMixin, UpdateView):
-    extra_context = {"title": "Rename department"}
+    extra_context = {"title": "Edit department"}
 
 
 class MemberListView(OrgViewMixin, TemplateView):

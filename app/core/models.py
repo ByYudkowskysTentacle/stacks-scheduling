@@ -239,6 +239,19 @@ class Department(models.Model):
 
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="departments")
     name = models.CharField(max_length=100)
+    # Coverage for this department's schedules; blank uses the organization's scheduling rules.
+    coverage_default = models.PositiveSmallIntegerField(
+        "people on duty per slot",
+        null=True,
+        blank=True,
+        help_text="Blank uses the organization's setting under Scheduling rules.",
+    )
+    coverage_mode = models.CharField(
+        max_length=10,
+        blank=True,
+        choices=[("exact", "Exact: report under and over"), ("minimum", "Minimum: report under only")],
+        help_text="Blank uses the organization's setting.",
+    )
 
     class Meta:
         ordering = ["name"]

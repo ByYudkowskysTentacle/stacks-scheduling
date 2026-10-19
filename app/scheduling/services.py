@@ -50,9 +50,10 @@ def snapshot_to_domain(row: dict[str, Any]) -> DomShift:
     )
 
 
-def domain_rules(org, term: Term | None = None) -> dom.Rules:
+def domain_rules(org, term: Term | None = None, department=None) -> dom.Rules:
     """The organization's rules as domain objects. Desired hours count only when approved
-    for `term` (D32)."""
+    for `term` (D32). Coverage comes from `department` where it sets its own: its coverage
+    default and mode, and the overrides and tag rules for it or for every department (D95)."""
     from app.scheduling.models import (
         DesiredHours,
         DesiredStatus,
@@ -67,17 +68,27 @@ def domain_rules(org, term: Term | None = None) -> dom.Rules:
         caps.insert(
             0, dom.HourCap(dom.CapScope.WEEK, sr.default_weekly_cap_minutes, label="default weekly cap")
         )
-    overrides = [o.to_domain() for o in CoverageOverride.objects.filter(organization=org)]
+    for_dept = (
+        Q(department__isnull=True) | Q(department=department) if department else Q(department__isnull=True)
+    )
+    overrides = [o.to_domain() for o in CoverageOverride.objects.filter(for_dept, organization=org)]
+    coverage_default = sr.coverage_default
+    coverage_mode = sr.coverage_mode
+    if department is not None:
+        if department.coverage_default is not None:
+            coverage_default = department.coverage_default
+        coverage_mode = department.coverage_mode or coverage_mode
     duties = [
         d.to_domain()
         for d in DutyAssignment.objects.filter(organization=org, employee__archived_at__isnull=True)
     ]
     return dom.Rules(
         shape=sr.shape(),
-        coverage=dom.CoverageRules(sr.coverage_default, dom.CoverageMode(sr.coverage_mode), overrides),
+        coverage=dom.CoverageRules(coverage_default, dom.CoverageMode(coverage_mode), overrides),
         caps=caps,
         tag_rules=[
-            r.to_domain() for r in TagCoverageRule.objects.filter(organization=org).select_related("tag")
+            r.to_domain()
+            for r in TagCoverageRule.objects.filter(for_dept, organization=org).select_related("tag")
         ],
         rotation=dom.Rotation(
             dom.RotationMode(sr.rotation_mode),
@@ -147,7 +158,7 @@ def build_context(period: SchedulePeriod, shifts=None) -> ScheduleContext:
     if shifts is None:
         shifts = list(period.shifts.live().select_related("employee"))
     term = term_for(period)
-    rules = domain_rules(org, term)
+    rules = domain_rules(org, term, period.department)
     outside: dict[int, int] = {}
     if term is not None and any(c.scope == dom.CapScope.TERM for c in rules.caps):
         rows = (
