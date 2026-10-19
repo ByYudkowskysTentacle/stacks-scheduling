@@ -167,7 +167,8 @@ class TagCoverageRule(models.Model):
         choices=[
             (dom.TagRuleKind.MIN_ON_DUTY, "At least N on duty"),
             (dom.TagRuleKind.MIN_WEEKLY_HOURS, "Total hours per week"),
-            (dom.TagRuleKind.NOT_ALONE, "Never the only person on duty"),
+            (dom.TagRuleKind.NOT_ALONE, "Always with someone who doesn't have the tag"),
+            (dom.TagRuleKind.NOT_SOLO, "Never working alone (anyone else on duty counts)"),
         ],
     )
     hard = models.BooleanField(default=False, help_text="Hard rules are never broken by the generator.")

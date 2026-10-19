@@ -525,6 +525,24 @@ def check_tag_rules(ctx: ScheduleContext) -> list[Issue]:
                             minutes=iv.minutes,
                         )
                     )
+        elif rule.kind == TagRuleKind.NOT_SOLO:
+            for day in ctx.period.days:
+                solo = [
+                    slot
+                    for slot, emps in sorted(duty[day].items())
+                    if len(emps) == 1 and (p := ctx.people.get(emps[0])) and p.has_tag(rule.tag, day)
+                ]
+                for iv in runs(solo):
+                    issues.append(
+                        Issue(
+                            Category.TAG_RULE,
+                            severity,
+                            f"{rule.describe()}: alone on duty {day_label(day)} {iv.label()}",
+                            day,
+                            iv,
+                            minutes=iv.minutes,
+                        )
+                    )
     return issues
 
 
