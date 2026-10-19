@@ -6,7 +6,7 @@ It covers what general-purpose tools like Homebase do (availability, shift sched
 
 ## Status
 
-**Milestones 1 to 4 done (foundations, availability, manual scheduling, the scheduling engine).** The student schedule view and the Homebase fallback export are in, which completes the spring 2027 scope. See [`docs/install.md`](docs/install.md) to install it. Python, Django, PostgreSQL and OR-Tools CP-SAT, deployed with `docker compose`. The first release targets the spring 2027 term at a pilot library. See `CLAUDE.md` §8 for how to run it.
+**Milestones 1 to 5 done** (foundations, availability, manual scheduling, the scheduling engine and engine v2: suggestion queries, targeted moves, split shifts and remove-from-pool). The student schedule view and the Homebase fallback export complete the spring 2027 scope. Most of milestone 6 (self-service) is in too: a private calendar feed, time-off requests, and claiming open shifts or offering shifts for cover. Hours and coverage reports, and single-person records export and erasure, are also in. Milestone 7 (Paycom and funding) waits on API access and file formats (`docs/decisions.md`, open items). See [`docs/install.md`](docs/install.md) to install it. Python, Django, PostgreSQL and OR-Tools CP-SAT, deployed with `docker compose`. The first release targets the spring 2027 term at a pilot library. See `CLAUDE.md` §8 for how to run it.
 
 ## Documents
 

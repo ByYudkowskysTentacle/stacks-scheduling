@@ -128,7 +128,8 @@ docs/SPEC.md          product and domain spec (source of truth for behaviour)
 docs/adr/             architecture decision records
 docs/decisions.md     running log of spec interpretations and open questions
 domain/               pure domain model (no Django imports): timeutil, calendar, availability,
-                      rules, schedule, validation (the SPEC §8 suite)
+                      rules, schedule, validation (the SPEC §8 suite), suggest (suggestion
+                      queries, remove from pool, targeted move, split: SPEC §7.3, §7.5)
 domain/engine/        the CP-SAT engine: candidates, model (tier weights documented at the
                       top), solve, diff, explain; run() is the entry point
 adapters/             Paycom, ICS/calendar, CSV import/export
@@ -136,13 +137,18 @@ app/config/           Django settings (from environment), URLs, WSGI; test_setti
 app/accounts/         sign-in accounts (email login, allauth, TOTP)
 app/core/             organization, locations, hours, closures, terms, roles, the permission
                       layer (permissions.py), audit log helpers, management commands
-app/people/           employees, pay roles and wages, tags, invitations
-app/availability/     term availability, entry form and paint grid, the availability grid
+app/people/           employees, pay roles and wages, tags, invitations; records.py is the
+                      single-person export and erasure
+app/availability/     term availability, entry form and paint grid, the availability grid,
+                      time-off requests (time_off.py)
 app/imports/          roster and availability CSV imports: preview, apply, undo
 app/scheduling/       periods, draft shifts, publish and versions, rules config, review queue,
                       call-outs, notifications, duties, targets, desired hours;
                       services.py builds the domain context, solver.py runs the engine,
-                      tasks.py is the worker task
+                      tasks.py is the worker task; suggestions.py and suggest_views.py are
+                      the suggestion queries; reports.py the hours and coverage reports;
+                      published.py the student view; feeds.py the ICS feed; exchanges.py
+                      open-shift claims and cover offers
 app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
 deploy/               Caddyfile and backup.sh; compose.yaml and compose.dev.yaml sit at the root
@@ -153,7 +159,7 @@ tests/adapters/       parser and adapter contract tests
 tests/app/            view, permission and integration tests against PostgreSQL
 tests/engine/         engine unit and property tests, and the SPEC §12 acceptance scenarios
                       (marked slow: `pytest -m slow`, about five minutes on 4 CPUs)
-tests/browser/        Playwright tests: paint grid, print layout (skipped without Chromium;
+tests/browser/        Playwright tests: paint grid, print layout, scrolling tables (skipped without Chromium;
                       set CHROMIUM_PATH to use a local binary)
 docs/formats/         the documented import formats (D13)
 ```
