@@ -266,3 +266,6 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 7. Re-run the solver benchmark on the VPS once it is provisioned (D42).
 8. Consider mirroring these items and the SPEC §13 milestones as GitHub issues and milestones (D46).
 9. Confirm you're comfortable keeping wage rates on the off-campus VPS, or leave the wage fields blank until the hosting question (item 4) is settled (D48, D50).
+10. Review the build-session interpretations marked for a look: D64 (new employees never alone, read conservatively), D67 (hard tag rules weighted above coverage), D68 (rebalances take hours from the busiest first), D71 (applying a generate replaces drafts) and D51 (no departments yet).
+11. Decide whether Google sign-in (D5, generic OIDC restricted to the campus domain) is needed for go-live, or whether invited local accounts are enough for spring. It needs an OAuth client from campus Google Workspace admins.
+12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).
