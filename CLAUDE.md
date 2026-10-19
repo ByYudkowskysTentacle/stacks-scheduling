@@ -99,6 +99,7 @@ docker compose -f compose.yaml -f compose.dev.yaml exec web python manage.py see
 uv sync
 DJANGO_DEBUG=1 uv run python manage.py migrate
 DJANGO_DEBUG=1 uv run python manage.py seed_demo          # supervisor@example.edu / demo-password-123
+DJANGO_DEBUG=1 uv run python manage.py seed_demo --reset --generate 30   # plus a generated, published period
 DJANGO_DEBUG=1 uv run python manage.py runserver
 
 # checks CI runs
