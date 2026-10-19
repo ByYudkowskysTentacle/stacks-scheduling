@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load static stacks %}
+{% block title %}Availability{% endblock %}
+{% block content %}
+{% if employee != access.employee %}<p><a href="{% url 'employee_detail' employee.pk %}">← {{ employee.display_name }}</a></p>{% endif %}
+<h1>{% if employee == access.employee %}Your availability{% else %}{{ employee.display_name }}'s availability{% endif %} <span class="subtle">for {{ term.name }}</span></h1>
+
+{% if terms|length > 1 %}
+<form method="get" class="filter-bar" aria-label="Choose a term">
+  <div><label for="term-select">Term</label>
+    <select id="term-select" name="term">{% for t in terms %}<option value="{{ t.pk }}"{% if t.pk == term.pk %} selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+  <div><button type="submit" class="button">Show</button></div>
+</form>
+{% endif %}
+
+<p class="status-line"><strong>Status:</strong> <span class="badge badge--{{ availability.status|default:'not_entered' }}">{{ status }}</span>
+  {% if availability.confirmed_at %}<span class="subtle">· last confirmed {{ availability.confirmed_at|date:"j M Y" }}</span>{% endif %}</p>
+{% if needs_review %}
+  <div class="card card--notice">
+    <p>This availability was imported and may be from an earlier term. Check it below, then save, or confirm it as it is.</p>
+    <form method="post" action="{% url 'availability_confirm' availability.pk %}">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="button">Confirm without changes</button>
+    </form>
+  </div>
+{% elif not availability %}
+  <p class="card card--notice">Nothing entered for {{ term.name }} yet. If you can work any time the library is open, save the form empty.</p>
+{% endif %}
+
+{% if summary %}
+  <p>In a typical week you're available for <strong>{{ summary.available_minutes|hours }} of {{ summary.open_minutes|hours }}</strong> open hours.{% if summary.days_fully_out %} Out all day: {{ summary.days_fully_out|join:", " }}.{% endif %}</p>
+{% endif %}
+
+<section aria-labelledby="how" class="help-block">
+  <h2 id="how" class="visually-hidden">How to enter availability</h2>
+  <p>Mark the times you <strong>can't</strong> work, such as classes and travel to them. Anything not marked counts as available. You can also mark times you'd <strong>prefer</strong> to work. Don't enter course names or details, only times.</p>
+</section>
+
+<div id="availability-painter" class="painter" hidden>
+  <div class="painter__toolbar" role="group" aria-label="Paint brush">
+    <button type="button" class="button button--small" data-brush="unavailable" aria-pressed="true">Can't work</button>
+    <button type="button" class="button button--small" data-brush="preferred" aria-pressed="false">Prefer</button>
+    <button type="button" class="button button--small" data-brush="clear" aria-pressed="false">Clear</button>
+  </div>
+  <p class="help painter__hint">With a mouse, drag down a day to paint. On a phone, tap where a block starts, then tap where it ends. The grid fills in the boxes below, which you can also type in.</p>
+  <div class="painter__grid" aria-hidden="true"></div>
+  <ul class="legend" aria-hidden="true">
+    <li><span class="legend__key cell--unavailable"></span> Can't work</li>
+    <li><span class="legend__key cell--preferred"></span> Prefer</li>
+    <li><span class="legend__key cell--closed"></span> Library closed</li>
+  </ul>
+</div>
+{{ grid|json_script:"painter-config" }}
+
+<form method="post" class="stacked-form" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="term" value="{{ term.pk }}">
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Times by day</legend>
+    <p class="help">Type ranges like <code>09:00-09:50, 13:00-14:15</code>, or <code>all day</code>. Leave a box blank if it doesn't apply.</p>
+    <table class="availability-table">
+      <thead><tr><th scope="col">Day</th><th scope="col">Can't work</th><th scope="col">Prefer</th></tr></thead>
+      <tbody>
+      {% for name, unavailable, preferred in form.rows %}
+        <tr>
+          <th scope="row">{{ name }}</th>
+          <td><label class="visually-hidden" for="{{ unavailable.id_for_label }}">{{ unavailable.label }}</label>{{ unavailable }}{{ unavailable.errors }}</td>
+          <td><label class="visually-hidden" for="{{ preferred.id_for_label }}">{{ preferred.label }}</label>{{ preferred }}{{ preferred.errors }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </fieldset>
+  <div class="form-actions"><button type="submit" class="button button--primary">Save availability</button></div>
+</form>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/availability-painter.js' %}"></script>{% endblock %}

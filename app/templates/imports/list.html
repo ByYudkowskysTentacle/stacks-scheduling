@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block content %}
+<h1>Import a roster or availability</h1>
+<p class="help">Use the <a href="{% url 'import_formats' %}">roster and availability CSV formats</a>. To move from Homebase, copy each person's details and availability blocks into these files. You'll see a preview before anything changes, and an applied import can be undone.</p>
+<form method="post" enctype="multipart/form-data" class="stacked-form card" novalidate>
+  {% csrf_token %}
+  {{ form.as_div }}
+  <div class="form-actions"><button type="submit" class="button button--primary">Upload and preview</button></div>
+</form>
+<h2>Recent imports</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Import</th><th scope="col">File</th><th scope="col">Term</th><th scope="col">Status</th><th scope="col">By</th><th scope="col">When</th></tr></thead>
+  <tbody>
+  {% for b in batches %}
+    <tr><th scope="row"><a href="{% url 'import_detail' b.pk %}">{{ b }}</a></th><td>{{ b.filename }}</td><td>{{ b.term|default:"—" }}</td>
+      <td>{{ b.get_status_display }}</td><td>{{ b.created_by.email|default:"—" }}</td><td>{{ b.created_at|date:"j M Y H:i" }}</td></tr>
+  {% empty %}<tr><td colspan="6">No imports yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

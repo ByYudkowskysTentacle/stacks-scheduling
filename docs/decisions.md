@@ -219,6 +219,15 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 - **D52 (interpretation).** Employee sign-in accounts are created only by a supervisor's explicit "Invite to sign in" action, which emails a one-time set-password link. Public sign-up is closed. An invited employee gets the employee role; admins grant supervisor and admin roles on the Roles page and can't remove their own admin role.
 - **D53 (tooling).** pyright runs in strict mode on `domain/` only. Without Django type stubs it reports hundreds of false positives on the app, which would hide real findings; revisit if stubs are adopted.
 
+## 2026-10-19 – Build session, milestone 2
+
+- **D54 (interpretation).** Availability entry uses two text boxes per weekday (can't work, prefer) as the source of truth, so it works without JavaScript and with screen readers. A paintable grid is layered on top as a plain JavaScript module with no build step: drag with a mouse, or on a phone tap where a block starts and then where it ends, so the page still scrolls. The TypeScript and esbuild set-up in ADR 0001 is kept for the drag-and-drop schedule grid, where it earns its place.
+- **D55 (interpretation).** Saving availability, even with no blocks, sets it to `entered`. An empty saved form means "available whenever open", which is different from `not_entered`. Imported availability is `needs_review` until the employee or a supervisor saves or confirms it (D11).
+- **D56 (interpretation).** Shift leads can open the availability grid (free/busy, D25) but see names and times only: no tags, notes, hours elsewhere or edit links. Students can't open it.
+- **D57 (interpretation).** Roster imports are additive and conservative: people are matched by email; blank optional cells leave existing values alone; tags are added but never removed; unknown tags and pay roles are created and listed in the preview; wages are never imported. Any problem rejects the whole file (SPEC §9.3, all or nothing). An availability import replaces the listed people's blocks for the chosen term and must name only people already on the roster.
+- **D58 (interpretation).** Undo is offered for the most recent applied import of each kind only, so an older undo can't overwrite later changes. Undoing a roster import removes the employees it created, or archives them if they've been referenced since; tags and pay roles it created are removed only if unused.
+- **D59 (scope).** Date-specific availability exceptions (SPEC §5.1) aren't in milestone 2: they come with time off in milestone 6, outside the spring scope (D16). Per-employee "scheduled hours for the current period" on the grid (SPEC §5.3) arrives with shifts in milestone 3.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

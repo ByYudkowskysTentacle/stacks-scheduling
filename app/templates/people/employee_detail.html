@@ -27,6 +27,7 @@
 <div class="form-actions">
   {% if not object.is_archived %}
     <a class="button button--primary" href="{% url 'employee_edit' object.pk %}">Edit</a>
+    <a class="button" href="{% url 'employee_availability' object.pk %}">Availability</a>
     <form method="post" action="{% url 'employee_invite' object.pk %}" class="inline-form">{% csrf_token %}
       <button type="submit" class="button">{% if object.user %}Resend invitation{% else %}Invite to sign in{% endif %}</button>
     </form>

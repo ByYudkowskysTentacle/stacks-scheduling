@@ -20,6 +20,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from app.accounts.models import User
+from app.availability.models import Availability, AvailabilityBlock, Status
 from app.core.models import (
     Closure,
     Location,
@@ -30,8 +31,11 @@ from app.core.models import (
     Role,
     Term,
 )
+from app.imports.models import ImportBatch
 from app.people.models import Employee, EmployeePayRole, EmployeeTag, EmploymentType, PayRole, Tag
+from domain.availability import normalise_blocks
 from domain.calendar import FRI, MON, SAT, SUN, THU, TUE, WED
+from fixtures import synthetic
 
 DEMO_ORG = "Demo Library"
 DEMO_PASSWORD = "demo-password-123"  # noqa: S105 (development-only demo accounts)
@@ -107,6 +111,9 @@ class Command(BaseCommand):
 def delete_organization(org: Organization) -> None:
     """Development helper: remove every row of the demo organization, children first."""
     for model in (
+        ImportBatch,
+        AvailabilityBlock,
+        Availability,
         EmployeeTag,
         EmployeePayRole,
         Employee,
@@ -143,10 +150,10 @@ def build_demo(rng: random.Random) -> Organization:
         start_min=600,
         end_min=660,
     )
-    Term.objects.create(
+    fall = Term.objects.create(
         organization=org, name="Fall 2026", start_date=date(2026, 8, 24), end_date=date(2026, 12, 11)
     )
-    Term.objects.create(
+    spring = Term.objects.create(
         organization=org, name="Spring 2027", start_date=date(2027, 1, 11), end_date=date(2027, 5, 7)
     )
 
@@ -200,4 +207,27 @@ def build_demo(rng: random.Random) -> Organization:
     Membership.objects.create(user=user, organization=org, role=Role.EMPLOYEE)
     student.user = user
     student.save(update_fields=["user"])
+
+    # Availability for both terms: one person hasn't entered it (scenario 8), and two have
+    # imported availability waiting for review.
+    for term in (fall, spring):
+        for i, emp in enumerate(Employee.objects.filter(organization=org).order_by("email"), start=1):
+            if i == 9:
+                continue
+            blocks = synthetic.opener_pattern() if i == 1 else synthetic.student_pattern(rng)
+            status = Status.NEEDS_REVIEW if i in (12, 13) else Status.ENTERED
+            availability = Availability.objects.create(
+                organization=org, employee=emp, term=term, status=status
+            )
+            AvailabilityBlock.objects.bulk_create(
+                AvailabilityBlock(
+                    organization=org,
+                    availability=availability,
+                    weekday=b.weekday,
+                    kind=str(b.kind),
+                    start_min=b.interval.start,
+                    end_min=b.interval.end,
+                )
+                for b in normalise_blocks(blocks)
+            )
     return org

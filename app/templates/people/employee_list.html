@@ -11,7 +11,7 @@
   <div><label><input type="checkbox" name="archived" value="1"{% if filters.archived == "1" %} checked{% endif %}> Archived only</label></div>
   <div><button type="submit" class="button">Filter</button></div>
 </form>
-{% if Perm.MANAGE_PEOPLE in access.perms %}<p><a class="button button--primary" href="{% url 'employee_add' %}">Add an employee</a></p>{% endif %}
+{% if Perm.MANAGE_PEOPLE in access.perms %}<p class="form-actions"><a class="button button--primary" href="{% url 'employee_add' %}">Add an employee</a> <a class="button" href="{% url 'imports' %}">Import from CSV</a></p>{% endif %}
 <table class="data-table">
   <caption class="visually-hidden">Employees</caption>
   <thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Tags</th><th scope="col">Default pay role</th><th scope="col">Account</th></tr></thead>

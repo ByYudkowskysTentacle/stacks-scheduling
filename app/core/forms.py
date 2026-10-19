@@ -1,40 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
-import re
-
 from django import forms
 from django.core.exceptions import ValidationError
 
 from app.core.models import Closure, Location, OpenInterval, OperatingHoursSet, Organization, Term
 from domain import calendar as cal
-from domain.timeutil import DAY_MINUTES, Interval, format_minute, is_on_slot, merge
-
-TIME_RE = re.compile(r"^\s*(\d{1,2})(?::(\d{2}))?\s*([ap]\.?m\.?)?\s*$", re.IGNORECASE)
-
-
-def parse_time_input(text: str) -> int:
-    """Accept `7:30`, `07:30`, `19:30`, `7:30pm`, `7pm`, `noon`, `midnight`, `24:00`."""
-    t = text.strip().lower()
-    if t == "noon":
-        return 720
-    if t == "midnight":
-        return DAY_MINUTES
-    m = TIME_RE.match(t)
-    if not m:
-        raise ValueError(f"not a time: {text!r}")
-    hours, minutes = int(m.group(1)), int(m.group(2) or 0)
-    suffix = (m.group(3) or "").replace(".", "")
-    if minutes >= 60:
-        raise ValueError(f"not a time: {text!r}")
-    if suffix:
-        if not 1 <= hours <= 12:
-            raise ValueError(f"not a time: {text!r}")
-        hours = hours % 12 + (12 if suffix == "pm" else 0)
-    value = hours * 60 + minutes
-    if value > DAY_MINUTES:
-        raise ValueError(f"not a time: {text!r}")
-    return value
+from domain.timeutil import Interval, format_minute, is_on_slot
+from domain.timeutil import parse_clock as parse_time_input
+from domain.timeutil import parse_ranges as parse_day_intervals
 
 
 class MinuteField(forms.Field):
@@ -69,22 +43,6 @@ class MinuteField(forms.Field):
         if self.on_slot and not is_on_slot(minute):
             raise ValidationError("Use a 15-minute boundary (:00, :15, :30 or :45).")
         return minute
-
-
-def parse_day_intervals(text: str) -> list[Interval]:
-    """Parse `07:30-22:00` or `8am-12pm, 1pm-5pm`; blank means closed all day."""
-    out: list[Interval] = []
-    for part in filter(None, (p.strip() for p in re.split(r"[,;]", text))):
-        bits = re.split(r"\s*(?:-|–|to)\s*", part)
-        if len(bits) != 2:
-            raise ValueError(f"expected a range like 07:30-22:00, got {part!r}")
-        start, end = parse_time_input(bits[0]), parse_time_input(bits[1])
-        if not (is_on_slot(start) and is_on_slot(end)):
-            raise ValueError("times must be on a 15-minute boundary")
-        if start >= end:
-            raise ValueError(f"{part!r} ends before it starts")
-        out.append(Interval(start, end))
-    return merge(out)
 
 
 class OrganizationForm(forms.ModelForm):

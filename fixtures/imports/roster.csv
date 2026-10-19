@@ -1,0 +1,5 @@
+full_name,preferred_name,email,campus_id,employment_type,hire_date,new_employee_until,default_pay_role,tags
+Avery Example,Avery,student01@example.edu,X0000001,regular,2025-08-20,,Student Assistant,Opener
+Blake Sample,Blake,student02@example.edu,X0000002,regular,2025-08-20,,FWS Student Assistant,Shift lead;Cataloguer
+Casey Placeholder,Casey,student03@example.edu,,regular,2026-08-24,2027-02-28,Student Assistant,New employee
+Devon Fixture,Devon,student04@example.edu,,non_regular,,,Student Assistant,

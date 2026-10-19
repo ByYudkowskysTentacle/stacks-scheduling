@@ -16,7 +16,7 @@ from app.core.models import Closure, Membership, OperatingHoursSet, Role
 from app.people.forms import EmployeeForm
 from app.people.models import Employee, EmployeePayRole
 from domain.timeutil import Interval
-from tests.app.conftest import make_user
+from tests.conftest import make_user
 
 pytestmark = pytest.mark.django_db
 

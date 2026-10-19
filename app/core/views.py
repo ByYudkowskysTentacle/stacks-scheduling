@@ -27,6 +27,16 @@ class HomeView(OrgViewMixin, TemplateView):
         org = self.request.organization
         if self.request.access.is_supervisor:
             ctx["setup"] = setup_checklist(org)
+        if (employee := self.request.access.employee) is not None:
+            from app.availability.models import Availability
+
+            term = Term.current_for(org, timezone.localdate())
+            if term is not None:
+                availability = Availability.objects.filter(employee=employee, term=term).first()
+                ctx["term"] = term
+                ctx["availability_status"] = (
+                    availability.get_status_display() if availability else "Not entered"
+                )
         return ctx
 
 
