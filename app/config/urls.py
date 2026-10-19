@@ -82,6 +82,7 @@ urlpatterns = [
     path("availability/", availability.MyAvailabilityView.as_view(), name="my_availability"),
     path("time-off/", availability.MyTimeOffView.as_view(), name="my_time_off"),
     path("shifts/exchange/", exchange_views.ShiftExchangeView.as_view(), name="shift_exchange"),
+    path("shifts/exchange/swap/<int:shift_pk>/", exchange_views.SwapView.as_view(), name="shift_swap"),
     path("schedule/time-off/", availability.TimeOffReviewView.as_view(), name="time_off_review"),
     path("my-schedule/calendar/", feed_views.CalendarFeedManageView.as_view(), name="calendar_feed_manage"),
     path("calendar/<str:token>.ics", feed_views.CalendarFeedView.as_view(), name="calendar_feed"),

@@ -23,7 +23,7 @@
   <tbody>
   {% for r in exchanges %}{% with ex=r.exchange %}
     <tr><th scope="row"><a href="{% url 'shift_edit' ex.shift.period_id ex.shift.pk %}">{{ ex.shift.date|date:"D j M" }} {{ ex.shift.interval.label }}</a></th>
-      <td>{% if ex.kind == "claim" %}{{ ex.taker.display_name }} asks for this open shift{% else %}{{ ex.taker.display_name }} covers for {{ ex.requester.display_name }}{% endif %}</td>
+      <td>{% if ex.kind == "swap" %}Swap: {{ ex.taker.display_name }} takes this from {{ ex.requester.display_name }}, who takes {{ ex.other_shift.date|date:"D j M" }} {{ ex.other_shift.interval.label }} in return{% elif ex.kind == "claim" %}{{ ex.taker.display_name }} asks for this open shift{% else %}{{ ex.taker.display_name }} covers for {{ ex.requester.display_name }}{% endif %}</td>
       <td>{% if not r.still_matches %}<span class="severity severity--error">Error</span> The shift has changed since the request.{% elif r.check.errors %}{% for e in r.check.errors %}<span class="severity severity--error">Error</span> {{ e }}<br>{% endfor %}{% else %}Passes{% for w in r.check.warnings %}<br><span class="severity severity--warning">Warning</span> {{ w }}{% endfor %}{% endif %}</td>
       <td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}">
         {% if r.still_matches and not r.check.errors %}<button type="submit" name="action" value="approve_exchange" class="button button--small">Approve</button>{% endif %}

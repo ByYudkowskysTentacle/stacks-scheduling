@@ -378,7 +378,7 @@ class CallOut(models.Model):
 class NotificationCategory(models.TextChoices):
     PUBLISHED = "published", "My schedule changes when a schedule is published"
     TIME_OFF = "time_off", "Decisions on my time-off requests"
-    EXCHANGE = "exchange", "Decisions on open shifts, cover and swaps I asked for"
+    EXCHANGE = "exchange", "Open shifts, cover and swaps: decisions, and swap requests sent to me"
     REMINDER = "reminder", "Availability reminders"
 
 
@@ -581,24 +581,28 @@ class CalendarFeed(models.Model):
 class ExchangeKind(models.TextChoices):
     CLAIM = "claim", "Claim an open shift"
     COVER = "cover", "Cover offer"
+    SWAP = "swap", "Swap"
 
 
 class ExchangeStatus(models.TextChoices):
     OPEN = "open", "Offered, waiting for a volunteer"
+    ASKED = "asked", "Waiting for the co-worker to accept"
     PENDING = "pending", "Waiting for a supervisor"
     APPROVED = "approved", "Approved"
     DENIED = "denied", "Denied"
+    DECLINED = "declined", "Declined by the co-worker"
     WITHDRAWN = "withdrawn", "Withdrawn"
 
 
-ACTIVE_EXCHANGE = (ExchangeStatus.OPEN, ExchangeStatus.PENDING)
+ACTIVE_EXCHANGE = (ExchangeStatus.OPEN, ExchangeStatus.ASKED, ExchangeStatus.PENDING)
 
 
 @audited()
 class ShiftExchange(models.Model):
-    """An employee claims a published open shift, or offers their own published shift for
-    cover and a co-worker volunteers (SPEC §9.2). A supervisor approves, after the validation
-    suite runs on the would-be result; approval reassigns the shift as a draft."""
+    """An employee claims a published open shift, offers their own published shift for cover
+    and a co-worker volunteers, or proposes swapping their shift for a co-worker's and the
+    co-worker accepts (SPEC §9.2, D104). A supervisor approves, after the validation suite runs
+    on the would-be result; approval reassigns the shift (both shifts, for a swap) as drafts."""
 
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
     shift = models.ForeignKey(Shift, on_delete=models.PROTECT, related_name="exchanges")
@@ -607,6 +611,10 @@ class ShiftExchange(models.Model):
     requester = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="exchanges_requested")
     taker = models.ForeignKey(
         Employee, on_delete=models.CASCADE, null=True, blank=True, related_name="exchanges_taken"
+    )
+    # For a swap: the taker's shift, which goes to the requester in return.
+    other_shift = models.ForeignKey(
+        Shift, on_delete=models.PROTECT, null=True, blank=True, related_name="swap_exchanges"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

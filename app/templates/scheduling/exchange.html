@@ -2,7 +2,20 @@
 {% block title %}Open shifts and cover{% endblock %}
 {% block content %}
 <h1>Open shifts and cover</h1>
-<p class="help">Ask for an open shift, offer one of yours for cover, or pick up a co-worker's. A supervisor approves every change, and it shows on the schedule once they publish it.</p>
+<p class="help">Ask for an open shift, offer one of yours for cover, pick up a co-worker's, or swap one of yours for a co-worker's. A supervisor approves every change, and it shows on the schedule once they publish it.</p>
+
+{% if swaps_for_me %}
+<h2>Swap requests for you</h2>
+<ul class="shift-list">
+  {% for ex in swaps_for_me %}
+  <li class="shift-card">{{ ex.requester.preferred_name }} asks to swap: you'd work <strong>{{ ex.shift.date|date:"l j M" }} {{ ex.shift.interval.label }}</strong> instead of your <strong>{{ ex.other_shift.date|date:"l j M" }} {{ ex.other_shift.interval.label }}</strong>.
+    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}">
+      <button type="submit" name="action" value="accept_swap" class="button button--small">Accept</button>
+      <button type="submit" name="action" value="decline_swap" class="button button--small button--danger-outline">Decline</button></form>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
 
 <h2>Open shifts</h2>
 {% if open_shifts %}
@@ -32,8 +45,9 @@
 <ul class="shift-list">
   {% for m, offered in my_shifts %}
   <li class="shift-card" style="--chip: {{ m.shift.color }}"><strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}
-    {% if offered %}<br><span class="badge">Offered</span>{% else %}
-    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ m.shift.shift_id }}"><button type="submit" name="action" value="offer" class="button button--small">Offer for cover</button></form>{% endif %}
+    {% if offered %}<br><span class="badge">Offered or in a swap</span>{% else %}
+    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ m.shift.shift_id }}"><button type="submit" name="action" value="offer" class="button button--small">Offer for cover</button></form>
+    <a href="{% url 'shift_swap' m.shift.shift_id %}" class="button button--small">Swap it</a>{% endif %}
   </li>
   {% endfor %}
 </ul>
@@ -45,9 +59,9 @@
   <tbody>
   {% for ex in my_requests %}
     <tr><th scope="row">{{ ex.shift.date|date:"D j M" }} {{ ex.shift.interval.label }}</th>
-      <td>{% if ex.kind == "claim" %}You asked for this open shift{% elif ex.requester_id == me.pk %}You offered it{% if ex.taker %}; {{ ex.taker.preferred_name }} volunteered{% endif %}{% else %}You volunteered to cover {{ ex.requester.preferred_name }}{% endif %}</td>
+      <td>{% if ex.kind == "swap" %}{% if ex.requester_id == me.pk %}You asked {{ ex.taker.preferred_name }} to swap it for their {{ ex.other_shift.date|date:"D j M" }} {{ ex.other_shift.interval.label }}{% else %}{{ ex.requester.preferred_name }} asked to swap it for your {{ ex.other_shift.date|date:"D j M" }} {{ ex.other_shift.interval.label }}{% endif %}{% elif ex.kind == "claim" %}You asked for this open shift{% elif ex.requester_id == me.pk %}You offered it{% if ex.taker %}; {{ ex.taker.preferred_name }} volunteered{% endif %}{% else %}You volunteered to cover {{ ex.requester.preferred_name }}{% endif %}</td>
       <td>{{ ex.get_status_display }}</td>
-      <td>{% if ex.status == "open" or ex.status == "pending" %}<form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}"><button type="submit" name="action" value="withdraw" class="button button--small">Withdraw</button></form>{% endif %}</td></tr>
+      <td>{% if ex.status == "open" or ex.status == "pending" or ex.status == "asked" %}<form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}"><button type="submit" name="action" value="withdraw" class="button button--small">Withdraw</button></form>{% endif %}</td></tr>
   {% empty %}<tr><td colspan="4">None yet.</td></tr>{% endfor %}
   </tbody>
 </table>
