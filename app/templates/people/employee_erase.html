@@ -7,13 +7,12 @@
 <h2>What is removed</h2>
 <ul>
   <li>Name, email, campus ID, hire dates, wages and supervisor notes. The record becomes "Erased employee {{ employee.pk }}".</li>
-  <li>Availability, desired hours, pay-role rates, tags, hour caps, hour targets, duties and rotation group.</li>
-  <li>Notes on their shifts and call-outs, their name in stored validation messages, solver explanations and notifications, and their rows in import batches.</li>
+  <li>Availability, time off, desired hours, pay-role rates, tags, hour caps, hour targets, duties, rotation group and calendar link.</li>
+  <li>Notes on their shifts and call-outs, including in published schedules.</li>
   <li>Their sign-in account: membership and notifications here, and the account itself if it belongs to no other organization.</li>
-  <li>The same details in the audit log's earlier snapshots.</li>
 </ul>
 <h2>What is kept</h2>
-<p>Their shifts, without notes, stay in drafts and published versions so that hours totals and past schedules stay correct. The audit log records that the erasure happened and who did it.</p>
+<p>Their shifts, without notes, stay in drafts and published versions so that hours totals and past schedules stay correct. The audit log is kept as it is, including its earlier snapshots of this record, and records that the erasure happened and who did it. Stored messages that mention them (validation messages, solver explanations, other people's notifications, import files) are kept too.</p>
 <form method="post" class="stacked-form">{% csrf_token %}
   <div>
     <label for="confirm_name">Type their full name, <strong>{{ employee.full_name }}</strong>, to confirm</label>
