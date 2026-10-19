@@ -215,3 +215,48 @@ def test_remove_from_pool_leaves_other_departments_schedules_alone(
         as_user(supervisor).post(reverse("remove_from_pool", args=[casey.pk]), {"confirm": "yes"})
     theirs.refresh_from_db()
     assert theirs.employee == casey  # Special Collections' supervisor decides that one
+
+
+# --- The audit log (D107) -------------------------------------------------------------------
+
+
+def test_audit_log_shows_my_departments_and_settings_only(as_user, supervisor, admin_user, org, world):
+    from decimal import Decimal
+
+    for name in ("Avery", "Blake"):
+        e = world["people"][name]
+        e.default_wage = Decimal("15.75") if name == "Blake" else Decimal("14.25")
+        e.save()
+    world["circ"].name = "Circulation Desk"
+    world["circ"].save()
+    page = as_user(supervisor).get(reverse("audit_log")).content.decode()
+    assert "Avery" in page and "14.25" in page
+    assert "Blake" not in page and "15.75" not in page  # Special Collections' student
+    assert "Circulation Desk" in page  # organization-wide settings stay visible
+    admin_page = as_user(admin_user).get(reverse("audit_log")).content.decode()
+    assert "Blake" in admin_page and "15.75" in admin_page
+
+
+def test_every_audited_model_is_classified_for_the_audit_log():
+    from django.apps import apps as registry
+    from pghistory.models import Event
+
+    from app.core import audit_log
+
+    classified = (
+        audit_log.ORGANIZATION_WIDE
+        | audit_log.BY_EMPLOYEE
+        | audit_log.BY_PERIOD
+        | audit_log.BY_DEPARTMENT
+        | {
+            "people.Employee",
+            "scheduling.HourCapRule",
+            "availability.AvailabilityBlock",
+            "scheduling.SchedulePeriod",
+            "scheduling.CallOut",
+            "scheduling.ShiftExchange",
+            "scheduling.EmailPreference",
+        }
+    )
+    tracked = {m.pgh_tracked_model._meta.label for m in registry.get_models() if issubclass(m, Event)}
+    assert tracked <= classified, f"decide who sees the history of: {sorted(tracked - classified)}"

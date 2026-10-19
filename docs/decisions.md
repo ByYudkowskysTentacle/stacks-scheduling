@@ -382,6 +382,18 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 ## 2026-10-19 – Maintainer review of the department follow-ups
 
 - **D107 (resolves part of open item 16).** Once an organization has departments, the audit log shows each supervisor the changes to records in their own departments (people, schedules, shifts, requests, time off, availability), plus changes to organization-wide settings. Admins see everything. Changes to another department's records, including wages and notes, are no longer visible to that department's outsiders.
+  *Built:* `audit_log.events_for(org, access)` filters the audit log for a supervisor limited to some departments.
+  - **Organization-wide settings** stay visible to every supervisor: hours, closures, terms, departments, roles, retention, pay roles, tags, imports and scheduling rules.
+  - **Everything else follows the record it belongs to:**
+    - employees and their pay roles, tags, departments, availability, time off, duties, targets, desired hours and calendar feeds, by employee;
+    - availability blocks, by their availability;
+    - shifts, published versions and solver runs, by period;
+    - call-outs and exchanges, by shift (either side of a swap);
+    - coverage overrides and tag rules, by department, with blank meaning every department;
+    - caps, by employee, with org-wide caps visible;
+    - email settings, by the employee's account.
+  - **Current membership counts.** A supervisor sees the full history of people and schedules in their departments today.
+  - **Guard test.** A test fails if a new audited model isn't classified. Until it is, the model is hidden from department-limited supervisors.
 - **D108 (resolves part of open item 16).** Students see the published schedules of their own departments only, and can claim open shifts and propose swaps only within them. A department's supervisor can turn on a setting that also lists open shifts from other departments to their employees, choosing which departments. *Interpretation:* the setting belongs to the employees' department (the one whose people may look elsewhere), and lists the chosen departments' open shifts only, not their full schedules. A claim still goes to the supervisor of the shift's department, and the validation suite still runs on it.
 - **D109 (revises D93/D105 and the retention purge).** Purging expired data no longer removes the audit history of that data. The audit log gets its own retention period under Settings, Retention, blank by default (keep). When it is set, audit entries older than that are purged on the same nightly run. Erasure still leaves the audit log as it is (D100).
   *Built:*
