@@ -61,6 +61,7 @@ def export_employee(employee: Employee) -> dict[str, Any]:
         PublishedVersion,
         RotationAssignment,
         Shift,
+        ShiftExchange,
     )
 
     profile = {f: _plain(getattr(employee, f)) for f in PERSONAL_FIELDS}
@@ -146,6 +147,17 @@ def export_employee(employee: Employee) -> dict[str, Any]:
                 "note": c.note,
             }
             for c in CallOut.objects.filter(Q(called_out=employee) | Q(covered_by=employee)).select_related(
+                "shift"
+            )
+        ],
+        "shift_exchanges": [
+            {
+                "shift_date": x.shift.date.isoformat(),
+                "kind": x.kind,
+                "role": "requested" if x.requester_id == employee.pk else "took",
+                "status": x.status,
+            }
+            for x in ShiftExchange.objects.filter(Q(requester=employee) | Q(taker=employee)).select_related(
                 "shift"
             )
         ],

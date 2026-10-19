@@ -18,7 +18,7 @@ from app.core.models import Location
 from app.core.permissions import Perm
 from app.core.views_base import OrgViewMixin
 from app.people.models import Employee
-from app.scheduling import services
+from app.scheduling import exchanges, services
 from app.scheduling.forms import (
     CallOutForm,
     CoverageOverrideForm,
@@ -35,6 +35,7 @@ from app.scheduling.models import (
     CallOut,
     CoverageOverride,
     DutyAssignment,
+    ExchangeStatus,
     HourCapRule,
     HourTargetRule,
     Notification,
@@ -42,6 +43,7 @@ from app.scheduling.models import (
     SchedulePeriod,
     SchedulingRules,
     Shift,
+    ShiftExchange,
     TagCoverageRule,
 )
 from domain.calendar import closures_on, scheduled_intervals
@@ -405,6 +407,12 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
         ctx["pending_time_off"] = TimeOff.objects.filter(
             organization=org, status=TimeOffStatus.PENDING
         ).count()
+        ctx["exchanges"] = [
+            exchanges.review(ex)
+            for ex in ShiftExchange.objects.filter(
+                organization=org, status=ExchangeStatus.PENDING
+            ).select_related("shift__period", "requester", "taker")
+        ]
         return ctx
 
     def post(self, request, *args, **kwargs):
@@ -421,6 +429,21 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
             else:
                 services.revert_shift(shift, request.user)
                 flash_validation(request, shift.period, f"Reverted {shift}.")
+        elif action in ("approve_exchange", "deny_exchange"):
+            ex = get_object_or_404(
+                ShiftExchange.objects.filter(organization=org), pk=request.POST.get("exchange")
+            )
+            try:
+                ex = exchanges.decide(ex, request.user, action == "approve_exchange")
+            except exchanges.ExchangeError as exc:
+                messages.error(request, str(exc))
+            else:
+                if action == "approve_exchange":
+                    flash_validation(
+                        request, ex.shift.period, f"Gave {ex.shift} to {ex.taker.display_name} as a draft."
+                    )
+                else:
+                    messages.success(request, "Request denied.")
         elif action == "reviewed":
             call_out = get_object_or_404(
                 CallOut.objects.filter(organization=org), pk=request.POST.get("call_out")

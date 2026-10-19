@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Open shifts and cover{% endblock %}
+{% block content %}
+<h1>Open shifts and cover</h1>
+<p class="help">Ask for an open shift, offer one of yours for cover, or pick up a co-worker's. A supervisor approves every change, and it shows on the schedule once they publish it.</p>
+
+<h2>Open shifts</h2>
+{% if open_shifts %}
+<ul class="shift-list">
+  {% for s, asked in open_shifts %}
+  <li class="shift-card" style="--chip: {{ s.color }}"><strong>{{ s.day|date:"l j M" }}</strong> {{ s.interval.label }} <span class="subtle">{{ s.location }}</span>
+    {% if asked %}<br><span class="badge">You asked for this</span>{% else %}
+    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ s.shift_id }}"><button type="submit" name="action" value="claim" class="button button--small">Ask for this shift</button></form>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p>No open shifts in the next four weeks.</p>{% endif %}
+
+<h2>Offered by co-workers</h2>
+{% if offers %}
+<ul class="shift-list">
+  {% for ex in offers %}
+  <li class="shift-card"><strong>{{ ex.shift.date|date:"l j M" }}</strong> {{ ex.shift.interval.label }} <span class="subtle">from {{ ex.requester.preferred_name }}</span>
+    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}"><button type="submit" name="action" value="volunteer" class="button button--small">I can take it</button></form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p>No shifts offered right now.</p>{% endif %}
+
+<h2>Your shifts</h2>
+{% if my_shifts %}
+<ul class="shift-list">
+  {% for m, offered in my_shifts %}
+  <li class="shift-card" style="--chip: {{ m.shift.color }}"><strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}
+    {% if offered %}<br><span class="badge">Offered</span>{% else %}
+    <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ m.shift.shift_id }}"><button type="submit" name="action" value="offer" class="button button--small">Offer for cover</button></form>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p>No published shifts coming up.</p>{% endif %}
+
+<h2>Your requests</h2>
+<table class="data-table">
+  <thead><tr><th scope="col">Shift</th><th scope="col">What</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+  <tbody>
+  {% for ex in my_requests %}
+    <tr><th scope="row">{{ ex.shift.date|date:"D j M" }} {{ ex.shift.interval.label }}</th>
+      <td>{% if ex.kind == "claim" %}You asked for this open shift{% elif ex.requester_id == me.pk %}You offered it{% if ex.taker %}; {{ ex.taker.preferred_name }} volunteered{% endif %}{% else %}You volunteered to cover {{ ex.requester.preferred_name }}{% endif %}</td>
+      <td>{{ ex.get_status_display }}</td>
+      <td>{% if ex.status == "open" or ex.status == "pending" %}<form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}"><button type="submit" name="action" value="withdraw" class="button button--small">Withdraw</button></form>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4">None yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

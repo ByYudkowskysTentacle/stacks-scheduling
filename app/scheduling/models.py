@@ -552,3 +552,47 @@ class CalendarFeed(models.Model):
 
     def __str__(self) -> str:
         return f"Calendar feed for {self.employee}"
+
+
+class ExchangeKind(models.TextChoices):
+    CLAIM = "claim", "Claim an open shift"
+    COVER = "cover", "Cover offer"
+
+
+class ExchangeStatus(models.TextChoices):
+    OPEN = "open", "Offered, waiting for a volunteer"
+    PENDING = "pending", "Waiting for a supervisor"
+    APPROVED = "approved", "Approved"
+    DENIED = "denied", "Denied"
+    WITHDRAWN = "withdrawn", "Withdrawn"
+
+
+ACTIVE_EXCHANGE = (ExchangeStatus.OPEN, ExchangeStatus.PENDING)
+
+
+@audited()
+class ShiftExchange(models.Model):
+    """An employee claims a published open shift, or offers their own published shift for
+    cover and a co-worker volunteers (SPEC §9.2). A supervisor approves, after the validation
+    suite runs on the would-be result; approval reassigns the shift as a draft."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    shift = models.ForeignKey(Shift, on_delete=models.PROTECT, related_name="exchanges")
+    kind = models.CharField(max_length=10, choices=ExchangeKind.choices)
+    status = models.CharField(max_length=10, choices=ExchangeStatus.choices)
+    requester = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="exchanges_requested")
+    taker = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, null=True, blank=True, related_name="exchanges_taken"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["shift__date", "shift__start_min"]
+
+    def __str__(self) -> str:
+        return f"{self.get_kind_display()}: {self.shift}"

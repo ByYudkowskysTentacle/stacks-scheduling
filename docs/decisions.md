@@ -300,6 +300,17 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
   - The employee can cancel a pending or approved request until it starts.
 - **D90 (interpretation, conservative).** Approving time off changes no shifts by itself. Clashing shifts show as availability conflicts until a supervisor reassigns them, so no shift moves without someone choosing it (CLAUDE.md §2.3). Deciding a request sends no email; the employee sees the status on their time-off page. Notifications stay tied to publishing (CLAUDE.md §2.2). Whether students want an email when a request is decided is open item 13.
 
+## 2026-10-19 – Build session, open shifts and cover
+
+- **D91 (design).** Employees work only from the published schedule (SPEC §9.2).
+  - They can ask for a published open shift, or offer one of their own published shifts for cover.
+  - A co-worker can volunteer for an offered shift. One volunteer at a time; if they withdraw, the offer goes back up.
+  - Requests are refused for past shifts, for shifts the working copy has moved since publishing, and for times the employee already works.
+  - A supervisor approves or denies in the review queue. Each request shows the validation suite's result on the would-be schedule, and Approve appears only when it passes.
+  - Approving re-checks that the shift hasn't changed, reassigns it as a draft with the new person's default pay role, and closes other requests for that shift.
+  - Nothing is emailed: the change reaches the published schedule and notifications when a supervisor publishes (CLAUDE.md §2.2).
+- **D92 (scope).** Two-way trades (swapping one shift for another) aren't built. An offer plus a volunteer covers the common case. Non-regular staff can't be approved for a claimed shift, because the check treats the scheduling pool as a rule. A supervisor can still assign them by editing the shift. Both are open item 14.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -315,3 +326,4 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 11. Decide whether Google sign-in (D5, generic OIDC restricted to the campus domain) is needed for go-live, or whether invited local accounts are enough for spring. It needs an OAuth client from campus Google Workspace admins.
 12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).
 13. Decide whether a decision on a time-off request should email the student (D90). It doesn't today: they see it on their time-off page.
+14. Decide whether two-way shift trades are needed, and whether non-regular staff may claim open shifts (D92).

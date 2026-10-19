@@ -28,6 +28,7 @@
             {% if access.employee %}
               <li><a href="{% url 'my_schedule' %}"{% if request.resolver_match.url_name == 'my_schedule' %} aria-current="page"{% endif %}>My schedule</a></li>
               <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>
+              <li><a href="{% url 'shift_exchange' %}"{% if request.resolver_match.url_name == 'shift_exchange' %} aria-current="page"{% endif %}>Open shifts</a></li>
               <li><a href="{% url 'my_time_off' %}"{% if request.resolver_match.url_name == 'my_time_off' %} aria-current="page"{% endif %}>Time off</a></li>
             {% endif %}
             {% if Perm.VIEW_FREE_BUSY in access.perms %}
@@ -61,6 +62,7 @@
     {% endif %}
     {% block content %}{% endblock content %}
   </main>
+  <script src="{% static 'js/scroll-regions.js' %}" defer></script>
   {% block scripts %}{% endblock scripts %}
 </body>
 </html>
