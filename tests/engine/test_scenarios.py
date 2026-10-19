@@ -212,12 +212,10 @@ def test_scenario_6_priority_target_reaches_20_hours(base):
         PRIORITY
     ]  # "reaches 20" within a 2h tolerance in 30s
     assert [i for i in full.report.issues if i.category == Category.COVERAGE_GAP] == []
-    # The hours come mostly from the busiest general staff.
-    losers = [h for h in full.hours if h.delta < 0]
-    if losers:
-        busiest = sorted(before, key=lambda e: -sum(before[e].values()))[: len(before) // 2]
-        from_busy = sum(-h.delta for h in losers if h.employee_id in busiest)
-        assert from_busy >= sum(-h.delta for h in losers) / 2
+    # Fewest changes (D98): little more moves than the priority student gains. Under the old
+    # busiest-first weighting this was about twice the gain.
+    gained = sum(after[PRIORITY].values()) - sum(before.get(PRIORITY, {}).values())
+    assert full.moved_minutes <= 1.5 * gained, (full.moved_minutes, gained)
 
 
 # --- Scenarios 12, 14 and 19: relaxed rotation, minimal churn, two options -------------------
