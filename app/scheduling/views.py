@@ -36,6 +36,7 @@ from app.scheduling.models import (
     CoverageOverride,
     DutyAssignment,
     EmailPreference,
+    ExchangeKind,
     ExchangeStatus,
     HourCapRule,
     HourTargetRule,
@@ -413,7 +414,7 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
             exchanges.review(ex)
             for ex in ShiftExchange.objects.filter(
                 organization=org, status=ExchangeStatus.PENDING
-            ).select_related("shift__period", "requester", "taker")
+            ).select_related("shift__period", "other_shift__period", "requester", "taker")
         ]
         return ctx
 
@@ -440,7 +441,14 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
             except exchanges.ExchangeError as exc:
                 messages.error(request, str(exc))
             else:
-                if action == "approve_exchange":
+                if action == "approve_exchange" and ex.kind == ExchangeKind.SWAP:
+                    flash_validation(
+                        request,
+                        ex.shift.period,
+                        f"Swapped {ex.shift} and {ex.other_shift} between {ex.requester.display_name} "
+                        f"and {ex.taker.display_name} as drafts.",
+                    )
+                elif action == "approve_exchange":
                     flash_validation(
                         request, ex.shift.period, f"Gave {ex.shift} to {ex.taker.display_name} as a draft."
                     )

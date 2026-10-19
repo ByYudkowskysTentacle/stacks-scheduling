@@ -13,6 +13,7 @@ from domain.calendar import MON, SAT, WED
 from domain.rules import CapScope, HourCap, HourTarget, OpenerDuty, Rotation, RotationMode, Rules
 from domain.schedule import Period, ScheduleContext
 from domain.suggest import (
+    check_change,
     gap_shift,
     opportunities,
     remove_from_pool_plan,
@@ -97,6 +98,15 @@ def test_not_in_pool_is_blocked():
     staff = replace(person(2), auto_schedulable=False)
     result = who_could_take(context([target], {1: person(1), 2: staff}), target)
     assert result.blocked[0].blockers == ("P2 isn't in the scheduling pool",)
+
+
+def test_the_pool_rule_can_be_left_out_for_requests():
+    target = shift(1, MONDAY, 540, 660, sid=1)
+    staff = replace(person(2), auto_schedulable=False)
+    ctx = context([target], {1: person(1), 2: staff})
+    after = [replace(target, employee_id=2)]
+    assert "P2 isn't in the scheduling pool" in check_change(ctx, after).errors
+    assert check_change(ctx, after, pool_rule=False).ok  # a supervisor approving a claim (D104)
 
 
 def test_not_entered_availability_is_a_warning_and_ranks_last():

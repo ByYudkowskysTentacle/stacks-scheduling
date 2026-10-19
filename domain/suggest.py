@@ -407,8 +407,10 @@ class ChangeCheck:
         return not self.errors
 
 
-def check_change(ctx: ScheduleContext, after: Sequence[Shift]) -> ChangeCheck:
-    """What a change adds to the person-level checks, plus shifts that run while closed."""
+def check_change(ctx: ScheduleContext, after: Sequence[Shift], pool_rule: bool = True) -> ChangeCheck:
+    """What a change adds to the person-level checks, plus shifts that run while closed.
+    `pool_rule=False` lets people outside the scheduling pool take shifts: the pool limits only
+    the generator and suggestions, not a supervisor approving someone's own request (D104)."""
     errors: list[str] = []
     warnings: list[str] = []
     before_ids = {id(s) for s in ctx.shifts}
@@ -426,7 +428,7 @@ def check_change(ctx: ScheduleContext, after: Sequence[Shift]) -> ChangeCheck:
             )
         person = ctx.people.get(s.employee_id) if s.employee_id is not None else None
         if person is not None:
-            if not person.auto_schedulable:
+            if pool_rule and not person.auto_schedulable:
                 errors.append(f"{person.name} isn't in the scheduling pool")
             rot = _rotation_note(ctx, person, s.day)
             if rot is not None:
