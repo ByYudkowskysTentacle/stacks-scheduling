@@ -28,6 +28,7 @@ class PublicShift:
     color: str
     location: str
     note: str = ""  # shown only to the person the shift belongs to
+    shift_id: int | None = None
 
 
 @dataclass
@@ -67,6 +68,7 @@ def published_week(org, week_start: date, viewer: Employee | None) -> list[Publi
                     color=colors.get(row.get("pay_role_id"), "#5b6472"),
                     location=period.location.name,
                     note=row.get("note", "") if own else "",
+                    shift_id=row.get("id"),
                 )
             )
     return [PublicDay(d, sorted(by_day.get(d, []), key=lambda s: (s.interval, s.name))) for d in days]

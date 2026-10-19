@@ -400,6 +400,11 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
         ctx["call_outs"] = CallOut.objects.filter(organization=org, reviewed_at__isnull=True).select_related(
             "shift__period", "called_out", "covered_by", "recorded_by"
         )
+        from app.availability.models import TimeOff, TimeOffStatus
+
+        ctx["pending_time_off"] = TimeOff.objects.filter(
+            organization=org, status=TimeOffStatus.PENDING
+        ).count()
         return ctx
 
     def post(self, request, *args, **kwargs):

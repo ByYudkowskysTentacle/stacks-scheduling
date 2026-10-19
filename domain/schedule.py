@@ -50,12 +50,25 @@ class Person:
     availability: WeeklyAvailability
     tags_by_day: Mapping[date, frozenset[str]] = field(default_factory=dict[date, frozenset[str]])
     auto_schedulable: bool = True  # False for non_regular and inactive (SPEC §4.1)
+    # Approved time off (SPEC §5.1 date-specific exceptions): whole days are (0, 1440).
+    time_off: Mapping[date, tuple[Interval, ...]] = field(default_factory=dict[date, tuple[Interval, ...]])
 
     def has_tag(self, tag: str, day: date) -> bool:
         return tag in self.tags_by_day.get(day, frozenset())
 
     def tagged_in(self, tag: str, days: Iterable[date]) -> bool:
         return any(self.has_tag(tag, d) for d in days)
+
+    def off_on(self, day: date) -> list[Interval]:
+        """Approved time off on `day`, widened to whole slots."""
+        return merge(
+            Interval(iv.start // SLOT_MINUTES * SLOT_MINUTES, -(-iv.end // SLOT_MINUTES) * SLOT_MINUTES)
+            for iv in self.time_off.get(day, ())
+        )
+
+    def blocked_on(self, day: date) -> list[Interval]:
+        """Everything that rules the person out on `day`: weekly unavailability and time off."""
+        return merge([*self.availability.unavailable_for_scheduling(day.weekday()), *self.off_on(day)])
 
 
 @dataclass(frozen=True)

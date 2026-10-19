@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Calendar link{% endblock %}
+{% block content %}
+<p><a href="{% url 'my_schedule' %}">← My schedule</a></p>
+<h1>Add your shifts to your calendar</h1>
+<p>Subscribe to this private link in Google Calendar, Apple Calendar or Outlook to see your published shifts there. It updates when a new schedule is published (calendar apps check every few hours). Draft changes never appear.</p>
+{% if url %}
+  <div class="card card--notice">
+    <p><label for="feed-url"><strong>Your link.</strong> Copy it now: for your security it isn't shown again.</label></p>
+    <input type="text" id="feed-url" value="{{ url }}" readonly size="60" onfocus="this.select()">
+    <p class="help">Anyone with this link can see your shift times and who you work with. Don't share it. If it leaks, make a new one below and the old one stops working.</p>
+  </div>
+{% endif %}
+<form method="post" class="form-actions">{% csrf_token %}
+  <button type="submit" name="action" value="create" class="button button--primary">{% if has_feed %}Make a new link{% else %}Make my calendar link{% endif %}</button>
+  {% if has_feed %}<button type="submit" name="action" value="remove" class="button button--danger-outline">Turn off my link</button>{% endif %}
+</form>
+{% if has_feed and not url %}<p class="help">You have a working link. Making a new one turns the old one off.</p>{% endif %}
+{% endblock %}

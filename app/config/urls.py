@@ -6,7 +6,7 @@ from app.availability import views as availability
 from app.core import views as core
 from app.imports import views as imports
 from app.people import views as people
-from app.scheduling import solve_views, suggest_views
+from app.scheduling import feed_views, solve_views, suggest_views
 from app.scheduling import views as scheduling
 
 urlpatterns = [
@@ -76,6 +76,10 @@ urlpatterns = [
     ),
     # Availability
     path("availability/", availability.MyAvailabilityView.as_view(), name="my_availability"),
+    path("time-off/", availability.MyTimeOffView.as_view(), name="my_time_off"),
+    path("schedule/time-off/", availability.TimeOffReviewView.as_view(), name="time_off_review"),
+    path("my-schedule/calendar/", feed_views.CalendarFeedManageView.as_view(), name="calendar_feed_manage"),
+    path("calendar/<str:token>.ics", feed_views.CalendarFeedView.as_view(), name="calendar_feed"),
     path("availability/grid/", availability.AvailabilityGridView.as_view(), name="availability_grid"),
     path(
         "availability/<int:pk>/confirm/",

@@ -2,7 +2,7 @@
 {% block title %}Review queue{% endblock %}
 {% block content %}
 <h1>Review queue</h1>
-<p><a href="{% url 'desired_hours' %}">Desired hours requests</a></p>
+<p><a href="{% url 'desired_hours' %}">Desired hours requests</a> · <a href="{% url 'time_off_review' %}">Time-off requests{% if pending_time_off %} ({{ pending_time_off }} waiting){% endif %}</a></p>
 <p class="help">Draft changes proposed by shift leads, and call-outs they recorded. Keep or revert each one; nothing reaches employees until you publish.</p>
 <h2>Proposed shift changes</h2>
 <table class="data-table">

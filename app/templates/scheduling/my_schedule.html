@@ -3,6 +3,7 @@
 {% block content %}
 <h1>My schedule</h1>
 <p class="help">Your published shifts for the next four weeks. Changes appear here once a supervisor publishes them. <a href="{% url 'published_schedule' %}">See everyone's schedule</a>.</p>
+<p class="no-print"><a href="{% url 'calendar_feed_manage' %}">Add your shifts to your phone's calendar</a> · <a href="{% url 'my_time_off' %}">Request time off</a></p>
 <ul class="shift-list">
   {% for m in shifts %}
     <li class="shift-card" style="--chip: {{ m.shift.color }}">
