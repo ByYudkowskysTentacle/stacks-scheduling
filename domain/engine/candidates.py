@@ -122,7 +122,7 @@ def build_candidates(
         if (
             person.availability.is_known
             and person.availability.conflicting_blocks(s.day.weekday(), s.interval)
-        ) or intersect([s.interval], person.off_on(s.day)):
+        ) or intersect([s.interval], person.off_on(s.day) + _busy_elsewhere(ctx, person.id, s.day)):
             result.dropped_existing.append(s)
             continue
         add(cand)
@@ -144,6 +144,7 @@ def build_candidates(
             else:
                 avail = open_ivs  # not_entered: allowed but heavily penalised (SPEC §5.1)
             avail = subtract(avail, person.off_on(day))  # approved time off is never scheduled
+            avail = subtract(avail, _busy_elsewhere(ctx, person.id, day))  # nor time on another schedule
             for iv in avail:
                 for start in range(_align_up(iv.start, start_step), iv.end, start_step):
                     if scope.frozen(day, start):
@@ -166,3 +167,12 @@ def build_candidates(
                     add(Candidate(person.id, day, shift_iv.start, shift_iv.end, duty=True))
     result.candidates = sorted(out.values(), key=lambda c: (c.day, c.employee_id, c.start, c.end))
     return result
+
+
+def _busy_elsewhere(ctx: ScheduleContext, employee_id: int, day: date) -> list[Interval]:
+    """Time taken by shifts on other schedules, widened by the minimum gap between shifts (D95)."""
+    gap = ctx.rules.shape.min_gap
+    return [
+        Interval(max(0, s.interval.start - gap), s.interval.end + gap)
+        for s in ctx.elsewhere_on(employee_id, day)
+    ]

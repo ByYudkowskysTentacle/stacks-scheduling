@@ -10,7 +10,7 @@ import pytest
 from django.core import mail
 from django.urls import reverse
 
-from app.core.models import Membership, Role, Term
+from app.core.models import Location, Membership, Role, Term
 from app.people.models import Employee, PayRole, Tag
 from app.scheduling import services
 from app.scheduling.models import (
@@ -391,3 +391,13 @@ def test_membership_role_change_doesnt_leak_drafts(as_user, org, period):
     assert client.get(reverse("period", args=[period.pk])).status_code == 200
     Membership.objects.filter(user=user).update(role=Role.EMPLOYEE)
     assert client.get(reverse("period", args=[period.pk])).status_code == 403
+
+
+def test_shifts_on_another_schedule_count_for_double_booking(org, location, period, employee):
+    branch = Location.objects.create(organization=org, name="Branch")
+    other = SchedulePeriod.objects.create(organization=org, location=branch, start_date=START, weeks=2)
+    add_shift(other, employee, start=600, end=780)
+    mine = add_shift(period, employee)
+    issues = [i for i in services.validate_period(period).issues if i.category == "double_booking"]
+    assert len(issues) == 1 and issues[0].shift_id == mine.pk
+    assert "on another schedule" in issues[0].message
