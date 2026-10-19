@@ -40,7 +40,7 @@ def person(org, name, *departments):
 
 def test_the_upgrade_puts_everything_in_one_department(org, location, supervisor, employee):
     period = SchedulePeriod.objects.create(organization=org, location=location, start_date=START, weeks=2)
-    migration = importlib.import_module("app.scheduling.migrations.0007_departments")
+    migration = importlib.import_module("app.scheduling.migrations.0008_departments")
     migration.default_departments(apps, None)
     dept = Department.objects.get(organization=org)
     period.refresh_from_db()

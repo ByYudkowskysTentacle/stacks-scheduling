@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("core", "0005_departments"),
         ("people", "0002_departments"),
-        ("scheduling", "0006_notification_categories_and_email_preferences"),
+        ("scheduling", "0007_shift_swaps"),
     ]
 
     operations = [
