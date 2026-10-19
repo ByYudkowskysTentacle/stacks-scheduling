@@ -50,6 +50,9 @@ urlpatterns = [
     path("settings/departments/", core.DepartmentListView.as_view(), name="departments"),
     path("settings/departments/add/", core.DepartmentCreateView.as_view(), name="department_add"),
     path("settings/departments/<int:pk>/", core.DepartmentUpdateView.as_view(), name="department_edit"),
+    path(
+        "settings/departments/<int:pk>/remove/", core.DepartmentRemoveView.as_view(), name="department_remove"
+    ),
     path("settings/members/", core.MemberListView.as_view(), name="members"),
     path("settings/audit/", core.AuditLogView.as_view(), name="audit_log"),
     path("settings/retention/", core.RetentionView.as_view(), name="retention"),

@@ -201,6 +201,27 @@ class DepartmentForm(forms.ModelForm):
         return name
 
 
+class DepartmentRemoveForm(forms.Form):
+    """Confirms removing a department, and where what it holds goes (D110)."""
+
+    into = forms.ModelChoiceField(
+        queryset=Department.objects.none(),
+        required=False,
+        label="Move its schedules, people, supervisors and rules into",
+    )
+    confirm = forms.BooleanField(label="I understand this department will be removed.")
+
+    def __init__(self, *args, department: Department, needs_target: bool, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["into"].queryset = Department.objects.filter(
+            organization=department.organization
+        ).exclude(pk=department.pk)
+        if needs_target:
+            self.fields["into"].required = True
+        else:
+            del self.fields["into"]
+
+
 class TermForm(forms.ModelForm):
     class Meta:
         model = Term

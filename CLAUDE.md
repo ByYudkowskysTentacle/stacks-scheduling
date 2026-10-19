@@ -137,7 +137,8 @@ adapters/             Paycom, ICS/calendar, CSV import/export
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
 app/accounts/         sign-in accounts (email login, allauth, TOTP)
 app/core/             organization, locations, hours, closures, terms, roles, the permission
-                      layer (permissions.py), audit log helpers, management commands
+                      layer (permissions.py), audit log helpers, management commands;
+                      departments.py removes a department, merging it into another (D110)
 app/people/           employees, pay roles and wages, tags, invitations; records.py is the
                       single-person export and erasure
 app/availability/     term availability, entry form and paint grid, the availability grid,

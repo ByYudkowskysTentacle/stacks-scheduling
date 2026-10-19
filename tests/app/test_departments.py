@@ -10,6 +10,7 @@ from datetime import date
 import pytest
 from django.apps import apps
 from django.urls import reverse
+from pghistory.models import Events
 
 from app.core.models import Department, Membership, Role, SupervisorDepartment
 from app.people.models import Employee, EmployeeDepartment, Tag
@@ -215,3 +216,103 @@ def test_department_coverage_is_set_on_its_settings_page(as_user, org, superviso
     )
     dept.refresh_from_db()
     assert (dept.coverage_default, dept.coverage_mode) == (1, "minimum")
+
+
+# --- Removing a department (D110) ------------------------------------------------------------
+
+
+def test_an_empty_department_is_removed_after_confirmation(as_user, org, admin_user, depts):
+    circ, special = depts
+    circ.open_shifts_from = [special.pk]
+    circ.save()
+    client = as_user(admin_user)
+    url = reverse("department_remove", args=[special.pk])
+    assert "no schedules, people, supervisors" in client.get(url).content.decode()
+    client.post(url, {})
+    assert Department.objects.filter(pk=special.pk).exists()  # not without the confirmation box
+    resp = client.post(url, {"confirm": "on"}, follow=True)
+    assert "Removed Special Collections." in resp.content.decode()
+    assert "Circulation no longer shows its open shifts" in resp.content.decode()
+    assert list(Department.objects.all()) == [circ]
+    circ.refresh_from_db()
+    assert circ.open_shifts_from == []
+    event = Events.objects.filter(pgh_obj_model="core.Department", pgh_label="delete").get()
+    assert event.pgh_context["user"] == admin_user.pk
+
+
+def test_removing_merges_everything_into_the_chosen_department(
+    as_user, org, location, admin_user, supervisor, depts
+):
+    circ, special = depts
+    manages(supervisor, circ, special)
+    both, only_special = person(org, "Avery", circ, special), person(org, "Blake", special)
+    period = SchedulePeriod.objects.create(
+        organization=org, location=location, department=special, start_date=START, weeks=2
+    )
+    shift = Shift.objects.create(
+        organization=org,
+        location=location,
+        period=period,
+        employee=only_special,
+        date=MONDAY,
+        start_min=540,
+        end_min=720,
+    )
+    tag = Tag.objects.create(organization=org, name="Cataloguer")
+    rule = TagCoverageRule.objects.create(organization=org, tag=tag, kind="min_on_duty", department=special)
+    client = as_user(admin_user)
+    url = reverse("department_remove", args=[special.pk])
+    page = client.get(url).content.decode()
+    assert "1 schedule," in page and "2 people" in page and "1 skill rule" in page
+    resp = client.post(url, {"confirm": "on"})
+    assert "This field is required." in resp.content.decode()  # a department to move into
+    client.post(url, {"confirm": "on", "into": circ.pk})
+    assert not Department.objects.filter(pk=special.pk).exists()
+    period.refresh_from_db()
+    rule.refresh_from_db()
+    assert period.department == circ and rule.department == circ
+    assert Shift.objects.get().pk == shift.pk  # same shift, same ID
+    assert list(both.departments.all()) == [circ] and list(only_special.departments.all()) == [circ]
+    assert list(Membership.objects.get(user=supervisor).departments.all()) == [circ]
+
+
+def test_removal_is_refused_when_both_have_a_schedule_for_the_same_week(
+    as_user, org, location, admin_user, depts
+):
+    circ, special = depts
+    for dept in depts:
+        SchedulePeriod.objects.create(organization=org, location=location, department=dept, start_date=START)
+    resp = as_user(admin_user).post(
+        reverse("department_remove", args=[special.pk]), {"confirm": "on", "into": circ.pk}
+    )
+    assert "already has a schedule for the same week" in resp.content.decode()
+    assert Department.objects.count() == 2 and SchedulePeriod.objects.filter(department=special).exists()
+
+
+def test_the_only_department_cannot_be_removed(as_user, org, admin_user):
+    dept = Department.objects.create(organization=org, name="General")
+    client = as_user(admin_user)
+    url = reverse("department_remove", args=[dept.pk])
+    assert "only department" in client.get(url).content.decode()
+    assert "only department" in client.post(url, {"confirm": "on"}).content.decode()
+    assert Department.objects.filter(pk=dept.pk).exists()
+
+
+def test_only_admins_remove_departments(as_user, org, supervisor, depts):
+    _, special = depts
+    manages(supervisor, special)
+    client = as_user(supervisor)
+    assert client.post(reverse("department_remove", args=[special.pk]), {"confirm": "on"}).status_code == 403
+    assert "Remove" not in client.get(reverse("departments")).content.decode()
+    assert Department.objects.filter(pk=special.pk).exists()
+
+
+def test_cannot_merge_into_another_organizations_department(as_user, other_org, admin_user, depts):
+    _, special = depts
+    person(special.organization, "Blake", special)
+    theirs = Department.objects.create(organization=other_org, name="Theirs")
+    resp = as_user(admin_user).post(
+        reverse("department_remove", args=[special.pk]), {"confirm": "on", "into": theirs.pk}
+    )
+    assert "Select a valid choice" in resp.content.decode()
+    assert Department.objects.filter(pk=special.pk).exists()
