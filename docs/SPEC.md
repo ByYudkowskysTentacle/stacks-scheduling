@@ -16,7 +16,7 @@ This spec was written from a real scheduling exercise at a university library (a
 |---|---|
 | Student worker | Enters term availability, sees the published schedule, requests time off, offers or picks up shifts, clocks in and out. |
 | Shift lead | A student worker granted extra rights by a supervisor: views co-workers' free/busy availability, proposes schedule edits as drafts, sees co-workers' scheduled hours against their caps, and records day-of call-outs and cover. Never sees wages, funding, supervisor notes or other personal details. Nothing a shift lead changes is published without a supervisor. |
-| Supervisor | Configures hours, closures, roles and caps. Generates, edits and publishes schedules. Approves requests and timecards. |
+| Supervisor | Configures hours, closures, roles and caps. Generates, edits and publishes schedules. Approves requests and timecards. Sees and manages the people and schedules of the departments an admin assigns them (D95). |
 | Admin (library or IT) | Installs and upgrades, manages SSO, departments, supervisors and payroll export settings. |
 | Payroll or financial aid office (read-only, optional) | Receives exports. Sees work-study usage reports. |
 

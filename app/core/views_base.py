@@ -8,7 +8,33 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Model, QuerySet
 
-from app.core.permissions import Perm
+from app.core.permissions import Access, Perm
+
+# How each department-scoped model reaches its department (D95). A supervisor limited to some
+# departments sees only the rows these paths lead into; models not listed are organization-wide
+# (settings, rules, imports, the audit log).
+DEPARTMENT_PATHS = {
+    "people.employee": "departments",
+    "scheduling.scheduleperiod": "department",
+    "scheduling.shift": "period__department",
+    "scheduling.callout": "shift__period__department",
+    "scheduling.shiftexchange": "shift__period__department",
+    "scheduling.desiredhours": "employee__departments",
+    "availability.timeoff": "employee__departments",
+    "availability.availability": "employee__departments",
+}
+
+
+def in_departments[M: Model](queryset: QuerySet[M], access: Access) -> QuerySet[M]:
+    """`queryset` limited to the departments `access` may see. Server-side, on every view that
+    lists or fetches people, schedules, or the records hanging off them."""
+    if access.department_ids is None:
+        return queryset
+    path = DEPARTMENT_PATHS.get(queryset.model._meta.label_lower)
+    if path is None:
+        return queryset
+    scoped = queryset.filter(**{f"{path}__in": access.department_ids})
+    return scoped.distinct() if "departments" in path else scoped
 
 
 class OrgViewMixin(LoginRequiredMixin):
@@ -24,8 +50,10 @@ class OrgViewMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
     def org_queryset[M: Model](self, model: type[M]) -> QuerySet[M]:
-        """Rows of `model` belonging to the current organization only."""
-        return model._default_manager.filter(organization=self.request.organization)  # type: ignore[attr-defined]
+        """Rows of `model` belonging to the current organization, and to the departments the
+        user may see (D95)."""
+        rows = model._default_manager.filter(organization=self.request.organization)  # type: ignore[attr-defined]
+        return in_departments(rows, self.request.access)
 
 
 class OrgObjectMixin(OrgViewMixin):

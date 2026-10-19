@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,7 +15,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView
 
-from app.core.models import Location
+from app.core.models import Department, Location
 from app.core.permissions import Perm
 from app.core.views_base import OrgViewMixin
 from app.people.models import Employee
@@ -86,6 +87,12 @@ class ScheduleIndexView(OrgViewMixin, TemplateView):
     permission = Perm.VIEW_DRAFTS
     template_name = "scheduling/index.html"
 
+    def my_departments(self):
+        """The departments I may plan schedules for (D95)."""
+        rows = self.org_queryset(Department)
+        ids = self.request.access.department_ids
+        return rows if ids is None else rows.filter(pk__in=ids)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         periods = list(self.org_queryset(SchedulePeriod).select_related("location", "department"))
@@ -95,14 +102,16 @@ class ScheduleIndexView(OrgViewMixin, TemplateView):
             pending = services.pending_changes(p)
             rows.append({"period": p, "latest": latest, "pending_people": len(pending)})
         ctx["rows"] = rows
-        ctx.setdefault("form", PeriodForm(organization=self.request.organization))
+        ctx.setdefault(
+            "form", PeriodForm(organization=self.request.organization, departments=self.my_departments())
+        )
         ctx["can_create"] = self.request.access.has(Perm.EDIT_SCHEDULE)
         return ctx
 
     def post(self, request, *args, **kwargs):
         if not request.access.has(Perm.EDIT_SCHEDULE):
             raise PermissionDenied
-        form = PeriodForm(request.POST, organization=request.organization)
+        form = PeriodForm(request.POST, organization=request.organization, departments=self.my_departments())
         location = self.org_queryset(Location).filter(is_active=True).first()
         if location is None:
             messages.error(request, "Add a location first.")
@@ -398,34 +407,43 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        org = self.request.organization
         ctx["proposals"] = (
-            Shift.objects.filter(organization=org, proposed_by_lead=True)
+            self.org_queryset(Shift)
+            .filter(proposed_by_lead=True)
             .select_related("employee", "period", "updated_by")
             .order_by("date", "start_min")
         )
-        ctx["call_outs"] = CallOut.objects.filter(organization=org, reviewed_at__isnull=True).select_related(
-            "shift__period", "called_out", "covered_by", "recorded_by"
+        ctx["call_outs"] = (
+            self.org_queryset(CallOut)
+            .filter(reviewed_at__isnull=True)
+            .select_related("shift__period", "called_out", "covered_by", "recorded_by")
         )
         from app.availability.models import TimeOff, TimeOffStatus
 
-        ctx["pending_time_off"] = TimeOff.objects.filter(
-            organization=org, status=TimeOffStatus.PENDING
-        ).count()
+        ctx["pending_time_off"] = self.org_queryset(TimeOff).filter(status=TimeOffStatus.PENDING).count()
+        pending = self.visible_exchanges().filter(status=ExchangeStatus.PENDING)
         ctx["exchanges"] = [
             exchanges.review(ex)
-            for ex in ShiftExchange.objects.filter(
-                organization=org, status=ExchangeStatus.PENDING
-            ).select_related("shift__period", "other_shift__period", "requester", "taker")
+            for ex in pending.select_related("shift__period", "other_shift__period", "requester", "taker")
         ]
         return ctx
 
+    def visible_exchanges(self):
+        """Requests with either side in one of my departments (D95). Approving a swap that spans
+        two departments takes someone who manages both; either side's supervisor can deny it."""
+        rows = ShiftExchange.objects.filter(organization=self.request.organization)
+        ids = self.request.access.department_ids
+        if ids is not None:
+            rows = rows.filter(
+                Q(shift__period__department__in=ids) | Q(other_shift__period__department__in=ids)
+            )
+        return rows.distinct()
+
     def post(self, request, *args, **kwargs):
-        org = request.organization
         action = request.POST.get("action")
         if action in ("keep", "revert"):
             shift = get_object_or_404(
-                Shift.objects.filter(organization=org, proposed_by_lead=True), pk=request.POST.get("shift")
+                self.org_queryset(Shift).filter(proposed_by_lead=True), pk=request.POST.get("shift")
             )
             if action == "keep":
                 shift.proposed_by_lead = False
@@ -435,9 +453,16 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
                 services.revert_shift(shift, request.user)
                 flash_validation(request, shift.period, f"Reverted {shift}.")
         elif action in ("approve_exchange", "deny_exchange"):
-            ex = get_object_or_404(
-                ShiftExchange.objects.filter(organization=org), pk=request.POST.get("exchange")
-            )
+            ex = get_object_or_404(self.visible_exchanges(), pk=request.POST.get("exchange"))
+            sides = [s for s in (ex.shift, ex.other_shift) if s is not None]
+            if action == "approve_exchange" and not all(
+                request.access.sees_department(s.period.department_id) for s in sides
+            ):
+                messages.error(
+                    request,
+                    "This swap involves another department's schedule. A supervisor of both decides it.",
+                )
+                return redirect("review_queue")
             try:
                 ex = exchanges.decide(ex, request.user, action == "approve_exchange")
             except exchanges.ExchangeError as exc:
@@ -457,9 +482,7 @@ class ReviewQueueView(OrgViewMixin, TemplateView):
                 else:
                     messages.success(request, "Request denied.")
         elif action == "reviewed":
-            call_out = get_object_or_404(
-                CallOut.objects.filter(organization=org), pk=request.POST.get("call_out")
-            )
+            call_out = get_object_or_404(self.org_queryset(CallOut), pk=request.POST.get("call_out"))
             call_out.reviewed_by = request.user
             call_out.reviewed_at = timezone.now()
             call_out.save()
@@ -816,7 +839,7 @@ class DesiredHoursReviewView(OrgViewMixin, TemplateView):
 
         ctx = super().get_context_data(**kwargs)
         ctx["requests"] = (
-            DesiredHours.objects.filter(organization=self.request.organization)
+            self.org_queryset(DesiredHours)
             .select_related("employee", "term", "decided_by")
             .order_by("status", "-term__start_date", "employee__preferred_name")
         )
@@ -825,9 +848,7 @@ class DesiredHoursReviewView(OrgViewMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         from app.scheduling.models import DesiredHours, DesiredStatus
 
-        desired = get_object_or_404(
-            DesiredHours.objects.filter(organization=request.organization), pk=request.POST.get("pk")
-        )
+        desired = get_object_or_404(self.org_queryset(DesiredHours), pk=request.POST.get("pk"))
         decision = request.POST.get("decision")
         if decision not in (DesiredStatus.APPROVED, DesiredStatus.DECLINED):
             raise Http404

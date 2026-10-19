@@ -16,7 +16,7 @@ from app.people.models import Employee, EmployeeDepartment, Tag
 from app.scheduling import services
 from app.scheduling.models import CoverageOverride, SchedulePeriod, Shift, TagCoverageRule
 from tests.app.test_foundations import employee_post_data
-from tests.conftest import make_user
+from tests.conftest import make_user, manages
 
 pytestmark = pytest.mark.django_db
 START = date(2027, 1, 16)
@@ -82,6 +82,7 @@ def test_with_several_departments_nobody_is_added_by_guesswork(org, depts):
 
 def test_supervisor_puts_someone_in_departments_from_their_record(as_user, org, supervisor, depts):
     circ, special = depts
+    manages(supervisor, circ, special)
     client = as_user(supervisor)
     client.post(reverse("employee_add"), employee_post_data(department_choices=[circ.pk, special.pk]))
     devon = Employee.objects.get(preferred_name="Devon")

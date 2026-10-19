@@ -171,7 +171,12 @@ class RemoveFromPoolView(OrgViewMixin, View):
         return render(
             request,
             "people/remove_from_pool.html",
-            {"employee": employee, "plans": suggestions.pool_plan(employee, today), "today": today},
+            {
+                "employee": employee,
+                "plans": suggestions.pool_plan(employee, today, request.access.department_ids),
+                "today": today,
+                "scoped": request.access.department_ids is not None,
+            },
         )
 
     def post(self, request, pk):
@@ -179,7 +184,9 @@ class RemoveFromPoolView(OrgViewMixin, View):
         if request.POST.get("confirm") != "yes":
             messages.error(request, "Tick the confirmation box to go ahead.")
             return redirect("remove_from_pool", pk=pk)
-        results = suggestions.remove_from_pool(employee, request.user, timezone.localdate())
+        results = suggestions.remove_from_pool(
+            employee, request.user, timezone.localdate(), request.access.department_ids
+        )
         moved = "" if not results else " Their upcoming shifts were reassigned as drafts."
         messages.success(request, f"Took {employee.display_name} out of the scheduling pool.{moved}")
         for period, report in results:

@@ -97,8 +97,11 @@ class PeriodPlan:
     moves: list[suggest.Reassignment]
 
 
-def pool_plan(employee: Employee, from_day: date) -> list[PeriodPlan]:
-    """For each period with the employee's live shifts on or after `from_day`, who takes each."""
+def pool_plan(
+    employee: Employee, from_day: date, department_ids: frozenset[int] | None = None
+) -> list[PeriodPlan]:
+    """For each period with the employee's live shifts on or after `from_day`, who takes each.
+    `department_ids` limits it to the schedules a supervisor manages (D95)."""
     periods = (
         SchedulePeriod.objects.filter(
             organization=employee.organization,
@@ -110,6 +113,8 @@ def pool_plan(employee: Employee, from_day: date) -> list[PeriodPlan]:
         .select_related("location", "organization")
         .order_by("start_date")
     )
+    if department_ids is not None:
+        periods = periods.filter(department_id__in=department_ids)
     out = []
     for period in periods:
         ctx = services.build_context(period)
@@ -119,13 +124,15 @@ def pool_plan(employee: Employee, from_day: date) -> list[PeriodPlan]:
     return out
 
 
-def remove_from_pool(employee: Employee, user, from_day: date) -> list[tuple[SchedulePeriod, Report]]:
+def remove_from_pool(
+    employee: Employee, user, from_day: date, department_ids: frozenset[int] | None = None
+) -> list[tuple[SchedulePeriod, Report]]:
     """Take the employee out of the scheduling pool and reassign their shifts from `from_day`
     as drafts. Nothing is deleted: a shift nobody can take becomes an open shift. Returns the
     validation report for each period touched (CLAUDE.md §2.4)."""
     with transaction.atomic(), pghistory.context(action="remove_from_pool", employee=employee.pk):
         employee = Employee.objects.select_for_update().get(pk=employee.pk)
-        plans = pool_plan(employee, from_day)
+        plans = pool_plan(employee, from_day, department_ids)
         employee.in_scheduling_pool = False
         employee.save(update_fields=["in_scheduling_pool"])
         newcomers = {
