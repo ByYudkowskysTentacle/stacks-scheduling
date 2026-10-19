@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[project]
+name = "stacks"
+version = "0.1.0"
+description = "Self-hosted employee scheduling for academic libraries that run on student workers"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2,<5.3",               # BSD; current LTS (ADR 0001)
+    "psycopg[binary]>=3.2,<4",         # LGPL-3.0
+    "django-allauth[mfa]>=65.0,<66",   # MIT; local accounts, later OIDC and SAML
+    "django-pghistory>=3.9,<4",        # BSD; trigger-based audit log
+    "procrastinate[django]>=3.10,<4",  # MIT; PostgreSQL task queue for solves
+    "ortools>=9.14,<10",               # Apache-2.0; CP-SAT
+    "gunicorn>=23,<24",                # MIT
+    "whitenoise>=6.9,<7",              # MIT; static files from the web container
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<9",
+    "pytest-django>=4.9,<5",
+    "hypothesis>=6.100,<7",
+    "ruff>=0.13,<1",
+    "pyright>=1.1.400,<2",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "app.config.settings"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: solver runs that take more than a few seconds",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+extend-exclude = ["spikes", "**/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "RUF"]
+ignore = [
+    "RUF012",  # Django Meta and form class attributes are mutable by convention
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pyright]
+include = ["domain", "app", "adapters"]
+exclude = ["**/migrations", "spikes"]
+pythonVersion = "3.13"
+typeCheckingMode = "basic"
+strict = ["domain"]
