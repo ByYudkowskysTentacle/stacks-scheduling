@@ -184,4 +184,46 @@ def decide(ex: ShiftExchange, user, approve: bool) -> ShiftExchange:
         ex.decided_by = user
         ex.decided_at = timezone.now()
         ex.save()
+        _tell_people(ex)
     return ex
+
+
+def _tell_people(ex: ShiftExchange) -> None:
+    """Tell the people who asked: in the app, and by email only if they turned it on (D103).
+    No co-workers' names: only the shift and the outcome."""
+    from django.conf import settings
+    from django.urls import reverse
+
+    from app.scheduling.models import NotificationCategory
+    from app.scheduling.notify import notify, site_link
+
+    shift = ex.shift
+    when = f"{shift.date:%a %-d %b} {shift.interval.label()}"
+    approved = ex.status == ExchangeStatus.APPROVED
+    link = reverse("shift_exchange")
+    lines = []
+    if ex.kind == ExchangeKind.CLAIM:
+        lines.append(
+            (
+                ex.taker,
+                f"Your request for the open shift {when} was {'approved' if approved else 'not approved'}.",
+            )
+        )
+    else:
+        if ex.taker is not None:
+            lines.append(
+                (ex.taker, f"Your offer to cover {when} was {'approved' if approved else 'not approved'}.")
+            )
+        lines.append(
+            (
+                ex.requester,
+                f"Cover for your shift {when} was {'approved: someone else will work it' if approved else 'not approved: the shift is still yours'}.",
+            )
+        )
+    for employee, text in lines:
+        if employee is None or employee.user is None:
+            continue
+        tail = " It shows on the schedule once a supervisor publishes it." if approved else ""
+        body = f"Hi {employee.display_name},\n\n{text}{tail}\n\n{site_link(link)}\n"
+        subject = f"{settings.STACKS_SITE_NAME}: shift request {'approved' if approved else 'not approved'}"
+        notify(employee.user, ex.organization, NotificationCategory.EXCHANGE, subject, body, link)

@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -57,12 +56,12 @@ def reminder_days(term: Term) -> set[date]:
 def send(term: Term, today: date, *, by_hand: bool = False) -> int:
     """Send today's reminders for `term`. Scheduled runs send only when reminders are on and
     today is a reminder day; `by_hand` is a supervisor's explicit "send now"."""
-    from app.scheduling.models import Notification
+    from app.scheduling.models import NotificationCategory
+    from app.scheduling.notify import notify
 
     if not by_hand and (not term.availability_reminders or today not in reminder_days(term)):
         return 0
     link = reverse("my_availability") + f"?term={term.pk}"
-    outbox = []
     sent = 0
     for due in due_people(term):
         if not due.can_remind:
@@ -85,13 +84,8 @@ def send(term: Term, today: date, *, by_hand: bool = False) -> int:
                 "link": settings.STACKS_SITE_URL + link,
             },
         )
-        Notification.objects.create(
-            organization=term.organization, user=e.user, subject=subject, body=body, link=link
-        )
-        if e.user.email:
-            outbox.append((subject, body, e.user.email))
+        notify(e.user, term.organization, NotificationCategory.REMINDER, subject, body, link)
         sent += 1
-    transaction.on_commit(lambda: [send_mail(s, b, None, [to]) for s, b, to in outbox])
     return sent
 
 

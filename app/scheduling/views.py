@@ -18,7 +18,7 @@ from app.core.models import Location
 from app.core.permissions import Perm
 from app.core.views_base import OrgViewMixin
 from app.people.models import Employee
-from app.scheduling import exchanges, services
+from app.scheduling import exchanges, notify, services
 from app.scheduling.forms import (
     CallOutForm,
     CoverageOverrideForm,
@@ -35,10 +35,12 @@ from app.scheduling.models import (
     CallOut,
     CoverageOverride,
     DutyAssignment,
+    EmailPreference,
     ExchangeStatus,
     HourCapRule,
     HourTargetRule,
     Notification,
+    NotificationCategory,
     RotationAssignment,
     SchedulePeriod,
     SchedulingRules,
@@ -868,3 +870,25 @@ class ReportsView(PeriodMixin, TemplateView):
             weeks=range(period.weeks),
         )
         return ctx
+
+
+class EmailSettingsView(OrgViewMixin, TemplateView):
+    """Each person chooses which notifications also come by email (D103). In-app
+    notifications always appear."""
+
+    template_name = "scheduling/email_settings.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        current = notify.email_settings(self.request.user, self.request.organization)
+        ctx["rows"] = [(c.value, c.label, current[c.value]) for c in NotificationCategory]
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        org = request.organization
+        for c in NotificationCategory:
+            EmailPreference.objects.update_or_create(
+                user=request.user, organization=org, category=c, defaults={"email": c.value in request.POST}
+            )
+        messages.success(request, "Email settings saved.")
+        return redirect("email_settings")
