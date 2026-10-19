@@ -325,7 +325,7 @@ Each of these must be an automated test with a synthetic fixture. They are drawn
 3. **Designated opener.** Student L starts at opening time every weekday in both weeks. On Mon, Wed and Fri their shift is 1.5 hours (class at 9am), as a duty exception to the 2-hour minimum.
 4. **Leads on separate weeks.** Students X and Z are shift leads. Each works 20 hours in their own lead week and no more than 10 in the other, and the lead weeks differ.
 5. **New-employee period cap.** Students tagged `New employee` total no more than 12 hours across the two weeks. Two of them also have a 10-hour weekly cap.
-6. **Priority target.** Student I, with the target "as close to 20 as possible", reaches 20 hours without breaking coverage. The hours come mostly from the busiest general staff.
+6. **Priority target.** Student I, with the target "as close to 20 as possible", reaches 20 hours without breaking coverage, moving as few hours as possible: little more than the hours Student I gains (D98). Who gives up the hours follows from the fewest changes; among equally small changes, the busiest give first.
 7. **Non-regular exclusion.** Four `non_regular` employees are never auto-scheduled.
 8. **Not-entered availability.** A student with `not_entered` status is flagged in every view, and is scheduled only when needed and with a warning.
 9. **Remove from pool.** Removing Student W reassigns their three draft shifts to eligible people at the same times, with no deletions, and coverage stays intact.

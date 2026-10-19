@@ -20,13 +20,14 @@ plausible amount of the tier below can't buy one unit of the tier above:
     W_TARGET           1,000  short of a supervisor hour target, times its priority
     W_DUTY_HOURS      10,000  short of a lead-week duty's hours (a target with priority 10)
     W_DESIRED_FWS        500  short of approved desired hours, work-study (D34)
-    W_DESIRED            300  short of approved desired hours, others
-    W_PROTECT            800  a slot cut from someone below the median weekly hours, in
-                              rebalances: part of the fairness tier, so above keeping
-                              existing shifts; hours come from the busiest first (SPEC §6.4)
-    W_KEEP               400  an existing slot moved, in rebalances (kept above the peak-load
-                              term so small edits give small diffs: benchmark finding, D68)
+    W_DESIRED            450  short of approved desired hours, others
+    ------------------------  everything above is a rule: a rebalance moves shifts to meet it
+    W_KEEP               400  an existing slot moved, in rebalances: the fewest changes win
+                              unless a rule above needs more (D98, revising D68)
     W_ROTATION           300  an off-week slot under `preferred` rotation
+    W_PROTECT            150  a slot cut from someone below the median weekly hours, in
+                              rebalances: a tie-breaker among equally small changes, so hours
+                              still come from the busiest when the change size is the same
     W_FAIR               100  the highest weekly load among general staff
     W_SHIFT               20  per shift: fewer, longer shifts
     W_PREF                 1  bonus per slot worked inside a preferred block
@@ -55,11 +56,11 @@ W_OVER = 10_000
 W_DUTY_HOURS = 10_000
 W_TARGET = 1_000
 W_DESIRED_FWS = 500
-W_DESIRED = 300
+W_DESIRED = 450
 W_KEEP = 400
 W_ROTATION = 300
 W_FAIR = 100
-W_PROTECT = 800
+W_PROTECT = 350
 W_SHIFT = 20
 W_PREF = 1
 
