@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="post" class="stacked-form" novalidate>
+  {% csrf_token %}
+  {{ form.as_div }}
+  <div class="form-actions">
+    <button type="submit" class="button button--primary">Save</button>
+    <a href="{{ cancel_url|default:'/' }}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

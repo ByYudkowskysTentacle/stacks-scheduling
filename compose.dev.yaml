@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Development overrides (D23): live code, Django's dev server on http://localhost:8000, debug on.
+#   docker compose -f compose.yaml -f compose.dev.yaml up
+services:
+  migrate:
+    build: { target: dev }
+    image: stacks:dev
+    volumes: [".:/srv"]
+  web:
+    build: { target: dev }
+    image: stacks:dev
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    environment:
+      DJANGO_DEBUG: "1"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes: [".:/srv"]
+  worker:
+    build: { target: dev }
+    image: stacks:dev
+    volumes: [".:/srv"]
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"

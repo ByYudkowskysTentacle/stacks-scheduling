@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Hours and closures{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Hours and closures</h1>
+{% for s in summaries %}
+  <section class="card" aria-labelledby="loc-{{ s.location.pk }}">
+    <h2 id="loc-{{ s.location.pk }}">{{ s.location.name }}{% if not s.location.is_active %} <span class="badge">Inactive</span>{% endif %}
+      <a class="small-link" href="{% url 'location_edit' s.location.pk %}">Rename</a></h2>
+    <h3>This week ({{ week_start|date:"D j M" }} to {{ week_end|date:"D j M" }}): {{ s.open_minutes|hours }} open hours</h3>
+    <table class="data-table">
+      <thead><tr><th scope="col">Day</th><th scope="col">Open</th><th scope="col">Closures</th></tr></thead>
+      <tbody>
+        {% for day, intervals, closures in s.week %}
+          <tr>
+            <th scope="row">{{ day|date:"l j M" }}</th>
+            <td>{% for iv in intervals %}{{ iv.label }}{% if not forloop.last %}, {% endif %}{% empty %}Closed{% endfor %}</td>
+            <td>{% for c in closures %}{{ c.reason }} ({% if c.interval %}{{ c.interval.label }}{% else %}all day{% endif %}){% if not forloop.last %}; {% endif %}{% empty %}<span class="subtle">None</span>{% endfor %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h3>Operating hours</h3>
+    <ul class="plain-list">
+      {% for h in s.location.hours_sets.all %}
+        <li><a href="{% url 'hours_edit' s.location.pk h.pk %}">{{ h.name }}</a>: from {{ h.effective_from|date:"j M Y" }}{% if h.effective_to %} to {{ h.effective_to|date:"j M Y" }}{% else %}, no end date{% endif %}</li>
+      {% empty %}
+        <li>No operating hours yet.</li>
+      {% endfor %}
+    </ul>
+    <p><a class="button" href="{% url 'hours_add' s.location.pk %}">Add operating hours</a></p>
+
+    <h3>Closures</h3>
+    <ul class="plain-list">
+      {% for c in s.location.closures.all %}
+        <li><a href="{% url 'closure_edit' s.location.pk c.pk %}">{{ c.reason }}</a>:
+          {% if c.kind == "dated" %}{{ c.on_date|date:"D j M Y" }}{% else %}every {{ c.get_weekday_display }}{% if c.valid_from or c.valid_to %} ({% if c.valid_from %}from {{ c.valid_from|date:"j M Y" }}{% endif %}{% if c.valid_to %} to {{ c.valid_to|date:"j M Y" }}{% endif %}){% endif %}{% endif %},
+          {% if c.all_day %}all day{% else %}{{ c.start_min|clock }}–{{ c.end_min|clock }}{% endif %}</li>
+      {% empty %}
+        <li>No closures.</li>
+      {% endfor %}
+    </ul>
+    <p><a class="button" href="{% url 'closure_add' s.location.pk %}">Add a closure</a></p>
+  </section>
+{% empty %}
+  <p>No locations yet.</p>
+{% endfor %}
+<p><a class="button" href="{% url 'location_add' %}">Add a location</a></p>
+{% endblock %}

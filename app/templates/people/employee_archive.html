@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{% if employee.is_archived %}Restore{% else %}Archive{% endif %} {{ employee.display_name }}{% endblock %}
+{% block content %}
+{% if employee.is_archived %}
+  <h1>Restore {{ employee.display_name }}</h1>
+  <p>They'll appear on the roster again. Add them back to the scheduling pool separately if they should be scheduled.</p>
+  <form method="post" class="form-actions">{% csrf_token %}
+    <input type="hidden" name="action" value="restore">
+    <button type="submit" class="button button--primary">Restore</button>
+    <a href="{% url 'employee_detail' employee.pk %}" class="button">Cancel</a>
+  </form>
+{% else %}
+  <h1>Archive {{ employee.display_name }}</h1>
+  <p>Archiving takes {{ employee.display_name }} off the roster and out of the scheduling pool. Nothing is deleted: their records stay, the change is in the audit log, and you can restore them.</p>
+  <form method="post" class="stacked-form">{% csrf_token %}
+    <div><label><input type="checkbox" name="confirm" value="yes" required> I understand. Archive {{ employee.display_name }}.</label></div>
+    <div class="form-actions">
+      <button type="submit" class="button button--danger">Archive</button>
+      <a href="{% url 'employee_detail' employee.pk %}" class="button">Cancel</a>
+    </div>
+  </form>
+{% endif %}
+{% endblock %}

@@ -44,7 +44,7 @@ class OperatingHours:
 
     effective_from: date
     effective_to: date | None
-    intervals: Mapping[int, Sequence[Interval]] = field(default_factory=dict)
+    intervals: Mapping[int, Sequence[Interval]] = field(default_factory=dict[int, Sequence[Interval]])
 
     def covers(self, day: date) -> bool:
         return self.effective_from <= day and (self.effective_to is None or day <= self.effective_to)
@@ -109,8 +109,6 @@ def open_intervals(day: date, hours: Iterable[OperatingHours], closures: Iterabl
     return subtract(scheduled_intervals(day, hours), [c.span for c in closures_on(day, closures)])
 
 
-def open_minutes_in_week(
-    start: date, hours: Sequence[OperatingHours], closures: Sequence[Closure]
-) -> int:
+def open_minutes_in_week(start: date, hours: Sequence[OperatingHours], closures: Sequence[Closure]) -> int:
     """Open minutes in the seven days from `start`, net of closures (73.5 h for the pilot)."""
     return sum(total_minutes(open_intervals(d, hours, closures)) for d in week_days(start))

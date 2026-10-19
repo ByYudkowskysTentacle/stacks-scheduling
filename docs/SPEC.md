@@ -353,7 +353,7 @@ Each of these must be an automated test with a synthetic fixture. They are drawn
 6. **Self-service.** Student phone views, time off, trades, open shifts and ICS feeds.
 7. **Time and pay.** Paycom actuals import, FWS award import and funding tracking, then clock in and out with Paycom punch relay once API access is granted. Scenario 18.
 
-**Spring 2027 release (target: start of the spring term).** Milestones 1–4, plus the student view of the published schedule from milestone 6, with Homebase running in parallel as a fallback at first. The full printable availability grid may follow shortly after go-live. If the schedule slips, scope is re-evaluated at that point.
+**Spring 2027 release (target: start of the spring term).** Milestones 1–4, plus the student view of the published schedule from milestone 6, with Homebase kept as a frozen fallback at first: Stacks is the schedule students use, and a printable and CSV export of the published schedule supports re-entry into Homebase if a fallback is ever needed (D47). The full printable availability grid may follow shortly after go-live. If the schedule slips, scope is re-evaluated at that point.
 8. **Hardening.** SSO, retention, accessibility audit, a Docker install guide, backup and restore, and upgrade migrations.
 
 ## 14. Reports and views

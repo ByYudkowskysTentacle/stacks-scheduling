@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Roles{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Roles</h1>
+<p class="help">Supervisors manage people, schedules and settings. Admins can also change roles. Employees join by invitation from their record in People. Shift-lead rights are granted on each employee's record, not here.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col"><span class="visually-hidden">Change</span></th></tr></thead>
+  <tbody>
+  {% for m in members %}
+    <tr>
+      <th scope="row">{{ m.user.email }}</th>
+      <td>{{ m.get_role_display }}</td>
+      <td>
+        <form method="post" class="inline-form">{% csrf_token %}
+          <input type="hidden" name="membership" value="{{ m.pk }}">
+          <label class="visually-hidden" for="role-{{ m.pk }}">Role for {{ m.user.email }}</label>
+          <select name="role" id="role-{{ m.pk }}">
+            {% for value, label in roles %}<option value="{{ value }}"{% if value == m.role %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="button button--small">Change</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

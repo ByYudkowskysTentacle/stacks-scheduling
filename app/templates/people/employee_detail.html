@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ object.display_name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'employees' %}">← People</a></p>
+<h1>{{ object.display_name }}{% if object.is_archived %} <span class="badge">Archived</span>{% endif %}</h1>
+<dl class="details">
+  <dt>Full name</dt><dd>{{ object.full_name }}</dd>
+  <dt>Email</dt><dd>{{ object.email|default:"(none)" }}</dd>
+  {% if object.campus_id %}<dt>Campus ID</dt><dd>{{ object.campus_id }}</dd>{% endif %}
+  <dt>Employment type</dt><dd>{{ object.get_employment_type_display }}</dd>
+  <dt>Scheduling pool</dt><dd>{% if object.in_scheduling_pool %}In the pool{% else %}Not in the pool{% endif %}</dd>
+  <dt>Hire date</dt><dd>{{ object.hire_date|date:"j M Y"|default:"(not set)" }}</dd>
+  {% if object.new_employee_until %}<dt>New employee until</dt><dd>{{ object.new_employee_until|date:"j M Y" }}</dd>{% endif %}
+  <dt>Shift-lead permission</dt><dd>{% if object.shift_lead_access %}Granted{% else %}No{% endif %}</dd>
+  <dt>Default pay role</dt><dd>{{ object.default_pay_role|default:"(not set)" }}</dd>
+  {% if Perm.VIEW_PAY in access.perms %}
+    <dt>Default wage</dt><dd>{% if object.default_wage is not None %}${{ object.default_wage }}/h{% else %}(not set){% endif %}</dd>
+    <dt>Pay role rates</dt>
+    <dd>{% for r in object.pay_roles.all %}{{ r.pay_role.name }}: {% if r.wage is not None %}${{ r.wage }}/h{% else %}default wage{% endif %}{% if not forloop.last %}; {% endif %}{% empty %}(none){% endfor %}</dd>
+  {% endif %}
+  <dt>Tags</dt>
+  <dd>{% for et in object.employee_tags.all %}<span class="tag">{{ et.tag.name }}{% if et.valid_from or et.valid_to %} ({% if et.valid_from %}from {{ et.valid_from|date:"j M" }}{% endif %}{% if et.valid_to %} to {{ et.valid_to|date:"j M" }}{% endif %}){% endif %}</span> {% empty %}(none){% endfor %}</dd>
+  {% if Perm.VIEW_NOTES in access.perms and object.notes %}<dt>Supervisor notes</dt><dd>{{ object.notes|linebreaksbr }}</dd>{% endif %}
+  <dt>Sign-in account</dt><dd>{% if object.user %}{{ object.user.email }}{% else %}Not invited yet{% endif %}</dd>
+</dl>
+{% if Perm.MANAGE_PEOPLE in access.perms %}
+<div class="form-actions">
+  {% if not object.is_archived %}
+    <a class="button button--primary" href="{% url 'employee_edit' object.pk %}">Edit</a>
+    <form method="post" action="{% url 'employee_invite' object.pk %}" class="inline-form">{% csrf_token %}
+      <button type="submit" class="button">{% if object.user %}Resend invitation{% else %}Invite to sign in{% endif %}</button>
+    </form>
+  {% endif %}
+  <a class="button button--danger-outline" href="{% url 'employee_archive' object.pk %}">{% if object.is_archived %}Restore{% else %}Archive{% endif %}</a>
+</div>
+{% endif %}
+{% endblock %}

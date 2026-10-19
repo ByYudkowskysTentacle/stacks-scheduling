@@ -1,0 +1,218 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Organization configuration (SPEC §3): organizations, locations, operating hours,
+closures, terms and memberships. Nothing here is hard-coded to one library (CLAUDE.md §7)."""
+
+from __future__ import annotations
+
+from datetime import date
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+
+from app.core.audit import audited
+from app.core.fields import minute_field
+from domain import calendar as cal
+from domain.timeutil import Interval, is_on_slot
+
+WEEKDAY_CHOICES = [(i, name) for i, name in enumerate(cal.WEEKDAY_NAMES)]
+
+
+@audited()
+class Organization(models.Model):
+    name = models.CharField(max_length=200)
+    time_zone = models.CharField(max_length=64, default="America/Chicago")
+    week_start = models.PositiveSmallIntegerField(
+        choices=WEEKDAY_CHOICES,
+        default=cal.SAT,
+        help_text="Weekly caps, planning periods and rotation weeks count from this day.",
+    )
+    planning_period_weeks = models.PositiveSmallIntegerField(
+        default=2, validators=[MinValueValidator(1), MaxValueValidator(4)]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@audited()
+class Location(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="locations")
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["organization", "name"], name="location_unique_name")]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def domain_hours(self) -> list[cal.OperatingHours]:
+        return [h.to_domain() for h in self.hours_sets.prefetch_related("intervals")]
+
+    def domain_closures(self) -> list[cal.Closure]:
+        return [c.to_domain() for c in self.closures.all()]
+
+
+@audited()
+class OperatingHoursSet(models.Model):
+    """Weekly open intervals effective over a date range (SPEC §3.1). A later
+    `effective_from` overrides an earlier set on the days both cover."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="hours_sets")
+    name = models.CharField(max_length=100, help_text='For example "Regular term hours" or "Finals week".')
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True, help_text="Inclusive. Leave blank for no end.")
+
+    class Meta:
+        ordering = ["effective_from"]
+        verbose_name = "operating hours"
+        verbose_name_plural = "operating hours"
+
+    def __str__(self) -> str:
+        return self.name
+
+    def clean(self) -> None:
+        if self.effective_to and self.effective_to < self.effective_from:
+            raise ValidationError({"effective_to": "The end date is before the start date."})
+
+    def to_domain(self) -> cal.OperatingHours:
+        by_day: dict[int, list[Interval]] = {}
+        for iv in self.intervals.all():
+            by_day.setdefault(iv.weekday, []).append(Interval(iv.start_min, iv.end_min))
+        return cal.OperatingHours(self.effective_from, self.effective_to, by_day)
+
+
+@audited()
+class OpenInterval(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    hours_set = models.ForeignKey(OperatingHoursSet, on_delete=models.CASCADE, related_name="intervals")
+    weekday = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES)
+    start_min = minute_field("opens")
+    end_min = minute_field("closes")
+
+    class Meta:
+        ordering = ["weekday", "start_min"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(start_min__lt=models.F("end_min")), name="open_interval_order"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{cal.WEEKDAY_NAMES[self.weekday]} {Interval(self.start_min, self.end_min).label()}"
+
+    def clean(self) -> None:
+        if not (is_on_slot(self.start_min) and is_on_slot(self.end_min)):
+            raise ValidationError("Opening times must be on a 15-minute boundary.")
+
+
+@audited()
+class Closure(models.Model):
+    """A time the location is closed inside operating hours: recurring (Chapel, Wednesdays
+    10–11am) or dated (a holiday). No times means all day."""
+
+    RECURRING, DATED = "recurring", "dated"
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="closures")
+    reason = models.CharField(max_length=200)
+    kind = models.CharField(max_length=10, choices=[(RECURRING, "Recurring"), (DATED, "Dated")])
+    weekday = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES, null=True, blank=True)
+    on_date = models.DateField("date", null=True, blank=True)
+    valid_from = models.DateField(null=True, blank=True)
+    valid_to = models.DateField(null=True, blank=True)
+    start_min = minute_field("from", null=True, blank=True)
+    end_min = minute_field("until", null=True, blank=True)
+
+    class Meta:
+        ordering = ["kind", "on_date", "weekday", "start_min"]
+
+    def __str__(self) -> str:
+        return self.reason
+
+    @property
+    def all_day(self) -> bool:
+        return self.start_min is None
+
+    def clean(self) -> None:
+        errors: dict[str, str] = {}
+        if self.kind == self.RECURRING and self.weekday is None:
+            errors["weekday"] = "A recurring closure needs a weekday."
+        if self.kind == self.DATED and self.on_date is None:
+            errors["on_date"] = "A dated closure needs a date."
+        if (self.start_min is None) != (self.end_min is None):
+            errors["end_min"] = "Give both times, or neither for all day."
+        elif self.start_min is not None and self.end_min is not None:
+            if self.start_min >= self.end_min:
+                errors["end_min"] = "The end is before the start."
+            elif not (is_on_slot(self.start_min) and is_on_slot(self.end_min)):
+                errors["start_min"] = "Closure times must be on a 15-minute boundary."
+        if self.valid_from and self.valid_to and self.valid_to < self.valid_from:
+            errors["valid_to"] = "The end date is before the start date."
+        if errors:
+            raise ValidationError(errors)
+
+    def to_domain(self) -> cal.Closure:
+        interval = (
+            None if self.start_min is None or self.end_min is None else Interval(self.start_min, self.end_min)
+        )
+        if self.kind == self.DATED:
+            return cal.Closure(reason=self.reason, interval=interval, on=self.on_date)
+        return cal.Closure(
+            reason=self.reason,
+            interval=interval,
+            weekday=self.weekday,
+            valid_from=self.valid_from,
+            valid_to=self.valid_to,
+        )
+
+
+@audited()
+class Term(models.Model):
+    """An academic period. Availability, caps and funding are term-scoped (SPEC §3.2)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="terms")
+    name = models.CharField(max_length=100)
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        ordering = ["-start_date"]
+        constraints = [models.UniqueConstraint(fields=["organization", "name"], name="term_unique_name")]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def clean(self) -> None:
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "The term ends before it starts."})
+
+    def contains(self, day: date) -> bool:
+        return self.start_date <= day <= self.end_date
+
+
+class Role(models.TextChoices):
+    """Access roles (SPEC §1). Shift-lead rights are granted per employee, not by role (D25)."""
+
+    ADMIN = "admin", "Admin"
+    SUPERVISOR = "supervisor", "Supervisor"
+    EMPLOYEE = "employee", "Employee"
+
+
+@audited()
+class Membership(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships")
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.EMPLOYEE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "organization"], name="membership_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.user} ({self.get_role_display()})"

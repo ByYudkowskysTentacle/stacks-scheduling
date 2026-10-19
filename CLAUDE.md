@@ -83,12 +83,33 @@ These came from building real schedules for a library of about 30 student worker
 
 ## 8. Commands
 
-Stack approved in `docs/adr/0001-stack.md` (D43). The app commands (setup, dev server, tests, image build, synthetic seed data) are added here by the milestone 1 scaffolding; until then only the solver benchmark spike exists. Development runs in Docker Desktop (D23), so commands assume Docker.
+Stack approved in `docs/adr/0001-stack.md` (D43). Development runs in Docker Desktop (D23), so commands assume Docker; the `uv` commands also work on a machine with Python 3.13, [uv](https://docs.astral.sh/uv/) and a local PostgreSQL.
 
 ```bash
 # once per clone: enable the secrets and personal-data commit guard
 git config core.hooksPath .githooks
 python tools/check_sensitive.py --all   # same personal-data check CI runs
+
+# development stack: Django dev server on http://localhost:8000, Postgres on 127.0.0.1:5432
+cp .env.example .env                     # then set POSTGRES_PASSWORD and DJANGO_SECRET_KEY
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+docker compose -f compose.yaml -f compose.dev.yaml exec web python manage.py seed_demo   # synthetic demo data
+
+# without Docker for the app (needs Postgres; settings come from the environment)
+uv sync
+DJANGO_DEBUG=1 uv run python manage.py migrate
+DJANGO_DEBUG=1 uv run python manage.py seed_demo          # supervisor@example.edu / demo-password-123
+DJANGO_DEBUG=1 uv run python manage.py runserver
+
+# checks CI runs
+uv run ruff format --check . && uv run ruff check .
+uv run pyright                           # strict, domain/ only (D53)
+uv run pytest -q                         # uses app.config.test_settings and Postgres
+uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
+
+# production (see docs/install.md once written)
+docker compose up -d --build
+docker compose run --rm web python manage.py bootstrap --organization "Your Library" --admin-email you@example.edu
 
 # solver benchmark spike (spikes/cpsat-benchmark/README.md has details)
 docker build -t stacks-bench spikes/cpsat-benchmark
@@ -100,15 +121,20 @@ On Windows Git Bash, prefix `docker run` with `MSYS_NO_PATHCONV=1` so the volume
 
 ## 9. Where things live
 
-_Fill in after scaffolding. Expected shape:_
-
 ```
 docs/SPEC.md          product and domain spec (source of truth for behaviour)
 docs/adr/             architecture decision records
 docs/decisions.md     running log of spec interpretations and open questions
-domain/               pure domain model, validation rules, solver model
+domain/               pure domain model, validation rules, solver model (no Django imports)
 adapters/             Paycom, ICS/calendar, CSV import/export
-app/                  web app, API, auth
+app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
+app/accounts/         sign-in accounts (email login, allauth, TOTP)
+app/core/             organization, locations, hours, closures, terms, roles, the permission
+                      layer (permissions.py), audit log helpers, management commands
+app/people/           employees, pay roles and wages, tags, invitations
+app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
+deploy/               Caddyfile; compose.yaml and compose.dev.yaml sit at the root
 fixtures/             synthetic rosters, sample import/export files
-tests/                unit, property, acceptance, adapter-contract
+tests/domain/         unit and property tests for domain/
+tests/app/            view, permission and integration tests against PostgreSQL
 ```

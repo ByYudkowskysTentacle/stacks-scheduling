@@ -54,13 +54,17 @@ def test_dated_all_day_closure():
 
 
 def test_recurring_closure_respects_its_date_range():
-    chapel_from_feb = Closure(reason="Chapel", weekday=WED, interval=Interval(600, 660), valid_from=date(2027, 2, 1))
+    chapel_from_feb = Closure(
+        reason="Chapel", weekday=WED, interval=Interval(600, 660), valid_from=date(2027, 2, 1)
+    )
     assert len(open_intervals(date(2027, 1, 20), [PILOT], [chapel_from_feb])) == 1
     assert len(open_intervals(date(2027, 2, 3), [PILOT], [chapel_from_feb])) == 2
 
 
 def test_later_operating_hours_override_earlier_ones():
-    finals = OperatingHours(date(2027, 5, 1), date(2027, 5, 7), {wd: [Interval(420, 1440)] for wd in range(7)})
+    finals = OperatingHours(
+        date(2027, 5, 1), date(2027, 5, 7), {wd: [Interval(420, 1440)] for wd in range(7)}
+    )
     assert open_intervals(date(2027, 5, 3), [PILOT, finals], []) == [Interval(420, 1440)]
     assert open_intervals(date(2027, 5, 10), [PILOT, finals], []) == [Interval(450, 1320)]
 
@@ -94,6 +98,9 @@ def test_time_parsing_and_formatting():
 
 
 def test_subtract_and_invalid_interval():
-    assert subtract([Interval(0, 100)], [Interval(10, 20), Interval(50, 200)]) == [Interval(0, 10), Interval(20, 50)]
+    assert subtract([Interval(0, 100)], [Interval(10, 20), Interval(50, 200)]) == [
+        Interval(0, 10),
+        Interval(20, 50),
+    ]
     with pytest.raises(ValueError):
         Interval(10, 10)

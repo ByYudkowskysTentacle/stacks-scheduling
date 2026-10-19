@@ -1,0 +1,6 @@
+You've been invited to {{ site_name }} for {{ organization }}, where you'll enter your availability and see your schedule.
+
+Set your password here (the link works once):
+{{ link }}
+
+If you weren't expecting this, you can ignore this email.

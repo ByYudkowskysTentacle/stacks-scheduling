@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="post" class="stacked-form" novalidate>
+  {% csrf_token %}
+  {{ form.as_div }}
+  <fieldset>
+    <legend>Tags</legend>
+    <p class="help">Tags drive coverage rules. Give dates only for a time-bound tag, such as Shift lead for one week. Tags never grant access.</p>
+    {{ tag_formset.management_form }}
+    {{ tag_formset.non_form_errors }}
+    {% for f in tag_formset %}<div class="inline-row">{{ f.as_div }}</div>{% endfor %}
+  </fieldset>
+  {% if pay_formset %}
+  <fieldset>
+    <legend>Pay role rates</legend>
+    <p class="help">Visible to supervisors and admins only. A blank wage uses the default wage.</p>
+    {{ pay_formset.management_form }}
+    {{ pay_formset.non_form_errors }}
+    {% for f in pay_formset %}<div class="inline-row">{{ f.as_div }}</div>{% endfor %}
+  </fieldset>
+  {% endif %}
+  <div class="form-actions">
+    <button type="submit" class="button button--primary">Save</button>
+    <a href="{% if object.pk %}{% url 'employee_detail' object.pk %}{% else %}{% url 'employees' %}{% endif %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -23,17 +23,21 @@ dev = [
     "hypothesis>=6.100,<7",
     "ruff>=0.13,<1",
     "pyright>=1.1.400,<2",
+    "playwright>=1.50,<2",
 ]
 
 [tool.uv]
 package = false
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "app.config.settings"
+DJANGO_SETTINGS_MODULE = "app.config.test_settings"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
     "slow: solver runs that take more than a few seconds",
+]
+filterwarnings = [
+    "ignore:No directory at:UserWarning",  # WhiteNoise before collectstatic
 ]
 
 [tool.ruff]
@@ -45,13 +49,17 @@ extend-exclude = ["spikes", "**/migrations"]
 select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "RUF"]
 ignore = [
     "RUF012",  # Django Meta and form class attributes are mutable by convention
+    "RUF001", "RUF002", "RUF003",  # en dashes in time ranges are intentional
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]
+"tools/**" = ["S603", "S607"]  # fixed git commands, no user input
 
 [tool.pyright]
-include = ["domain", "app", "adapters"]
+# Strict on the pure domain core (ADR 0001). The Django app isn't type-checked: without
+# Django stubs pyright reports hundreds of false positives on models and generic views.
+include = ["domain"]
 exclude = ["**/migrations", "spikes"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"

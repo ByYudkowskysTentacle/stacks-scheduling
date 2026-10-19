@@ -202,6 +202,23 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 - **D44.** Contributors will keep copyright in their own contributions under AGPL-3.0-or-later, the usual arrangement; a contributing guide with a DCO sign-off can come when outside contributions start. The README licence notice can gain a copyright line with whatever name the maintainer wants to publish under.
 - **D45.** The hook is per clone: run `git config core.hooksPath .githooks` once (CLAUDE.md §6). Locally gitleaks runs from an installed binary or the pinned Docker image, and is skipped with a warning if neither is available; CI always runs both checks over the full history. `tools/check_sensitive.py` reports file and line only, never the matched text. When the campus ID format is known, add it to `EXTRA_PATTERNS` there.
 
+## 2026-10-19 – Build session, milestone 1
+
+| # | Question | Decision |
+|---|---|---|
+| D47 | Homebase parallel run (D16) | Stacks is the primary, student-facing schedule from go-live. Homebase is kept frozen as a fallback; a printable and CSV export of the published schedule covers manual re-entry if a fallback is ever needed. No Homebase sync. |
+| D48 | Wage rates in Stacks | Stored, as SPEC §4.2 describes: a default wage per employee and an optional rate per pay role. Visible and editable by supervisors and admins only. |
+| D49 | Merging during the build session | For this session only, the maintainer asked for PRs to be merged as they are built, and will review the merged repository afterwards. |
+| D50 | Hosting and payroll data | Off-campus VPS. Payroll processing stays in Paycom; a direct database (ODBC) connection may be explored later and is out of scope now. |
+
+### Interpretations
+
+- **D47.** Adds the published-schedule export (print and CSV) to the spring scope, built with the student view. It goes through our own documented format, never a Homebase-specific adapter (D13, CLAUDE.md §7).
+- **D48 and D50 together.** Wage rates are pay data, so storing them puts some payroll-adjacent data on the off-campus VPS even though payroll itself stays in Paycom. They are limited to supervisors and admins, never emailed (D14), and audited on every change. The data-processing question for off-campus hosting (open item 4) still applies to availability, hours and wages. If the campus prefers, wages can be left blank: every wage field is optional and nothing in spring needs them.
+- **D51 (interpretation).** CLAUDE.md §6 says supervisors see "their department". There are no departments in v1: one location (D1) and one supervisor team, so supervisors see the whole organization. Add a department scope if a second team joins.
+- **D52 (interpretation).** Employee sign-in accounts are created only by a supervisor's explicit "Invite to sign in" action, which emails a one-time set-password link. Public sign-up is closed. An invited employee gets the employee role; admins grant supervisor and admin roles on the Roles page and can't remove their own admin role.
+- **D53 (tooling).** pyright runs in strict mode on `domain/` only. Without Django type stubs it reports hundreds of false positives on the app, which would hide real findings; revisit if stubs are adopted.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -212,3 +229,4 @@ Running log of maintainer answers, spec interpretations and open questions. Newe
 6. ~~Confirm who holds copyright~~ Resolved: the maintainer (D44). Optionally add a copyright line with your chosen name to the README notice.
 7. Re-run the solver benchmark on the VPS once it is provisioned (D42).
 8. Consider mirroring these items and the SPEC §13 milestones as GitHub issues and milestones (D46).
+9. Confirm you're comfortable keeping wage rates on the off-campus VPS, or leave the wage fields blank until the hosting question (item 4) is settled (D48, D50).

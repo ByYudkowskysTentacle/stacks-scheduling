@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Pay roles{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>Pay roles</h1>
+<p class="help">The paid position a shift is worked under, such as Student Assistant. Wages are set per employee.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Pay role</th><th scope="col">Colour</th><th scope="col">Paycom code</th><th scope="col">Status</th></tr></thead>
+  <tbody>
+  {% for r in object_list %}
+    <tr><th scope="row"><a href="{% url 'pay_role_edit' r.pk %}">{{ r.name }}</a></th>
+      <td><span class="swatch" style="--swatch: {{ r.color }}" aria-hidden="true"></span> {{ r.color }}</td>
+      <td>{{ r.paycom_code|default:"—" }}</td><td>{% if r.is_active %}Active{% else %}Inactive{% endif %}</td></tr>
+  {% empty %}
+    <tr><td colspan="4">No pay roles yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p><a class="button" href="{% url 'pay_role_add' %}">Add a pay role</a></p>
+{% endblock %}

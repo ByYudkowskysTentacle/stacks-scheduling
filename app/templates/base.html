@@ -1,0 +1,50 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% block head_title %}{{ title|default:"" }}{% endblock head_title %}{% endblock title %} · {{ site_name }}</title>
+  <link rel="stylesheet" href="{% static 'css/stacks.css' %}">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
+  {% block extra_head %}{% endblock extra_head %}
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="{% url 'home' %}">{{ site_name }}</a>
+      {% if organization %}<span class="org-name">{{ organization.name }}</span>{% endif %}
+      {% if user.is_authenticated %}
+        <nav aria-label="Main" class="main-nav">
+          <ul>
+            <li><a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Home</a></li>
+            {% if access.is_supervisor %}
+              <li><a href="{% url 'employees' %}"{% if 'employee' in request.resolver_match.url_name %} aria-current="page"{% endif %}>People</a></li>
+            {% endif %}
+            {% if Perm.CONFIGURE in access.perms %}
+              <li><a href="{% url 'locations' %}"{% if request.path|slice:':10' == '/settings/' %} aria-current="page"{% endif %}>Settings</a></li>
+            {% endif %}
+            <li><a href="{% url 'account_change_password' %}">Account</a></li>
+            <li>
+              <form method="post" action="{% url 'account_logout' %}" class="inline-form">{% csrf_token %}
+                <button type="submit" class="link-button">Sign out</button>
+              </form>
+            </li>
+          </ul>
+        </nav>
+      {% endif %}
+    </div>
+  </header>
+  <main id="main" tabindex="-1">
+    {% if messages %}
+      <div class="messages" role="status">
+        {% for message in messages %}
+          <p class="message message--{{ message.tags|default:'info' }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock content %}
+  </main>
+  {% block scripts %}{% endblock scripts %}
+</body>
+</html>

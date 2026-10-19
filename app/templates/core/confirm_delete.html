@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p>You're about to remove <strong>{{ object }}</strong>. {{ consequence }}</p>
+<p>The change is recorded in the audit log.</p>
+<form method="post" class="form-actions">
+  {% csrf_token %}
+  <button type="submit" class="button button--danger">Remove</button>
+  <a href="{% url 'locations' %}" class="button">Keep it</a>
+</form>
+{% endblock %}
