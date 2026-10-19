@@ -16,6 +16,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
+from itertools import combinations
 
 from domain.availability import AvailabilityStatus
 from domain.rules import RotationMode
@@ -391,3 +392,201 @@ def remove_from_pool_plan(ctx: ScheduleContext, employee_id: int, from_day: date
 
 def describe(r: Reassignment) -> str:
     return f"{day_label(r.shift.day)} {r.shift.interval.label()} → {r.to_name} ({r.reason})"
+
+
+# --- Checking a whole change ----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ChangeCheck:
+    errors: tuple[str, ...]
+    warnings: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+
+def check_change(ctx: ScheduleContext, after: Sequence[Shift]) -> ChangeCheck:
+    """What a change adds to the person-level checks, plus shifts that run while closed."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    before_ids = {id(s) for s in ctx.shifts}
+    originals = {s.id: s for s in ctx.shifts if s.id is not None}
+    for s in after:
+        old = originals.get(s.id) if s.id is not None else None
+        if id(s) in before_ids or (
+            old is not None and old.employee_id == s.employee_id and old.interval.contains(s.interval)
+        ):
+            continue  # unchanged, or the same person keeping part of their own shift
+        closed = subtract([s.interval], ctx.open_on(s.day))
+        if closed:
+            errors.append(
+                f"the library is closed {day_label(s.day)} {', '.join(iv.label() for iv in closed)}"
+            )
+        person = ctx.people.get(s.employee_id) if s.employee_id is not None else None
+        if person is not None:
+            if not person.auto_schedulable:
+                errors.append(f"{person.name} isn't in the scheduling pool")
+            rot = _rotation_note(ctx, person, s.day)
+            if rot is not None:
+                (errors if rot[1] == Severity.ERROR else warnings).append(rot[0])
+    for i in _new(_issues(ctx, ctx.shifts), _issues(ctx, after)):
+        if i.severity == Severity.ERROR:
+            errors.append(i.message)
+        elif i.severity == Severity.WARNING:
+            warnings.append(i.message)
+    return ChangeCheck(tuple(dict.fromkeys(errors)), tuple(dict.fromkeys(warnings)))
+
+
+# --- Targeted move (scenario 10) ------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MoveOption:
+    shift: Shift
+    donor_id: int
+    donor_name: str
+    preferred: bool
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass
+class TargetedMove:
+    recipient_id: int
+    recipient_name: str
+    wanted_minutes: int
+    chosen: list[MoveOption]
+    feasible: list[MoveOption]
+    notes: list[str]
+    check: ChangeCheck | None = None
+
+    @property
+    def chosen_minutes(self) -> int:
+        return sum(o.shift.minutes for o in self.chosen)
+
+
+MAX_SHIFTS_PER_MOVE = 3
+
+
+def targeted_move(
+    ctx: ScheduleContext,
+    recipient_id: int,
+    donor_ids: Sequence[int],
+    minutes: int,
+    weeks: frozenset[int] | None = None,
+) -> TargetedMove:
+    """ "Move about 2 hours from D, T or P to J, keeping J in one week" (SPEC §7.3, scenario 10).
+    Reassigns whole shifts only, picking the set closest to the hours asked for (fewest shifts on
+    a tie), and says for each donor why they couldn't give."""
+    recipient = ctx.people[recipient_id]
+    shifts = list(ctx.shifts)
+    before = _issues(ctx, shifts)
+    feasible: list[MoveOption] = []
+    notes: list[str] = []
+    week_text = " and ".join(ctx.period.week_label(w) for w in sorted(weeks)) if weeks is not None else ""
+    for donor_id in donor_ids:
+        donor = ctx.people.get(donor_id)
+        dname = donor.name if donor else f"Employee #{donor_id}"
+        theirs = sorted(
+            (s for s in shifts if s.employee_id == donor_id and not s.locked),
+            key=lambda s: (s.day, s.interval),
+        )
+        if not theirs:
+            notes.append(f"{dname} has no shifts that can move in this period.")
+            continue
+        out_of_week: list[Shift] = []
+        protected: list[tuple[Shift, str]] = []
+        blocked: list[tuple[Shift, tuple[str, ...]]] = []
+        mine: list[MoveOption] = []
+        for s in theirs:
+            if weeks is not None and ctx.period.week_of(s.day) not in weeks:
+                out_of_week.append(s)
+                continue
+            effects = holder_effects(ctx, s)
+            if effects:
+                protected.append((s, effects[0]))
+                continue
+            taker = _try(ctx, shifts, before, s, recipient, donor_id)
+            if taker.eligible:
+                mine.append(MoveOption(s, donor_id, dname, taker.preferred, taker.warnings))
+            else:
+                blocked.append((s, taker.blockers))
+        feasible.extend(mine)
+        if mine:
+            listed = ", ".join(f"{day_label(o.shift.day)} {o.shift.interval.label()}" for o in mine)
+            notes.append(f"{dname}: {len(mine)} of {len(theirs)} shifts could move ({listed}).")
+        elif len(out_of_week) == len(theirs):
+            notes.append(f"All of {dname}'s shifts are outside {week_text}, where {recipient.name} is kept.")
+        elif blocked and all(any("unavailable" in b for b in bs) for _, bs in blocked) and not protected:
+            extra = f"; the rest are outside {week_text}" if out_of_week else ""
+            notes.append(f"None of {dname}'s shifts fit {recipient.name}'s availability{extra}.")
+        else:
+            parts = [f"{day_label(s.day)} {s.interval.label()}: {bs[0]}" for s, bs in blocked]
+            parts += [f"{day_label(s.day)} {s.interval.label()}: protected ({why})" for s, why in protected]
+            if out_of_week:
+                parts.append(f"{len(out_of_week)} outside {week_text}")
+            notes.append(f"None of {dname}'s shifts can move. " + "; ".join(parts) + ".")
+    chosen, check = _best_subset(ctx, feasible, recipient_id, minutes)
+    if feasible and not chosen:
+        notes.append("No combination of the movable shifts passes every rule together.")
+    return TargetedMove(recipient_id, recipient.name, minutes, chosen, feasible, notes, check)
+
+
+def _best_subset(
+    ctx: ScheduleContext, options: list[MoveOption], recipient_id: int, minutes: int
+) -> tuple[list[MoveOption], ChangeCheck | None]:
+    """The set of up to three shifts closest to `minutes` that passes the checks together."""
+    subsets: list[tuple[MoveOption, ...]] = []
+    for k in range(1, min(MAX_SHIFTS_PER_MOVE, len(options)) + 1):
+        subsets.extend(combinations(options, k))
+    subsets.sort(
+        key=lambda c: (
+            abs(sum(o.shift.minutes for o in c) - minutes),
+            len(c),
+            -sum(o.preferred for o in c),
+            sum(len(o.warnings) for o in c),
+        )
+    )
+    for combo in subsets[:200]:
+        moving = {id(o.shift) for o in combo}
+        after = [replace(s, employee_id=recipient_id) if id(s) in moving else s for s in ctx.shifts]
+        check = check_change(ctx, after)
+        if check.ok:
+            return list(combo), check
+    return [], None
+
+
+# --- Split shift (scenario 11) --------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SplitPlan:
+    first: Shift  # the original shift, retimed (keeps its ID and history)
+    second: Shift  # new
+    first_takers: TakerResult
+    second_takers: TakerResult
+
+
+def split_shift(ctx: ScheduleContext, shift: Shift, at: int) -> SplitPlan:
+    """Split `shift` at minute `at` and say who could work each part (SPEC §7.3)."""
+    if not (shift.interval.start < at < shift.interval.end):
+        raise ValueError("the split time must fall inside the shift")
+    first = replace(shift, interval=Interval(shift.interval.start, at))
+    second = Shift(
+        None, None, shift.day, Interval(at, shift.interval.end), shift.pay_role_id, shift.location_id
+    )
+    trial = replace(ctx, shifts=[first if s is shift else s for s in ctx.shifts])
+    return SplitPlan(first, second, who_could_take(trial, first), who_could_take(trial, second))
+
+
+def split_result(
+    ctx: ScheduleContext, shift: Shift, at: int, first_id: int | None, second_id: int | None
+) -> tuple[list[Shift], ChangeCheck]:
+    """The schedule after the split with each part assigned, and what the checks say."""
+    first = replace(shift, interval=Interval(shift.interval.start, at), employee_id=first_id)
+    second = Shift(
+        None, second_id, shift.day, Interval(at, shift.interval.end), shift.pay_role_id, shift.location_id
+    )
+    after = [first if s is shift else s for s in ctx.shifts] + [second]
+    return after, check_change(ctx, after)

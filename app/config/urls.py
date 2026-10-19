@@ -111,6 +111,12 @@ urlpatterns = [
         name="shift_takers",
     ),
     path("schedule/<int:period_pk>/cover/", suggest_views.GapTakersView.as_view(), name="gap_takers"),
+    path("schedule/<int:period_pk>/move/", suggest_views.TargetedMoveView.as_view(), name="targeted_move"),
+    path(
+        "schedule/<int:period_pk>/shifts/<int:pk>/split/",
+        suggest_views.SplitShiftView.as_view(),
+        name="split_shift",
+    ),
     path(
         "schedule/<int:period_pk>/raise/<int:employee_pk>/",
         suggest_views.RaiseHoursView.as_view(),

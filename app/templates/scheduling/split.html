@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Split {{ shift }}{% endblock %}
+{% block content %}
+<p class="no-print"><a href="{% url 'shift_edit' period.pk shift.pk %}">← Edit shift</a></p>
+<h1>Split {{ shift }}</h1>
+<p class="help">The original shift keeps its history and becomes the first part; the second part is a new draft shift. Nobody is notified until you publish.</p>
+<form method="get" class="stacked-form">
+  {{ form.as_div }}
+  <div class="form-actions"><button type="submit" class="button">Show who could work each part</button></div>
+</form>
+{% if plan %}
+<form method="post" class="stacked-form">{% csrf_token %}
+  <input type="hidden" name="at" value="{{ at }}">
+  <div>
+    <label for="first">First part, {{ plan.first.interval.label }}</label>
+    <select name="first" id="first">
+      {% if shift.employee %}<option value="{{ shift.employee.pk }}" selected>{{ shift.employee.display_name }} (keeps it)</option>{% endif %}
+      {% for t in plan.first_takers.eligible %}<option value="{{ t.employee_id }}">{{ t.name }} ({{ t.week_minutes|hours }}h that week{% if t.warnings %}, {{ t.warnings|length }} warning{{ t.warnings|length|pluralize }}{% endif %})</option>{% endfor %}
+      <option value="">Open shift</option>
+    </select>
+  </div>
+  <div>
+    <label for="second">Second part, {{ plan.second.interval.label }}</label>
+    <select name="second" id="second">
+      {% for t in plan.second_takers.eligible %}<option value="{{ t.employee_id }}">{{ t.name }} ({{ t.week_minutes|hours }}h that week{% if t.warnings %}, {{ t.warnings|length }} warning{{ t.warnings|length|pluralize }}{% endif %})</option>{% endfor %}
+      <option value="">Open shift</option>
+    </select>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="button button--primary">Split as drafts</button>
+    <a href="{% url 'shift_edit' period.pk shift.pk %}" class="button">Cancel</a>
+  </div>
+</form>
+{% if plan.second_takers.blocked %}
+<details class="card"><summary>Who can't work the second part, and why ({{ plan.second_takers.blocked|length }})</summary>
+  <ul>{% for t in plan.second_takers.blocked %}<li><strong>{{ t.name }}</strong>: {{ t.blockers|join:"; " }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{% endif %}
+{% endblock %}

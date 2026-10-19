@@ -11,7 +11,8 @@
 </p>
 <div class="form-actions no-print">
   {% if Perm.PUBLISH in access.perms %}<a class="button button--primary" href="{% url 'publish' period.pk %}">Review and publish</a>{% endif %}
-  {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'solve_start' period.pk %}">Generate or rebalance</a>{% endif %}
+  {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'solve_start' period.pk %}">Generate or rebalance</a>
+  <a class="button" href="{% url 'targeted_move' period.pk %}">Move hours</a>{% endif %}
   {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}<a class="button" href="{% url 'shift_add' period.pk %}">Add a shift</a>{% endif %}
   <a class="button" href="{% url 'versions' period.pk %}">Versions</a>
   {% if Perm.VIEW_HOURS in access.perms %}<a class="button" href="{% url 'reports' period.pk %}">Hours and coverage reports</a>{% endif %}

@@ -6,11 +6,22 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import date, timedelta
 
+import pytest
+
 from domain.availability import AvailabilityBlock, AvailabilityStatus, BlockKind, WeeklyAvailability
 from domain.calendar import MON, SAT, WED
 from domain.rules import CapScope, HourCap, HourTarget, OpenerDuty, Rotation, RotationMode, Rules
 from domain.schedule import Period, ScheduleContext
-from domain.suggest import gap_shift, opportunities, remove_from_pool_plan, who_could_take, widen_gap
+from domain.suggest import (
+    gap_shift,
+    opportunities,
+    remove_from_pool_plan,
+    split_result,
+    split_shift,
+    targeted_move,
+    who_could_take,
+    widen_gap,
+)
 from domain.timeutil import Interval
 from domain.validation import Category, validate
 from tests.domain.test_calendar import CHAPEL, PILOT
@@ -211,3 +222,84 @@ def test_closures_block_every_candidate():
     result = who_could_take(context([], {1: person(1)}), gap_shift(wednesday, Interval(540, 720)))
     assert result.eligible == []
     assert "the library is closed Wed 20 Jan 10am–11am" in result.blocked[0].blockers
+
+
+# --- Targeted move (scenario 10) ------------------------------------------------------------
+
+J, D, T, P = 10, 11, 12, 13
+
+
+def scenario_10():
+    tuesday, thursday = date(2027, 1, 19), date(2027, 1, 21)
+    j_classes = WeeklyAvailability(
+        AvailabilityStatus.ENTERED,
+        (
+            AvailabilityBlock(MON, BlockKind.UNAVAILABLE, Interval(540, 780)),  # Mon 9-1
+            AvailabilityBlock(1, BlockKind.UNAVAILABLE, Interval(780, 1020)),  # Tue 1-5
+        ),
+    )
+    shifts = [
+        shift(D, NEXT_MONDAY + timedelta(days=1), 540, 780, sid=1),  # week 2
+        shift(D, NEXT_MONDAY + timedelta(days=3), 600, 840, sid=2),  # week 2
+        shift(T, MONDAY, 600, 780, sid=3),  # J in class
+        shift(T, tuesday, 780, 960, sid=4),  # J in class
+        shift(P, MONDAY, 540, 720, sid=5),  # J in class
+        shift(P, thursday, 600, 720, sid=6),  # the one that fits: 2h
+    ]
+    people = {J: person(J, "J", j_classes), D: person(D, "D"), T: person(T, "T"), P: person(P, "P")}
+    return context(shifts, people, weeks=2)
+
+
+def test_targeted_move_picks_the_feasible_shift_and_explains_the_rest():
+    move = targeted_move(scenario_10(), J, [D, T, P], 120, weeks=frozenset({0}))
+    assert [o.shift.id for o in move.chosen] == [6] and move.chosen_minutes == 120
+    assert move.check is not None and move.check.ok
+    notes = " ".join(move.notes)
+    assert "All of D's shifts are outside week 1" in notes
+    assert "None of T's shifts fit J's availability" in notes
+    assert "P: 1 of 2 shifts could move (Thu 21 Jan 10am–12pm)" in notes
+
+
+def test_targeted_move_without_a_week_limit_can_use_other_weeks():
+    move = targeted_move(scenario_10(), J, [D], 240)
+    assert move.chosen_minutes == 240 and all(o.donor_id == D for o in move.chosen)
+
+
+def test_targeted_move_respects_the_recipients_cap_across_shifts():
+    ctx = scenario_10()
+    capped = replace(ctx, rules=Rules(caps=[HourCap(CapScope.WEEK, 240, employee_id=J)]))
+    move = targeted_move(capped, J, [D], 480)
+    # Each of D's 4h shifts fits on its own, but both are in week 2: only one can move.
+    assert len(move.feasible) == 2 and move.chosen_minutes == 240
+    assert move.check is not None and move.check.ok
+
+
+# --- Split shift (scenario 11) --------------------------------------------------------------
+
+
+def test_split_a_shift_into_halves_for_two_people():
+    friday = date(2027, 1, 22)
+    original = shift(1, friday, 720, 960, sid=1)
+    people = {1: person(1), 2: person(2), 3: person(3)}
+    ctx = context([original], people, single_day_rules())
+    plan = split_shift(ctx, original, 840)
+    assert plan.first.interval == Interval(720, 840) and plan.first.id == 1  # keeps its ID
+    assert plan.second.interval == Interval(840, 960) and plan.second.id is None
+    assert {2, 3} <= set(ids(plan.second_takers.eligible))
+    after, check = split_result(ctx, original, 840, 2, 3)
+    assert check.ok, check.errors
+    assert sorted((s.employee_id, s.interval.label()) for s in after) == [(2, "12pm–2pm"), (3, "2pm–4pm")]
+    assert sum(s.minutes for s in after) == original.minutes  # coverage unchanged
+
+
+def test_split_parts_shorter_than_the_minimum_are_refused():
+    original = shift(1, MONDAY, 540, 780, sid=1)
+    ctx = context([original], {1: person(1), 2: person(2)})
+    _, check = split_result(ctx, original, 600, 1, 2)
+    assert not check.ok and any("shorter" in e or "minimum" in e or "1h" in e for e in check.errors)
+
+
+def test_split_time_must_fall_inside_the_shift():
+    original = shift(1, MONDAY, 540, 780, sid=1)
+    with pytest.raises(ValueError):
+        split_shift(context([original], {1: person(1)}), original, 780)

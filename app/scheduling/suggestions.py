@@ -8,7 +8,7 @@ pay role (scenario 15).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 import pghistory
@@ -144,3 +144,83 @@ def remove_from_pool(employee: Employee, user, from_day: date) -> list[tuple[Sch
                 shift.updated_by = user
                 shift.save()
     return [(plan.period, services.validate_period(plan.period)) for plan in plans]
+
+
+# --- Targeted move and split ----------------------------------------------------------------
+
+
+def plan_move(
+    period: SchedulePeriod,
+    recipient: Employee,
+    donors: list[Employee],
+    minutes: int,
+    weeks: frozenset[int] | None,
+) -> suggest.TargetedMove:
+    ctx = services.build_context(period)
+    if recipient.pk not in ctx.people:
+        raise SuggestionError(f"{recipient.display_name} isn't on this schedule's roster.")
+    return suggest.targeted_move(ctx, recipient.pk, [d.pk for d in donors], minutes, weeks)
+
+
+def apply_move(period: SchedulePeriod, recipient: Employee, shift_ids: list[int], user) -> list[Shift]:
+    """Reassign the chosen shifts to `recipient` together, after checking them together."""
+    with transaction.atomic(), pghistory.context(action="targeted_move", employee=recipient.pk):
+        rows = list(period.shifts.live().select_for_update(of=("self",)).filter(pk__in=shift_ids))
+        if not rows or len(rows) != len(set(shift_ids)):
+            raise SuggestionError("Those shifts have changed since the plan was made. Plan the move again.")
+        ctx = services.build_context(period)
+        moving = set(shift_ids)
+        after = [replace(s, employee_id=recipient.pk) if s.id in moving else s for s in ctx.shifts]
+        check = suggest.check_change(ctx, after)
+        if not check.ok:
+            raise SuggestionError("The move no longer passes: " + "; ".join(check.errors))
+        for shift in rows:
+            shift.employee = recipient
+            shift.pay_role = recipient.default_pay_role or shift.pay_role
+            shift.updated_by = user
+            shift.proposed_by_lead = False
+            shift.save()
+    return rows
+
+
+def plan_split(period: SchedulePeriod, shift: Shift, at: int) -> suggest.SplitPlan:
+    ctx = services.build_context(period)
+    return suggest.split_shift(ctx, _domain_shift(ctx, shift), at)
+
+
+def apply_split(
+    period: SchedulePeriod, shift: Shift, at: int, first: Employee | None, second: Employee | None, user
+) -> tuple[Shift, Shift]:
+    """Retime the original shift to the first part (keeping its ID and history) and add the
+    second part as a new draft shift (CLAUDE.md §2.3)."""
+    with transaction.atomic(), pghistory.context(action="split_shift", shift=shift.pk):
+        shift = Shift.objects.select_for_update().get(pk=shift.pk, deleted_at__isnull=True)
+        ctx = services.build_context(period)
+        try:
+            _, check = suggest.split_result(
+                ctx, _domain_shift(ctx, shift), at, first.pk if first else None, second.pk if second else None
+            )
+        except ValueError as exc:
+            raise SuggestionError(str(exc).capitalize() + ".") from exc
+        if not check.ok:
+            raise SuggestionError("The split doesn't pass: " + "; ".join(check.errors))
+        end = shift.end_min
+        holder = shift.employee_id
+        shift.end_min = at
+        shift.employee = first
+        if first is not None and first.pk != holder:
+            shift.pay_role = first.default_pay_role or shift.pay_role
+        shift.updated_by = user
+        shift.save()
+        added = Shift.objects.create(
+            organization=period.organization,
+            location=shift.location,
+            period=period,
+            employee=second,
+            date=shift.date,
+            start_min=at,
+            end_min=end,
+            pay_role=(second.default_pay_role if second else None) or shift.pay_role,
+            updated_by=user,
+        )
+    return shift, added

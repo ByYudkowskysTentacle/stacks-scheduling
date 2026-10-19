@@ -339,3 +339,39 @@ class DesiredHoursForm(forms.Form):
 
 def desired_initial(desired: DesiredHours | None) -> dict:
     return {"hours": f"{desired.minutes / 60:g}"} if desired else {}
+
+
+class TargetedMoveForm(forms.Form):
+    """ "Move about 2 hours from D, T or P to J, keeping J in one week" (SPEC §7.3)."""
+
+    recipient = forms.ModelChoiceField(queryset=Employee.objects.none(), label="Give hours to")
+    donors = forms.ModelMultipleChoiceField(
+        queryset=Employee.objects.none(), label="Take them from", widget=forms.CheckboxSelectMultiple
+    )
+    hours = forms.DecimalField(
+        label="About how many hours", min_value=0.25, max_value=40, initial=2, decimal_places=2
+    )
+    week = forms.TypedChoiceField(label="Keep them in", required=False, coerce=int, empty_value=None)
+
+    def __init__(self, *args, period: SchedulePeriod, **kwargs):
+        super().__init__(*args, **kwargs)
+        people = (
+            Employee.objects.filter(organization=period.organization, archived_at__isnull=True)
+            .exclude(employment_type="inactive")
+            .order_by("preferred_name")
+        )
+        self.fields["recipient"].queryset = people
+        self.fields["donors"].queryset = people
+        self.fields["week"].choices = [("", "Any week")] + [
+            (w, f"Week {w + 1} only") for w in range(period.weeks)
+        ]
+
+    def clean(self):
+        data = super().clean()
+        if data.get("recipient") and data.get("donors") and data["recipient"] in data["donors"]:
+            self.add_error("donors", "Choose people other than the one getting the hours.")
+        return data
+
+
+class SplitForm(forms.Form):
+    at = MinuteField(label="Split at", help_text="For example 2:00pm.")

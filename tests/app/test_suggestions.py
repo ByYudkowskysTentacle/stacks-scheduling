@@ -4,6 +4,7 @@ SPEC §9.4). All data is synthetic."""
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
@@ -192,3 +193,67 @@ def test_archiving_someone_with_upcoming_shifts_offers_reassignment(as_user, sup
     assert "3 upcoming shifts" in client.get(reverse("employee_archive", args=[avery.pk])).content.decode()
     resp = client.post(reverse("employee_archive", args=[avery.pk]), {"confirm": "yes"})
     assert resp.url == reverse("remove_from_pool", args=[avery.pk])
+
+
+# --- Targeted move (scenario 10) and split (scenario 11) -----------------------------------
+
+
+def test_targeted_move_plans_then_applies(as_user, supervisor, setup):
+    period, people = setup["period"], setup["people"]
+    client = as_user(supervisor)
+    url = reverse("targeted_move", args=[period.pk])
+    query = {"recipient": people["Drew"].pk, "donors": [people["Avery"].pk], "hours": "4", "week": ""}
+    page = client.get(url, query)
+    assert page.status_code == 200
+    text = page.content.decode()
+    assert "Plan: 4h to Drew" in text
+    assert Shift.objects.filter(employee=people["Drew"]).count() == 0  # planning changes nothing
+    ids = [int(x) for x in re.findall(r'name="shift" value="(\d+)"', text)]
+    assert ids and setup["shifts"][0].pk not in ids  # Monday clashes with Drew's class
+    client.post(url, {"recipient": people["Drew"].pk, "shift": ids})
+    moved = Shift.objects.filter(employee=people["Drew"])
+    assert sum(s.minutes for s in moved) == 240
+    assert all(s.pay_role == setup["desk"] for s in moved)
+
+
+def test_targeted_move_refuses_a_stale_or_invalid_plan(as_user, supervisor, setup):
+    period, people = setup["period"], setup["people"]
+    monday = setup["shifts"][0]
+    resp = as_user(supervisor).post(
+        reverse("targeted_move", args=[period.pk]),
+        {"recipient": people["Drew"].pk, "shift": [monday.pk]},
+        follow=True,
+    )
+    monday.refresh_from_db()
+    assert monday.employee == people["Avery"]
+    assert "no longer passes" in resp.content.decode()
+
+
+def test_split_keeps_the_original_shift_and_adds_the_second_part(as_user, supervisor, setup):
+    period, people = setup["period"], setup["people"]
+    friday = setup["shifts"][2]  # Avery, Fri 10am–2pm
+    client = as_user(supervisor)
+    page = client.get(reverse("split_shift", args=[period.pk, friday.pk]), {"at": "12:00"})
+    assert page.status_code == 200 and "First part, 10am–12pm" in page.content.decode()
+    client.post(
+        reverse("split_shift", args=[period.pk, friday.pk]),
+        {"at": "720", "first": people["Avery"].pk, "second": people["Casey"].pk},
+    )
+    friday.refresh_from_db()
+    assert friday.employee == people["Avery"] and friday.interval.label() == "10am–12pm"
+    second = Shift.objects.get(date=FRIDAY, employee=people["Casey"])
+    assert second.interval.label() == "12pm–2pm" and second.pay_role == setup["desk"]
+
+
+def test_split_into_parts_below_the_minimum_is_refused(as_user, supervisor, setup):
+    period, people = setup["period"], setup["people"]
+    friday = setup["shifts"][2]
+    resp = as_user(supervisor).post(
+        reverse("split_shift", args=[period.pk, friday.pk]),
+        {"at": "660", "first": people["Avery"].pk, "second": people["Casey"].pk},
+        follow=True,
+    )
+    friday.refresh_from_db()
+    assert friday.interval.label() == "10am–2pm"
+    assert not Shift.objects.filter(employee=people["Casey"]).exists()
+    assert "doesn&#x27;t pass" in resp.content.decode()
