@@ -413,6 +413,15 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
     - The audit period has no suggested value, so "Use suggested periods" leaves it blank (keep).
     - Entries for models without an organization, such as a supervisor's department link, aren't purged; they hold no student data.
     - The audit log's shared context rows (who and which action) stay. They hold an account id and an action name, never the changed data.
+- **D110 (maintainer request, 2026-10-19).** Departments can be removed.
+  *Built:*
+  - **Admins only**, from Settings, Departments ("Remove"), because it changes what other supervisors manage. A confirmation box is required, and every change is in the audit log.
+  - **Empty departments are deleted.** One with no schedules, people, supervisors or coverage rules is simply removed.
+  - **Otherwise it is merged first.** The admin picks another department. Its schedules (with their shifts and published versions), roster, supervisors, coverage overrides and skill rules move there, keeping their IDs and history (CLAUDE.md §2.3). Then the department is removed. Nothing is sent to anyone.
+  - **Refusals.** The only department can't be removed (rename it instead). A merge is refused, naming the schedules, when both departments have a schedule for the same location and week.
+  - *Interpretation:*
+    - Moved schedules use the receiving department's coverage settings, and the moved coverage overrides and skill rules apply to all its schedules. The page says so and suggests reviewing Scheduling rules.
+    - Departments that showed the removed department's open shifts to their people (D108) stop doing so, rather than switching to the receiving department; the admin can turn that on again. The confirmation message names them.
 
 ## Open items for the maintainer
 
@@ -433,3 +442,4 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 15. Choose retention periods under Settings, Retention once the registrar or counsel has answered item 4 (D93). SPEC §11 suggests one year after the term ends for availability.
 16. ~~Decide what supervisors limited to some departments see of the audit log and the published schedule~~ Resolved: own departments (D107, D108).
 17. Decide whether settings (hours, rules, terms, tags, pay roles, departments) and CSV imports should stay organization-wide for every supervisor, or be limited by department (D95, part 4).
+18. ~~Add a way to remove a department~~ Done: merge into another department, then remove (D110).

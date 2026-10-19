@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Remove {{ department.name }}{% endblock %}
+{% block content %}
+<h1>Remove {{ department.name }}</h1>
+{% if only %}
+<p>This is the only department, so it can't be removed. Rename it instead, or add another department first.</p>
+<p><a href="{% url 'department_edit' department.pk %}" class="button">Rename it</a> <a href="{% url 'departments' %}" class="button">Back to departments</a></p>
+{% else %}
+{% if usage.empty %}
+<p>{{ department.name }} has no schedules, people, supervisors or coverage rules, so nothing else changes.</p>
+{% else %}
+<p>{{ department.name }} still holds:</p>
+<ul>
+  {% if usage.periods %}<li>{{ usage.periods }} schedule{{ usage.periods|pluralize }}, with all their shifts and published versions</li>{% endif %}
+  {% if usage.people %}<li>{{ usage.people }} {{ usage.people|pluralize:"person,people" }} on its roster</li>{% endif %}
+  {% if usage.supervisors %}<li>{{ usage.supervisors }} supervisor{{ usage.supervisors|pluralize }}</li>{% endif %}
+  {% if usage.coverage_overrides %}<li>{{ usage.coverage_overrides }} coverage override{{ usage.coverage_overrides|pluralize }}</li>{% endif %}
+  {% if usage.tag_rules %}<li>{{ usage.tag_rules }} skill rule{{ usage.tag_rules|pluralize }}</li>{% endif %}
+</ul>
+<p>Nothing is deleted with it: all of this moves to the department you choose, keeping its history. Its schedules then use that department's coverage settings, and its coverage overrides and skill rules apply to all of that department's schedules, so review them under Scheduling rules afterwards. People already in both departments, and supervisors already managing both, simply keep the other one. Nothing is sent to anyone.</p>
+{% endif %}
+<p>Departments that show {{ department.name }}'s open shifts to their people stop doing so. The change is recorded in the audit log.</p>
+{% if error %}<p class="message message--error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" class="stacked-form" novalidate>
+  {% csrf_token %}
+  {{ form.as_div }}
+  <div class="form-actions">
+    <button type="submit" class="button button--danger">Remove {{ department.name }}</button>
+    <a href="{% url 'departments' %}" class="button">Keep it</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

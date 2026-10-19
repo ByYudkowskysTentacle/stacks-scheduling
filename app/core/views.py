@@ -10,10 +10,11 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, ListView, TemplateView, UpdateView
 
-from app.core import audit_log, retention
+from app.core import audit_log, departments, retention
 from app.core.forms import (
     ClosureForm,
     DepartmentForm,
+    DepartmentRemoveForm,
     LocationForm,
     OperatingHoursForm,
     OrganizationForm,
@@ -262,6 +263,11 @@ class DepartmentListView(OrgViewMixin, ListView):
     def get_queryset(self):
         return self.org_queryset(Department).prefetch_related("supervisors__user")
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["can_remove"] = self.request.access.has(Perm.MANAGE_MEMBERS)
+        return ctx
+
 
 class DepartmentFormMixin(OrgObjectMixin):
     permission = Perm.CONFIGURE
@@ -282,6 +288,53 @@ class DepartmentCreateView(DepartmentFormMixin, CreateView):
 
 class DepartmentUpdateView(DepartmentFormMixin, UpdateView):
     extra_context = {"title": "Edit department"}
+
+
+class DepartmentRemoveView(OrgViewMixin, TemplateView):
+    """Remove a department, merging what it holds into another first (D110). Admins only, since
+    it changes what other supervisors manage."""
+
+    permission = Perm.MANAGE_MEMBERS
+    template_name = "core/department_remove.html"
+
+    def get_department(self) -> Department:
+        return get_object_or_404(self.org_queryset(Department), pk=self.kwargs["pk"])
+
+    def render_form(self, department: Department, form, error: str = ""):
+        found = departments.usage(department)
+        return self.render_to_response(
+            self.get_context_data(
+                department=department,
+                usage=found,
+                only=not self.org_queryset(Department).exclude(pk=department.pk).exists(),
+                form=form,
+                error=error,
+            )
+        )
+
+    def get(self, request, pk):
+        department = self.get_department()
+        needs = not departments.usage(department).empty
+        return self.render_form(department, DepartmentRemoveForm(department=department, needs_target=needs))
+
+    def post(self, request, pk):
+        department = self.get_department()
+        needs = not departments.usage(department).empty
+        form = DepartmentRemoveForm(request.POST, department=department, needs_target=needs)
+        if not form.is_valid():
+            return self.render_form(department, form)
+        into = form.cleaned_data.get("into")
+        name = department.name
+        try:
+            showed = departments.remove(department, into)
+        except departments.DepartmentError as exc:
+            return self.render_form(department, form, str(exc))
+        done = f"Removed {name}." + (f" Everything it held is now in {into}." if into else "")
+        if showed:
+            verb = "shows" if len(showed) == 1 else "show"
+            done += f" {', '.join(showed)} no longer {verb} its open shifts to their people."
+        messages.success(request, done)
+        return redirect("departments")
 
 
 class MemberListView(OrgViewMixin, TemplateView):

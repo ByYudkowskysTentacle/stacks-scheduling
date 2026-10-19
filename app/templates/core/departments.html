@@ -5,14 +5,15 @@
 <h1>Departments</h1>
 <p class="help">Each department plans its own schedules with its own roster and, if you set them, its own coverage: people on duty here, and coverage overrides and skill rules under Scheduling rules. Someone can be in several departments; their hours across all of them count toward their caps. Put people in departments from their record in People, and give supervisors their departments under Roles. Admins see every department.</p>
 <table class="data-table">
-  <thead><tr><th scope="col">Department</th><th scope="col">Coverage</th><th scope="col">Supervisors</th></tr></thead>
+  <thead><tr><th scope="col">Department</th><th scope="col">Coverage</th><th scope="col">Supervisors</th>{% if can_remove %}<th scope="col"><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
   <tbody>
   {% for d in object_list %}
     <tr><th scope="row"><a href="{% url 'department_edit' d.pk %}">{{ d.name }}</a></th>
       <td>{% if d.coverage_default is not None %}{{ d.coverage_default }} on duty{% else %}Organization default{% endif %}{% if d.coverage_mode %}, {{ d.get_coverage_mode_display|lower }}{% endif %}</td>
-      <td>{% for m in d.supervisors.all %}{{ m.user.email }}{% if not forloop.last %}, {% endif %}{% empty %}None yet{% endfor %}</td></tr>
+      <td>{% for m in d.supervisors.all %}{{ m.user.email }}{% if not forloop.last %}, {% endif %}{% empty %}None yet{% endfor %}</td>
+      {% if can_remove %}<td><a href="{% url 'department_remove' d.pk %}">Remove<span class="visually-hidden"> {{ d.name }}</span></a></td>{% endif %}</tr>
   {% empty %}
-    <tr><td colspan="3">No departments yet.</td></tr>
+    <tr><td colspan="{% if can_remove %}4{% else %}3{% endif %}">No departments yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>
