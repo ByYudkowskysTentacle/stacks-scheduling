@@ -257,3 +257,37 @@ def test_split_into_parts_below_the_minimum_is_refused(as_user, supervisor, setu
     assert friday.interval.label() == "10am–2pm"
     assert not Shift.objects.filter(employee=people["Casey"]).exists()
     assert "doesn&#x27;t pass" in resp.content.decode()
+
+
+def test_targeted_move_offers_a_split_and_applies_it(as_user, supervisor, setup):
+    period, people = setup["period"], setup["people"]
+    monday = setup["shifts"][0]  # Avery, Mon 9am–1pm; Drew has class 9–11
+    client = as_user(supervisor)
+    url = reverse("targeted_move", args=[period.pk])
+    page = client.get(url, {"recipient": people["Drew"].pk, "donors": [people["Avery"].pk], "hours": "2"})
+    text = page.content.decode()
+    assert "Split as drafts" in text and "splits are offered" in text  # whole shifts are all 4h
+    count = Shift.objects.count()
+    resp = client.post(
+        url, {"recipient": people["Drew"].pk, "split": monday.pk, "start": "660", "end": "780"}, follow=True
+    )
+    monday.refresh_from_db()
+    assert monday.employee == people["Avery"] and monday.interval.label() == "9am–11am"  # keeps its ID
+    added = Shift.objects.get(employee=people["Drew"])
+    assert added.interval.label() == "11am–1pm" and added.pay_role == setup["desk"]
+    assert Shift.objects.count() == count + 1
+    assert "Validation:" in resp.content.decode()
+    assert mail.outbox == [] and not Notification.objects.exists()
+
+
+def test_a_split_that_no_longer_passes_is_refused(as_user, supervisor, setup):
+    period, people = setup["period"], setup["people"]
+    monday = setup["shifts"][0]
+    resp = as_user(supervisor).post(
+        reverse("targeted_move", args=[period.pk]),
+        {"recipient": people["Drew"].pk, "split": monday.pk, "start": "540", "end": "660"},  # Drew's class
+        follow=True,
+    )
+    monday.refresh_from_db()
+    assert monday.interval.label() == "9am–1pm" and not Shift.objects.filter(employee=people["Drew"]).exists()
+    assert "no longer passes" in resp.content.decode()

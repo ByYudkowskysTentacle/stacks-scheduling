@@ -183,6 +183,42 @@ def apply_move(period: SchedulePeriod, recipient: Employee, shift_ids: list[int]
     return rows
 
 
+def apply_split_off(
+    period: SchedulePeriod, shift_id: int, start: int, end: int, recipient: Employee, user
+) -> tuple[Shift, Shift]:
+    """Give the start or the end of one shift to `recipient` (D102). The holder keeps the rest on
+    the original shift, so its ID and history survive; the part becomes a new draft shift."""
+    with transaction.atomic(), pghistory.context(action="targeted_move_split", employee=recipient.pk):
+        shift = period.shifts.live().select_for_update(of=("self",)).filter(pk=shift_id).first()
+        if shift is None or not (
+            (start == shift.start_min and end < shift.end_min)
+            or (end == shift.end_min and start > shift.start_min)
+        ):
+            raise SuggestionError("That shift has changed since the plan was made. Plan the move again.")
+        ctx = services.build_context(period)
+        _, check = suggest.split_off(ctx, _domain_shift(ctx, shift), Interval(start, end), recipient.pk)
+        if not check.ok:
+            raise SuggestionError("The split no longer passes: " + "; ".join(check.errors))
+        if start == shift.start_min:
+            shift.start_min = end
+        else:
+            shift.end_min = start
+        shift.updated_by = user
+        shift.save()
+        added = Shift.objects.create(
+            organization=period.organization,
+            location=shift.location,
+            period=period,
+            employee=recipient,
+            date=shift.date,
+            start_min=start,
+            end_min=end,
+            pay_role=recipient.default_pay_role or shift.pay_role,
+            updated_by=user,
+        )
+    return shift, added
+
+
 def plan_split(period: SchedulePeriod, shift: Shift, at: int) -> suggest.SplitPlan:
     ctx = services.build_context(period)
     return suggest.split_shift(ctx, _domain_shift(ctx, shift), at)
