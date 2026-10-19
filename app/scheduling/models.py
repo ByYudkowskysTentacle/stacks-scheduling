@@ -61,6 +61,15 @@ class SchedulingRules(models.Model):
     freeze_window_hours = models.PositiveSmallIntegerField(
         default=48, help_text="The solver never moves shifts starting within this many hours. 0 turns it off."
     )
+    rotation_mode = models.CharField(
+        max_length=10,
+        choices=[
+            (dom.RotationMode.NONE, "No rotation"),
+            (dom.RotationMode.STRICT, "Strict: people work only in their group's weeks"),
+            (dom.RotationMode.PREFERRED, "Preferred: off-week shifts allowed but avoided"),
+        ],
+        default=dom.RotationMode.NONE,
+    )
     change_limit_percent = models.PositiveSmallIntegerField(
         default=30,
         validators=[MaxValueValidator(100)],
@@ -373,3 +382,158 @@ class Notification(models.Model):
 
     def __str__(self) -> str:
         return self.subject
+
+
+@audited()
+class RotationAssignment(models.Model):
+    """Which rotation group someone is in (SPEC §6.5). Group A works the first week of each
+    period, group B the second."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name="rotation")
+    group = models.CharField(max_length=1, choices=[("A", "Group A (week 1)"), ("B", "Group B (week 2)")])
+
+    def __str__(self) -> str:
+        return f"{self.employee}: group {self.group}"
+
+
+class DutyKind(models.TextChoices):
+    OPENER = "opener", "Opens on given weekdays"
+    WEEK_HOURS = "week_hours", "Set hours in given weeks (for example a lead week)"
+
+
+@audited()
+class DutyAssignment(models.Model):
+    """Standing duties (SPEC §6.5): "Student L opens every weekday", "lead works 20 hours in
+    their lead week and no more than 10 in the other"."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="duties")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="duties")
+    kind = models.CharField(max_length=20, choices=DutyKind.choices)
+    weekdays = models.JSONField(default=list, blank=True, help_text="Opener: the weekdays they open.")
+    short_weekdays = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Opener: weekdays their opening shift may be shorter than the minimum.",
+    )
+    short_minutes = models.PositiveSmallIntegerField(default=90)
+    weeks = models.JSONField(
+        default=list, blank=True, help_text="Week hours: period weeks, 1 for the first week."
+    )
+    minutes = models.PositiveIntegerField(default=0, help_text="Week hours: hours in those weeks.")
+    off_week_max_minutes = models.PositiveIntegerField(
+        default=0, help_text="Week hours: most hours in other weeks."
+    )
+    label = models.CharField(max_length=60, default="lead week")
+
+    class Meta:
+        ordering = ["employee__preferred_name", "kind"]
+
+    def __str__(self) -> str:
+        if self.kind == DutyKind.OPENER:
+            return f"{self.employee} opens"
+        weeks = ", ".join(str(w) for w in self.weeks)
+        return f"{self.employee}: {self.minutes / 60:g}h in week {weeks}, at most {self.off_week_max_minutes / 60:g}h otherwise"
+
+    def to_domain(self) -> dom.OpenerDuty | dom.WeekHoursDuty:
+        if self.kind == DutyKind.OPENER:
+            return dom.OpenerDuty(
+                self.employee_id, frozenset(self.weekdays), frozenset(self.short_weekdays), self.short_minutes
+            )
+        return dom.WeekHoursDuty(
+            self.employee_id,
+            frozenset(w - 1 for w in self.weeks),
+            self.minutes,
+            self.off_week_max_minutes,
+            self.label,
+        )
+
+
+@audited()
+class HourTargetRule(models.Model):
+    """A supervisor's soft hour goal for someone (SPEC §6.4)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="hour_targets")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="hour_targets")
+    minutes = models.PositiveIntegerField(help_text="Weekly hours to aim for.")
+    priority = models.PositiveSmallIntegerField(
+        default=1, validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    note = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ["-priority", "employee__preferred_name"]
+
+    def __str__(self) -> str:
+        return f"{self.employee}: aim for {self.minutes / 60:g}h a week (priority {self.priority})"
+
+    def to_domain(self) -> dom.HourTarget:
+        return dom.HourTarget(self.employee_id, self.minutes, self.priority)
+
+
+class DesiredStatus(models.TextChoices):
+    PENDING = "pending", "Waiting for approval"
+    APPROVED = "approved", "Approved"
+    DECLINED = "declined", "Declined"
+
+
+@audited()
+class DesiredHours(models.Model):
+    """Weekly hours an employee asks for in a term (D32). Ignored by the generator until approved."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="desired_hours")
+    term = models.ForeignKey("core.Term", on_delete=models.PROTECT)
+    minutes = models.PositiveIntegerField()
+    status = models.CharField(max_length=10, choices=DesiredStatus.choices, default=DesiredStatus.PENDING)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "desired hours"
+        constraints = [models.UniqueConstraint(fields=["employee", "term"], name="desired_unique")]
+
+    def __str__(self) -> str:
+        return f"{self.employee}: {self.minutes / 60:g}h a week ({self.get_status_display().lower()})"
+
+
+class RunStatus(models.TextChoices):
+    QUEUED = "queued", "Waiting to start"
+    RUNNING = "running", "Solving"
+    DONE = "done", "Ready to compare"
+    FAILED = "failed", "Failed"
+    APPLIED = "applied", "Applied as a draft"
+    UNDONE = "undone", "Applied, then undone"
+
+
+@audited()
+class SolveRun(models.Model):
+    """One generate or rebalance (SPEC §7.3). Always a what-if: nothing changes until a
+    supervisor applies an option, and an applied run can be undone (SPEC §9.3)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.PROTECT)
+    period = models.ForeignKey(SchedulePeriod, on_delete=models.PROTECT, related_name="solve_runs")
+    mode = models.CharField(max_length=10, choices=[("generate", "Generate"), ("rebalance", "Rebalance")])
+    status = models.CharField(max_length=10, choices=RunStatus.choices, default=RunStatus.QUEUED)
+    params = models.JSONField(default=dict)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    progress = models.JSONField(default=dict)
+    result = models.JSONField(default=dict)
+    error = models.TextField(blank=True)
+    applied_option = models.CharField(max_length=10, blank=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+    undo = models.JSONField(default=dict, help_text="The working copy before the option was applied.")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.get_mode_display()} for {self.period} ({self.get_status_display().lower()})"

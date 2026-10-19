@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load stacks %}
+{% block title %}Desired hours{% endblock %}
+{% block content %}
+<h1>Desired hours</h1>
+<p class="help">Weekly hours employees have asked for. Only approved requests are used by the generator, below supervisor hour targets and always within caps.</p>
+<table class="data-table">
+  <thead><tr><th scope="col">Employee</th><th scope="col">Term</th><th scope="col">Hours a week</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Decide</span></th></tr></thead>
+  <tbody>
+  {% for d in requests %}
+    <tr><th scope="row">{{ d.employee.display_name }}</th><td>{{ d.term }}</td><td>{{ d.minutes|hours }}</td>
+      <td>{{ d.get_status_display }}{% if d.decided_by %} <span class="subtle">by {{ d.decided_by.email }}</span>{% endif %}</td>
+      <td><form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="pk" value="{{ d.pk }}">
+        {% if d.status != "approved" %}<button type="submit" name="decision" value="approved" class="button button--small">Approve</button>{% endif %}
+        {% if d.status != "declined" %}<button type="submit" name="decision" value="declined" class="button button--small button--danger-outline">Decline</button>{% endif %}
+      </form></td></tr>
+  {% empty %}<tr><td colspan="5">No requests.</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

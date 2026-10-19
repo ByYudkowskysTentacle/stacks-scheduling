@@ -9,7 +9,12 @@ from app.core.forms import DateInput, MinuteField
 from app.people.models import Employee, PayRole, Tag
 from app.scheduling.models import (
     CoverageOverride,
+    DesiredHours,
+    DutyAssignment,
+    DutyKind,
     HourCapRule,
+    HourTargetRule,
+    RotationAssignment,
     SchedulePeriod,
     SchedulingRules,
     Shift,
@@ -150,6 +155,7 @@ class SchedulingRulesForm(forms.ModelForm):
             "max_shifts_per_day",
             "min_gap_minutes",
             "default_weekly_cap_minutes",
+            "rotation_mode",
             "freeze_window_hours",
             "change_limit_percent",
         ]
@@ -239,3 +245,97 @@ class TagRuleForm(forms.ModelForm):
         if cleaned.get("kind") == dom.TagRuleKind.MIN_WEEKLY_HOURS and not cleaned["minutes"]:
             self.add_error("minutes", "Give the weekly hours.")
         return cleaned
+
+
+class RotationForm(forms.ModelForm):
+    class Meta:
+        model = RotationAssignment
+        fields = ["employee", "group"]
+
+    def __init__(self, *args, organization, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["employee"].queryset = Employee.objects.current().filter(organization=organization)
+
+
+class DutyForm(forms.ModelForm):
+    weekdays = forms.TypedMultipleChoiceField(
+        coerce=int, widget=forms.CheckboxSelectMultiple, required=False, label="Opens on"
+    )
+    short_weekdays = forms.TypedMultipleChoiceField(
+        coerce=int,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Shorter opening shift on",
+        help_text="For example the days they have a 9am class.",
+    )
+    short_minutes = HoursField(label="Shorter shift length (hours)", required=False)
+    weeks = forms.TypedMultipleChoiceField(
+        coerce=int,
+        choices=[(i, f"Week {i}") for i in range(1, 5)],
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Their weeks",
+    )
+    minutes = HoursField(label="Hours in their weeks", required=False)
+    off_week_max_minutes = HoursField(label="Most hours in other weeks", required=False)
+
+    class Meta:
+        model = DutyAssignment
+        fields = [
+            "employee",
+            "kind",
+            "weekdays",
+            "short_weekdays",
+            "short_minutes",
+            "weeks",
+            "minutes",
+            "off_week_max_minutes",
+            "label",
+        ]
+        help_texts = {"label": 'Shown in explanations, for example "lead week".'}
+
+    def __init__(self, *args, organization, week_start: int, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["employee"].queryset = Employee.objects.current().filter(organization=organization)
+        self.fields["weekdays"].choices = ordered_weekday_choices(week_start)
+        self.fields["short_weekdays"].choices = ordered_weekday_choices(week_start)
+
+    def clean(self):
+        cleaned = super().clean()
+        for name, default in (("short_minutes", 90), ("minutes", 0), ("off_week_max_minutes", 0)):
+            if cleaned.get(name) is None:
+                cleaned[name] = default
+        if cleaned.get("kind") == DutyKind.OPENER and not cleaned.get("weekdays"):
+            self.add_error("weekdays", "Choose the days they open.")
+        if cleaned.get("kind") == DutyKind.WEEK_HOURS and not (
+            cleaned.get("weeks") and cleaned.get("minutes")
+        ):
+            self.add_error("weeks", "Choose their weeks and hours.")
+        return cleaned
+
+
+class HourTargetForm(forms.ModelForm):
+    minutes = HoursField(label="Weekly hours to aim for")
+
+    class Meta:
+        model = HourTargetRule
+        fields = ["employee", "minutes", "priority", "note"]
+        help_texts = {"priority": "1 to 5. Higher priorities win when targets compete. Caps always win."}
+
+    def __init__(self, *args, organization, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["employee"].queryset = Employee.objects.current().filter(organization=organization)
+
+
+class DesiredHoursForm(forms.Form):
+    hours = forms.DecimalField(
+        min_value=0,
+        max_value=40,
+        decimal_places=2,
+        label="Hours a week you'd like to work",
+        help_text="A supervisor reviews this. It doesn't change your schedule until it's approved.",
+    )
+
+
+def desired_initial(desired: DesiredHours | None) -> dict:
+    return {"hours": f"{desired.minutes / 60:g}"} if desired else {}

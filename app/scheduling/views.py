@@ -22,8 +22,11 @@ from app.scheduling import services
 from app.scheduling.forms import (
     CallOutForm,
     CoverageOverrideForm,
+    DutyForm,
     HourCapForm,
+    HourTargetForm,
     PeriodForm,
+    RotationForm,
     SchedulingRulesForm,
     ShiftForm,
     TagRuleForm,
@@ -31,8 +34,11 @@ from app.scheduling.forms import (
 from app.scheduling.models import (
     CallOut,
     CoverageOverride,
+    DutyAssignment,
     HourCapRule,
+    HourTargetRule,
     Notification,
+    RotationAssignment,
     SchedulePeriod,
     SchedulingRules,
     Shift,
@@ -531,7 +537,15 @@ class RulesView(OrgViewMixin, TemplateView):
 
     permission = Perm.CONFIGURE
     template_name = "scheduling/rules.html"
-    FORMS = ("rules", "override", "cap", "tag_rule")
+    FORMS = ("rules", "override", "cap", "tag_rule", "rotation", "duty", "target")
+    DELETABLE = {
+        "override": CoverageOverride,
+        "cap": HourCapRule,
+        "tag_rule": TagCoverageRule,
+        "rotation": RotationAssignment,
+        "duty": DutyAssignment,
+        "target": HourTargetRule,
+    }
 
     def forms(self, data=None, which=None):
         org = self.request.organization
@@ -545,6 +559,9 @@ class RulesView(OrgViewMixin, TemplateView):
             "override_form": CoverageOverrideForm(bound("override"), week_start=ws),
             "cap_form": HourCapForm(bound("cap"), organization=org),
             "tag_rule_form": TagRuleForm(bound("tag_rule"), organization=org, week_start=ws),
+            "rotation_form": RotationForm(bound("rotation"), organization=org),
+            "duty_form": DutyForm(bound("duty"), organization=org, week_start=ws),
+            "target_form": HourTargetForm(bound("target"), organization=org),
         }
 
     def get_context_data(self, **kwargs):
@@ -556,6 +573,9 @@ class RulesView(OrgViewMixin, TemplateView):
             overrides=CoverageOverride.objects.filter(organization=org),
             caps=HourCapRule.objects.filter(organization=org).select_related("employee", "tag"),
             tag_rules=TagCoverageRule.objects.filter(organization=org).select_related("tag"),
+            rotation=RotationAssignment.objects.filter(organization=org).select_related("employee"),
+            duties=DutyAssignment.objects.filter(organization=org).select_related("employee"),
+            targets=HourTargetRule.objects.filter(organization=org).select_related("employee"),
         )
         return ctx
 
@@ -563,9 +583,7 @@ class RulesView(OrgViewMixin, TemplateView):
         org = request.organization
         which = request.POST.get("form")
         if which == "delete":
-            model = {"override": CoverageOverride, "cap": HourCapRule, "tag_rule": TagCoverageRule}.get(
-                request.POST.get("kind", "")
-            )
+            model = self.DELETABLE.get(request.POST.get("kind", ""))
             if model is None:
                 raise Http404
             obj = get_object_or_404(model.objects.filter(organization=org), pk=request.POST.get("pk"))
@@ -584,6 +602,11 @@ class RulesView(OrgViewMixin, TemplateView):
             return self.render_to_response(self.get_context_data(**forms))
         obj = form.save(commit=False)
         obj.organization = org
+        if which == "rotation":
+            existing = RotationAssignment.objects.filter(employee=obj.employee).first()
+            if existing is not None:
+                existing.group = obj.group
+                obj = existing
         if which == "override":
             obj.location = self.org_queryset(Location).filter(is_active=True).first()
             if obj.location is None:
@@ -635,3 +658,69 @@ class MyScheduleView(OrgViewMixin, TemplateView):
             raise Http404("Your account isn't linked to an employee record.")
         ctx["shifts"] = services.published_shifts_for(employee, timezone.localdate())
         return ctx
+
+
+class DesiredHoursSubmitView(OrgViewMixin, View):
+    """An employee asks for weekly hours for a term (D32). It waits for a supervisor's approval."""
+
+    def post(self, request):
+        from app.core.models import Term
+        from app.scheduling.forms import DesiredHoursForm
+        from app.scheduling.models import DesiredHours, DesiredStatus
+
+        employee = request.access.employee
+        if employee is None:
+            raise Http404
+        term = get_object_or_404(self.org_queryset(Term), pk=request.POST.get("term"))
+        form = DesiredHoursForm(request.POST)
+        if form.is_valid():
+            minutes = round(form.cleaned_data["hours"] * 60)
+            desired, _ = DesiredHours.objects.get_or_create(
+                employee=employee,
+                term=term,
+                defaults={"organization": request.organization, "minutes": minutes},
+            )
+            if desired.minutes != minutes or desired.status != DesiredStatus.PENDING:
+                desired.minutes = minutes
+                desired.status = DesiredStatus.PENDING
+                desired.decided_by = None
+                desired.decided_at = None
+                desired.save()
+            messages.success(request, "Thanks. A supervisor will review your desired hours.")
+        else:
+            messages.error(request, "Enter your desired hours as a number between 0 and 40.")
+        return redirect(reverse("my_availability") + f"?term={term.pk}")
+
+
+class DesiredHoursReviewView(OrgViewMixin, TemplateView):
+    """Supervisors approve or decline desired hours; only approved ones reach the generator."""
+
+    permission = Perm.EDIT_SCHEDULE
+    template_name = "scheduling/desired_hours.html"
+
+    def get_context_data(self, **kwargs):
+        from app.scheduling.models import DesiredHours
+
+        ctx = super().get_context_data(**kwargs)
+        ctx["requests"] = (
+            DesiredHours.objects.filter(organization=self.request.organization)
+            .select_related("employee", "term", "decided_by")
+            .order_by("status", "-term__start_date", "employee__preferred_name")
+        )
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        from app.scheduling.models import DesiredHours, DesiredStatus
+
+        desired = get_object_or_404(
+            DesiredHours.objects.filter(organization=request.organization), pk=request.POST.get("pk")
+        )
+        decision = request.POST.get("decision")
+        if decision not in (DesiredStatus.APPROVED, DesiredStatus.DECLINED):
+            raise Http404
+        desired.status = decision
+        desired.decided_by = request.user
+        desired.decided_at = timezone.now()
+        desired.save()
+        messages.success(request, f"{desired.employee.display_name}: {desired.get_status_display().lower()}.")
+        return redirect("desired_hours")

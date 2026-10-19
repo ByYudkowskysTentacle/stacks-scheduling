@@ -4,7 +4,7 @@ at the edges so nothing here rounds."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
@@ -110,6 +110,73 @@ class ShapeException:
     min_shift: int
 
 
+class RotationMode(StrEnum):
+    NONE = "none"
+    STRICT = "strict"  # members work only in their group's weeks
+    PREFERRED = "preferred"  # off-week shifts allowed but penalised
+
+
+@dataclass(frozen=True)
+class Rotation:
+    """Week-on, week-off groups (SPEC §6.5). Group `groups[i]` works the weeks where
+    `week % len(groups) == i`; people not in a group work any week."""
+
+    mode: RotationMode = RotationMode.NONE
+    members: Mapping[int, str] = field(default_factory=dict[int, str])
+    groups: tuple[str, ...] = ("A", "B")
+
+    def on_week(self, employee_id: int, week: int) -> bool:
+        group = self.members.get(employee_id)
+        if self.mode == RotationMode.NONE or group not in self.groups:
+            return True
+        return week % len(self.groups) == self.groups.index(group)
+
+
+@dataclass(frozen=True)
+class OpenerDuty:
+    """ "Student L opens every weekday" (scenario 3): a shift starting at opening time on each
+    listed weekday. On `short_weekdays` the shift may be as short as `short_minutes`, a duty
+    exception to the minimum shift length (SPEC §6.1)."""
+
+    employee_id: int
+    weekdays: frozenset[int]
+    short_weekdays: frozenset[int] = frozenset()
+    short_minutes: int = 90
+
+
+@dataclass(frozen=True)
+class WeekHoursDuty:
+    """ "Lead works 20 hours in their lead week and no more than 10 in the other" (scenario 4).
+    `weeks` are period week indexes (0-based)."""
+
+    employee_id: int
+    weeks: frozenset[int]
+    minutes: int
+    off_week_max: int
+    label: str = "lead week"
+
+
+@dataclass(frozen=True)
+class HourTarget:
+    """A supervisor's soft goal, for example "as close to 20 as possible" (SPEC §6.4).
+    Priority multiplies its weight. `weeks` None means every week of the period."""
+
+    employee_id: int
+    minutes: int
+    priority: int = 1
+    weeks: frozenset[int] | None = None
+
+
+@dataclass(frozen=True)
+class DesiredHours:
+    """Approved weekly hours an employee asked for (D32). Only approved values are passed in.
+    `work_study` marks a student with award remaining, who comes first (D34)."""
+
+    employee_id: int
+    minutes: int
+    work_study: bool = False
+
+
 @dataclass(frozen=True)
 class Rules:
     shape: ShapeRules = field(default_factory=ShapeRules)
@@ -117,9 +184,21 @@ class Rules:
     caps: Sequence[HourCap] = ()
     tag_rules: Sequence[TagRule] = ()
     shape_exceptions: Sequence[ShapeException] = ()
+    rotation: Rotation = field(default_factory=Rotation)
+    openers: Sequence[OpenerDuty] = ()
+    week_duties: Sequence[WeekHoursDuty] = ()
+    targets: Sequence[HourTarget] = ()
+    desired: Sequence[DesiredHours] = ()
 
     def min_shift_for(self, employee_id: int | None, day: date) -> int:
+        lowest = self.shape.min_shift
         for e in self.shape_exceptions:
             if e.employee_id == employee_id and day.weekday() in e.weekdays:
-                return min(e.min_shift, self.shape.min_shift)
-        return self.shape.min_shift
+                lowest = min(lowest, e.min_shift)
+        for o in self.openers:
+            if o.employee_id == employee_id and day.weekday() in o.short_weekdays:
+                lowest = min(lowest, o.short_minutes)
+        return lowest
+
+    def duty_employee_ids(self) -> set[int]:
+        return {o.employee_id for o in self.openers} | {d.employee_id for d in self.week_duties}

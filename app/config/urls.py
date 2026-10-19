@@ -6,6 +6,7 @@ from app.availability import views as availability
 from app.core import views as core
 from app.imports import views as imports
 from app.people import views as people
+from app.scheduling import solve_views
 from app.scheduling import views as scheduling
 
 urlpatterns = [
@@ -105,7 +106,14 @@ urlpatterns = [
         name="version_detail",
     ),
     path("schedule/<int:period_pk>/discard/", scheduling.DiscardDraftsView.as_view(), name="discard_drafts"),
+    path("schedule/<int:period_pk>/solve/", solve_views.SolveStartView.as_view(), name="solve_start"),
+    path("schedule/<int:period_pk>/solve/<int:pk>/", solve_views.SolveRunView.as_view(), name="solve_run"),
+    path(
+        "schedule/<int:period_pk>/solve/<int:pk>/what-if/", solve_views.WhatIfView.as_view(), name="what_if"
+    ),
     path("settings/rules/", scheduling.RulesView.as_view(), name="rules"),
+    path("availability/desired/", scheduling.DesiredHoursSubmitView.as_view(), name="desired_submit"),
+    path("schedule/desired-hours/", scheduling.DesiredHoursReviewView.as_view(), name="desired_hours"),
     path("notifications/", scheduling.NotificationsView.as_view(), name="notifications"),
     path("my-schedule/", scheduling.MyScheduleView.as_view(), name="my_schedule"),
 ]

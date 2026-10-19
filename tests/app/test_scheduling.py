@@ -363,6 +363,7 @@ def test_rules_form_uses_hours(as_user, org, supervisor):
         "default_weekly_cap_minutes": "19.5",
         "freeze_window_hours": 48,
         "change_limit_percent": 30,
+        "rotation_mode": "none",
     }
     as_user(supervisor).post(reverse("rules"), data)
     assert SchedulingRules.for_org(org).default_weekly_cap_minutes == 1170
