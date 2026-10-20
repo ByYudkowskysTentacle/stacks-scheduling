@@ -21,6 +21,12 @@ EXPOSE 8000
 CMD ["gunicorn", "app.config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logformat", "%(m)s %(U)s %(s)s %(L)ss"]
 
 FROM base AS dev
+# git for tools/check_sensitive.py; libatomic1 for the Node that pyright downloads.
+# safe.directory: the bind-mounted checkout is often owned by another uid than app.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git libatomic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && git config --system --add safe.directory /srv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 COPY . .
