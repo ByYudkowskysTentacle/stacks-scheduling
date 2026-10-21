@@ -11,11 +11,13 @@
       <legend>{{ legend }}</legend>
       {% for field in fields %}<div>{% if field.name == "department_choices" %}{{ field.errors }}{% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}{{ field }}{% else %}{{ field.as_field_group }}{% endif %}</div>{% endfor %}
       {% if legend == "Pay" and pay_formset %}
-        <h3>Pay role rates</h3>
-        <p class="help">Visible to supervisors and admins only. A blank wage uses the default wage.</p>
-        {{ pay_formset.management_form }}
-        {{ pay_formset.non_form_errors }}
-        {% for f in pay_formset %}<div class="inline-row">{{ f.as_div }}</div>{% endfor %}
+        <fieldset>
+          <legend>Pay role rates</legend>
+          <p class="help">Visible to supervisors and admins only. A blank wage uses the default wage.</p>
+          {{ pay_formset.management_form }}
+          {{ pay_formset.non_form_errors }}
+          {% for f in pay_formset %}<div class="inline-row">{{ f.as_div }}</div>{% endfor %}
+        </fieldset>
       {% endif %}
     </fieldset>
   {% endfor %}
