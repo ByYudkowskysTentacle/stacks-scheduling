@@ -436,7 +436,7 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 - **D112 (design audit, 2026-10-21; refines D6 and D75).** Pay roles in the published views, and other safety fixes from the audit (`docs/design-audit-2026-10.md`, Part 1).
   *Built:*
   - **Pay role shown as text, not colour alone (WCAG 1.4.1).** On your own shifts (Home, My schedule, the published week, Open shifts) and on open shifts, the pay role is named next to its colour. The supervisor grid has a printable key of the pay roles in use, and each shift chip's screen-reader text includes its role.
-  - **Co-workers' pay roles stay private.** A pay role can reveal work-study status, which is a student record (CLAUDE.md §2.1). So in the published week a co-worker's shift gets a neutral bar, with no role colour or name. *Interpretation (conservative, please confirm):* D6 listed "pay-role colour" as visible to co-workers. Showing it as text would make that disclosure explicit, and keeping it as colour alone fails WCAG 1.4.1, so co-workers' roles are now hidden instead.
+  - **Co-workers' pay roles stay private.** A pay role can reveal work-study status, which is a student record (CLAUDE.md §2.1). So in the published week a co-worker's shift gets a neutral bar, with no role colour or name. *Confirmed by the maintainer on 2026-10-21.* D6 listed "pay-role colour" as visible to co-workers. Showing it as text would make that disclosure explicit, and keeping it as colour alone fails WCAG 1.4.1, so co-workers' roles are now hidden instead.
   - **No fixed look-ahead for your shifts.** Home and My schedule list your published shifts as far ahead as anything is published (Home shows the next three), instead of 2 or 4 weeks. An empty published week links to the next week that has shifts.
   - **Coverage views count skill and duty rules.** The day page lists the day's unmet skill (tag) and duty rules and marks each affected slot "Missing: …" instead of "OK". The grid's coverage row adds "N skill or duty rules not met", linked to the validation report (CLAUDE.md §2.4).
   - **Confirmations added (CLAUDE.md §2.3).**
@@ -463,6 +463,17 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - **Times:** people read and type 12-hour times (`9am`, `1:30pm`). Shift fields, operating hours and the availability painter write that form, and every field still accepts 24-hour input. A start at midnight is written `12am`; `midnight` means the end of the day.
   - **Validation messages:** after a schedule change, the message sits inside the validation card and says what the change did to the issue counts, compared with the last time the period was viewed or changed in the same session.
   - *Interpretation:* the "what changed" comparison uses the counts remembered in the person's session. On their first change in a session it reports the totals only.
+
+- **D116 (maintainer decision, 2026-10-21; design audit Part 3, option B).** Visual identity: legible type, deep teal and warm paper.
+  - **Typeface:** Atkinson Hyperlegible, designed by the Braille Institute for low-vision readers. It's self-hosted from `app/static/fonts/` (SIL OFL 1.1, notice in README), so no page calls a third party. Latin and Latin Extended subsets load by `unicode-range`; a typical page loads about 35 KB.
+  - **Colours** (tokens in `stacks.css`):
+    - header `#12434f`
+    - accent `#0d6274` (links, buttons, current markers)
+    - page `#fbfaf7` (warm paper), with cards, inputs and chips on white
+    - text `#1c1b19`, secondary text `#55524b`
+    - danger, success and warning unchanged
+  - **Contrast:** every text pair is at least 5.7:1 (WCAG 2.2 AA asks for 4.5:1). The focus ring keeps 3:1 on both the header and the page.
+  - **Corners:** 8px.
 
 ## Open items for the maintainer
 
