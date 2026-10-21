@@ -14,36 +14,13 @@
     <div class="site-header__inner">
       <a class="brand" href="{% url 'home' %}">{{ site_name }}</a>
       {% if organization %}<span class="org-name">{{ organization.name }}</span>{% endif %}
-      {% if user.is_authenticated %}
+      {% if nav %}
+        {# Wide screens: the header nav. Phones: the tab bar below (D114). Built in app/core/navigation.py. #}
         <nav aria-label="Main" class="main-nav">
           <ul>
-            <li><a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Home</a></li>
-            {# One Schedule tab (D111): planners open the working copy and switch to the published view there. #}
-            {% if Perm.VIEW_DRAFTS in access.perms %}
-              <li><a href="{% url 'schedule_index' %}"{% if request.path|slice:':10' == '/schedule/' and request.resolver_match.url_name != 'review_queue' or request.resolver_match.url_name == 'published_schedule' %} aria-current="page"{% endif %}>Schedule</a></li>
-            {% else %}
-              <li><a href="{% url 'published_schedule' %}"{% if request.resolver_match.url_name == 'published_schedule' %} aria-current="page"{% endif %}>Schedule</a></li>
-            {% endif %}
-            {% if Perm.EDIT_SCHEDULE in access.perms %}
-              <li><a href="{% url 'review_queue' %}"{% if request.resolver_match.url_name == 'review_queue' %} aria-current="page"{% endif %}>Review</a></li>
-            {% endif %}
-            {% if access.employee %}
-              <li><a href="{% url 'my_schedule' %}"{% if request.resolver_match.url_name == 'my_schedule' %} aria-current="page"{% endif %}>My schedule</a></li>
-              <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>
-              <li><a href="{% url 'shift_exchange' %}"{% if request.resolver_match.url_name == 'shift_exchange' %} aria-current="page"{% endif %}>Open shifts</a></li>
-              <li><a href="{% url 'my_time_off' %}"{% if request.resolver_match.url_name == 'my_time_off' %} aria-current="page"{% endif %}>Time off</a></li>
-            {% endif %}
-            {% if Perm.VIEW_FREE_BUSY in access.perms %}
-              <li><a href="{% url 'availability_grid' %}"{% if request.resolver_match.url_name == 'availability_grid' %} aria-current="page"{% endif %}>Availability grid</a></li>
-            {% endif %}
-            {% if access.is_supervisor %}
-              <li><a href="{% url 'employees' %}"{% if 'employee' in request.resolver_match.url_name or 'import' in request.resolver_match.url_name %} aria-current="page"{% endif %}>People</a></li>
-            {% endif %}
-            {% if Perm.CONFIGURE in access.perms %}
-              <li><a href="{% url 'locations' %}"{% if request.path|slice:':10' == '/settings/' %} aria-current="page"{% endif %}>Settings</a></li>
-            {% endif %}
-            <li><a href="{% url 'notifications' %}"{% if request.resolver_match.url_name == 'notifications' %} aria-current="page"{% endif %}>Notifications{% if unread_notifications %} <span class="count">({{ unread_notifications }} new)</span>{% endif %}</a></li>
-            <li><a href="{% url 'account_change_password' %}">Account</a></li>
+            {% for item in nav.items %}
+              <li><a href="{{ item.url }}"{% if item.current %} aria-current="page"{% endif %}>{{ item.label }}{% if item.count %} <span class="count">({{ item.count }} new)</span>{% endif %}</a></li>
+            {% endfor %}
             <li>
               <form method="post" action="{% url 'account_logout' %}" class="inline-form">{% csrf_token %}
                 <button type="submit" class="link-button">Sign out</button>
@@ -55,16 +32,36 @@
     </div>
   </header>
   <main id="main" tabindex="-1" class="{% block main_class %}{% endblock %}">
-    {% if messages %}
-      <div class="messages" role="status">
-        {% for message in messages %}
-          <p class="message message--{{ message.tags|default:'info' }}">{{ message }}</p>
-        {% endfor %}
-      </div>
-    {% endif %}
+    {% block messages %}{% include "_messages.html" %}{% endblock messages %}
     {% block content %}{% endblock content %}
   </main>
+  {% if nav %}
+  {% include "_icons.html" %}
+  <nav aria-label="Main" class="tab-bar">
+    <ul class="tab-bar__tabs">
+      {% for item in nav.tabs %}
+        <li><a href="{{ item.url }}" class="tab-bar__tab"{% if item.current %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-{{ item.icon }}"/></svg>{{ item.tab_label }}</a></li>
+      {% endfor %}
+      <li>
+        <details class="tab-bar__more">
+          <summary class="tab-bar__tab"{% if nav.more_current %} data-current{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>More{% if nav.more_count %} <span class="tab-bar__count">{{ nav.more_count }}<span class="visually-hidden"> new</span></span>{% endif %}</summary>
+          <ul class="tab-bar__sheet">
+            {% for item in nav.more %}
+              <li><a href="{{ item.url }}"{% if item.current %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-{{ item.icon }}"/></svg>{{ item.label }}{% if item.count %} <span class="count">({{ item.count }} new)</span>{% endif %}</a></li>
+            {% endfor %}
+            <li>
+              <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}
+                <button type="submit" class="link-button"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>Sign out</button>
+              </form>
+            </li>
+          </ul>
+        </details>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
   <script src="{% static 'js/scroll-regions.js' %}" defer></script>
+  <script src="{% static 'js/print-details.js' %}" defer></script>
   {% block scripts %}{% endblock scripts %}
 </body>
 </html>

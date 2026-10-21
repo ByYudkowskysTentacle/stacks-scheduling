@@ -47,6 +47,26 @@ class EmployeeForm(forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
+    GROUPS = [  # fieldsets on the form (audit 2.21); fields removed by permission are skipped
+        ("Who they are", ["full_name", "preferred_name", "email", "campus_id"]),
+        (
+            "Employment and scheduling",
+            ["employment_type", "hire_date", "new_employee_until", "in_scheduling_pool", "shift_lead_access"],
+        ),
+        ("Departments", ["department_choices"]),
+        ("Pay", ["default_pay_role", "default_wage"]),
+        ("Notes", ["notes"]),
+    ]
+
+    def groups(self):
+        """(legend, bound fields) for each fieldset that has any field this user may see."""
+        out = []
+        for legend, names in self.GROUPS:
+            fields = [self[n] for n in names if n in self.fields]
+            if fields:
+                out.append((legend, fields))
+        return out
+
     department_choices = forms.ModelMultipleChoiceField(
         queryset=Department.objects.none(),
         required=False,

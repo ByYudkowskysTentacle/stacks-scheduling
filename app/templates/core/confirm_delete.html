@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% if request.path|slice:":10" == "/settings/" %}{% include "core/settings_nav.html" %}{% endif %}
 <h1>{{ title }}</h1>
 <p>You're about to remove <strong>{{ object }}</strong>. {{ consequence }}</p>
 <p>The change is recorded in the audit log.</p>

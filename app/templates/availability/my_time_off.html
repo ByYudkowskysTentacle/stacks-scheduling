@@ -8,13 +8,15 @@
   <div class="form-actions"><button type="submit" class="button button--primary">Request time off</button></div>
 </form>
 <h2>Your requests</h2>
+{% if requests %}
 <table class="data-table">
   <thead><tr><th scope="col">When</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
   <tbody>
   {% for t in requests %}
     <tr><th scope="row">{{ t.label }}</th><td><span class="badge badge--{{ t.status }}">{{ t.get_status_display }}</span></td>
       <td>{% if t.status == "pending" or t.status == "approved" %}{% if t.start_date >= today %}<form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="request" value="{{ t.pk }}"><button type="submit" name="action" value="cancel" class="button button--small">Cancel request</button></form>{% endif %}{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="3">No requests yet.</td></tr>{% endfor %}
+  {% endfor %}
   </tbody>
 </table>
+{% else %}<p>No requests yet.</p>{% endif %}
 {% endblock %}

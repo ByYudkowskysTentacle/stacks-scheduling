@@ -2,11 +2,17 @@
 {% block title %}{{ day|date:"l j M" }}{% endblock %}
 {% block content %}
 <p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
-<h1>{{ day|date:"l j F Y" }}</h1>
+<h1>{{ day|date:"l j F Y" }} <span class="subtle">{{ period }}{% if period.department %}, {{ period.department }}{% endif %}</span></h1>
 <p class="pager no-print">
   {% if prev_day >= period.start_date %}<a href="{% url 'period_day' period.pk prev_day|date:'Y-m-d' %}">← {{ prev_day|date:"D j M" }}</a>{% endif %}
   {% if next_day <= period.end_date %}<a href="{% url 'period_day' period.pk next_day|date:'Y-m-d' %}">{{ next_day|date:"D j M" }} →</a>{% endif %}
 </p>
+<h2>Shifts</h2>
+<ul class="plain-list">
+  {% for s in shifts %}<li><a href="{% url 'shift_edit' period.pk s.pk %}">{{ s.employee.display_name|default:"Open shift" }} {{ s.interval.label }}</a>
+    {% if s.employee and Perm.RECORD_CALL_OUTS in access.perms or s.employee and Perm.EDIT_SCHEDULE in access.perms %} · <a class="no-print" href="{% url 'call_out' period.pk s.pk %}">Record a call-out</a>{% endif %}</li>
+  {% empty %}<li>No shifts.</li>{% endfor %}
+</ul>
 {% if rule_issues %}
 <div class="card card--notice">
   <h2>Rules not met on this day</h2>
@@ -16,7 +22,7 @@
 {% endif %}
 {% if not rows %}<p>The library is closed all day.</p>{% else %}
 <table class="data-table coverage-table">
-  <caption class="visually-hidden">Coverage by 15-minute slot</caption>
+  <caption>Coverage through the day</caption>
   <thead><tr><th scope="col">Time</th><th scope="col">Needed</th><th scope="col">On duty</th><th scope="col">Who</th><th scope="col">Status</th></tr></thead>
   <tbody>
   {% for r in rows %}
@@ -35,10 +41,5 @@
   </tbody>
 </table>
 {% endif %}
-<h2>Shifts</h2>
-<ul class="plain-list">
-  {% for s in shifts %}<li><a href="{% url 'shift_edit' period.pk s.pk %}">{{ s.employee.display_name|default:"Open shift" }} {{ s.interval.label }}</a>
-    {% if s.employee and Perm.RECORD_CALL_OUTS in access.perms or s.employee and Perm.EDIT_SCHEDULE in access.perms %} · <a href="{% url 'call_out' period.pk s.pk %}">Record a call-out</a>{% endif %}</li>
-  {% empty %}<li>No shifts.</li>{% endfor %}
-</ul>
+
 {% endblock %}

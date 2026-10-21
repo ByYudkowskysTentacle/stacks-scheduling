@@ -25,6 +25,20 @@
   {% if Perm.VIEW_NOTES in access.perms and object.notes %}<dt>Supervisor notes</dt><dd>{{ object.notes|linebreaksbr }}</dd>{% endif %}
   <dt>Sign-in account</dt><dd>{% if object.user %}{{ object.user.email }}{% else %}Not invited yet{% endif %}</dd>
 </dl>
+<h2>Scheduling</h2>
+<dl class="details">
+  {% if term %}<dt>Availability, {{ term.name }}</dt>
+  <dd><span class="badge badge--{{ availability_status }}">{{ availability_label }}</span>{% if Perm.MANAGE_PEOPLE in access.perms %} <a class="small-link" href="{% url 'employee_availability' object.pk %}">View or edit</a>{% endif %}</dd>{% endif %}
+  <dt>Hour caps</dt>
+  <dd>{% for c in caps %}{{ c }}{% if c.label %} ({{ c.label }}){% endif %}{% if not forloop.last %}; {% endif %}{% empty %}Only the default weekly cap{% endfor %}</dd>
+  <dt>Duties</dt>
+  <dd>{% for d in duties %}{{ d }}{% if not forloop.last %}; {% endif %}{% empty %}None{% endfor %}</dd>
+  <dt>Hour targets</dt>
+  <dd>{% for t in targets %}{{ t }}{% if not forloop.last %}; {% endif %}{% empty %}None{% endfor %}</dd>
+  <dt>Rotation group</dt>
+  <dd>{% if rotation %}Group {{ rotation.group }}{% else %}None{% endif %}</dd>
+</dl>
+{% if Perm.CONFIGURE in access.perms %}<p><a href="{% url 'rules' %}">Change these in Scheduling rules</a></p>{% endif %}
 {% if Perm.MANAGE_PEOPLE in access.perms %}
 <div class="form-actions">
   {% if not object.is_archived %}

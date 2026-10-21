@@ -128,7 +128,7 @@ class Employee(models.Model):
         through="EmployeeDepartment",
         related_name="employees",
         blank=True,
-        help_text="The departments whose schedules this person is on (D95).",
+        help_text="The departments whose schedules this person is on.",
     )
 
     objects = EmployeeQuerySet.as_manager()

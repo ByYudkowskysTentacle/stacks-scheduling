@@ -396,3 +396,22 @@ def test_closure_edit_page_offers_remove(as_user, org, location, supervisor):
     )
     page = as_user(supervisor).get(reverse("closure_edit", args=[location.pk, closure.pk])).content.decode()
     assert reverse("closure_delete", args=[location.pk, closure.pk]) in page
+
+
+def test_audit_log_filters_and_names_whose_record_changed(as_user, org, admin_user, supervisor, employee):
+    from app.availability.models import Availability, AvailabilityBlock
+    from app.core.models import Term
+
+    term = Term.objects.create(
+        organization=org, name="Spring", start_date=date(2027, 1, 11), end_date=date(2027, 5, 7)
+    )
+    a = Availability.objects.create(organization=org, employee=employee, term=term)
+    AvailabilityBlock.objects.create(
+        organization=org, availability=a, weekday=0, kind="unavailable", start_min=540, end_min=600
+    )
+    client = as_user(admin_user)
+    page = client.get(reverse("audit_log") + "?what=availability.AvailabilityBlock").content.decode()
+    assert f"for {employee.preferred_name}" in page
+    assert "Added term" not in page  # filtered to availability blocks only
+    page = client.get(reverse("audit_log") + "?from=2999-01-01").content.decode()
+    assert "Nothing matches." in page

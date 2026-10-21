@@ -43,13 +43,29 @@ class HomeView(OrgViewMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         org = self.request.organization
-        if self.request.access.is_supervisor:
-            ctx["setup"] = setup_checklist(org)
-        if (employee := self.request.access.employee) is not None:
+        access = self.request.access
+        today = timezone.localdate()
+        if access.is_supervisor:
+            setup = setup_checklist(org)
+            ctx["setup"] = setup if not all(done for _label, done, _url in setup) else None
+        if access.has(Perm.EDIT_SCHEDULE):
+            ctx["attention"] = self.needs_attention(today)
+        if access.has(Perm.VIEW_DRAFTS):
+            ctx["periods"] = self.current_periods(today)
+        if (employee := access.employee) is not None:
             from app.availability.models import Availability
+            from app.scheduling.exchange_views import available_to
+            from app.scheduling.models import ExchangeKind, ExchangeStatus, ShiftExchange
             from app.scheduling.published import my_upcoming
 
-            ctx["upcoming"] = my_upcoming(employee, timezone.localdate())[:3]
+            ctx["upcoming"] = my_upcoming(employee, today)[:4]
+            if ctx["upcoming"]:
+                ctx["next_when"] = relative_day(ctx["upcoming"][0].shift.day, today)
+            ctx["swaps_for_me"] = ShiftExchange.objects.filter(
+                organization=org, kind=ExchangeKind.SWAP, status=ExchangeStatus.ASKED, taker=employee
+            ).count()
+            open_shifts, offers = available_to(employee, today)
+            ctx["can_pick_up"] = len(open_shifts) + offers.count()
 
             term = Term.current_for(org, timezone.localdate())
             if term is not None:
@@ -59,6 +75,92 @@ class HomeView(OrgViewMixin, TemplateView):
                     availability.get_status_display() if availability else "Not entered"
                 )
         return ctx
+
+    def needs_attention(self, today) -> list[tuple[int, str, str]]:
+        """What's waiting for a planner, as (count, what, where): everything a supervisor has to
+        approve, review or chase, in my departments (D95). Empty when all is done (audit 2.2)."""
+        from app.availability import reminders
+        from app.availability.models import TimeOff, TimeOffStatus
+        from app.people.models import Employee
+        from app.scheduling.models import CallOut, DesiredHours, DesiredStatus, ExchangeStatus, Shift
+        from app.scheduling.views import ReviewQueueView
+
+        exchanges = ReviewQueueView(request=self.request).visible_exchanges()
+        review, time_off = reverse("review_queue"), reverse("time_off_review")
+        items = [
+            (self.org_queryset(Shift).filter(proposed_by_lead=True).count(), "shift-lead change", review),
+            (
+                self.org_queryset(CallOut).filter(reviewed_at__isnull=True).count(),
+                "call-out to review",
+                review,
+            ),
+            (exchanges.filter(status=ExchangeStatus.PENDING).count(), "swap or claim to approve", review),
+            (
+                self.org_queryset(TimeOff).filter(status=TimeOffStatus.PENDING).count(),
+                "time-off request",
+                time_off,
+            ),
+            (
+                self.org_queryset(DesiredHours).filter(status=DesiredStatus.PENDING).count(),
+                "desired-hours request",
+                reverse("desired_hours"),
+            ),
+        ]
+        out = [(n, plural(n, what), url) for n, what, url in items if n]
+        term = Term.current_for(self.request.organization, today)
+        if term is not None and self.request.access.has(Perm.VIEW_FREE_BUSY):
+            mine = set(self.org_queryset(Employee).values_list("pk", flat=True))
+            if missing := sum(1 for d in reminders.due_people(term) if d.employee.pk in mine):
+                who = "person hasn't" if missing == 1 else "people haven't"
+                out.append(
+                    (
+                        missing,
+                        f"{who} entered availability for {term.name}",
+                        reverse("availability_reminders"),
+                    )
+                )
+        return out
+
+    def current_periods(self, today) -> list[dict]:
+        """Schedule periods that haven't ended, soonest first, with where each one stands."""
+        from app.scheduling import services
+        from app.scheduling.models import SchedulePeriod
+
+        rows = []
+        periods = (
+            self.org_queryset(SchedulePeriod).select_related("department", "location").order_by("start_date")
+        )
+        for period in [p for p in periods if p.end_date >= today][:4]:
+            report = services.validate_period(period)
+            rows.append(
+                {
+                    "period": period,
+                    "latest": period.latest_version(),
+                    "pending": len(services.pending_changes(period)),
+                    "issues": len(report.counted),
+                    "summary": report.summary(),
+                }
+            )
+        return rows
+
+
+PLURALS = {
+    "swap or claim to approve": "swaps or claims to approve",
+    "call-out to review": "call-outs to review",
+}
+
+
+def plural(n: int, what: str) -> str:
+    return what if n == 1 else PLURALS.get(what, what + "s")
+
+
+def relative_day(day, today) -> str:
+    """ "Today", "Tomorrow" or the weekday, for a date within the next week; otherwise the weekday."""
+    if day == today:
+        return "Today"
+    if day == today + timedelta(days=1):
+        return "Tomorrow"
+    return f"{day:%A}"
 
 
 def setup_checklist(org) -> list[tuple[str, bool, str]]:
@@ -403,11 +505,20 @@ class AuditLogView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        page = Paginator(audit_log.events_for(self.request.organization, self.request.access), 50).get_page(
-            self.request.GET.get("page")
+        org, params = self.request.organization, self.request.GET
+        events = audit_log.events_for(org, self.request.access)
+        kinds = sorted(set(events.values_list("pgh_obj_model", flat=True)), key=audit_log._verbose)
+        page = Paginator(audit_log.filtered(events, params), 50).get_page(params.get("page"))
+        query = params.copy()
+        query.pop("page", None)
+        ctx.update(
+            page=page,
+            rows=audit_log.describe(page.object_list),
+            kinds=[(k, audit_log._verbose(k)) for k in kinds],
+            people=self.org_queryset(Membership).select_related("user").order_by("user__email"),
+            filters=params,
+            query=query.urlencode(),
         )
-        ctx["page"] = page
-        ctx["rows"] = audit_log.describe(page.object_list)
         return ctx
 
 

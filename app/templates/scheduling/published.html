@@ -14,7 +14,7 @@
 {% endif %}
 <div class="day-list">
 {% for d in days %}
-  <section class="day-card{% if d.day == today %} day-card--today{% endif %}" aria-labelledby="day-{{ forloop.counter }}">
+  <section class="day-card{% if d.day == today %} day-card--today{% endif %}{% if not d.shifts %} day-card--empty{% endif %}" aria-labelledby="day-{{ forloop.counter }}">
     <h2 id="day-{{ forloop.counter }}">{{ d.day|date:"l j M" }}{% if d.day == today %} <span class="badge">Today</span>{% endif %}</h2>
     {% if d.shifts %}
     <ul class="plain-list">

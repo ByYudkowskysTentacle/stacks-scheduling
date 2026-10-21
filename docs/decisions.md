@@ -451,6 +451,19 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - **Focus indicator:** two-tone (a yellow ring next to the element and a dark ring outside it), so it has 3:1 contrast on white pages and on the blue header (SC 2.4.11, 1.4.11). The old yellow-only ring measured 1.64:1 on white.
   - **No horizontal page scrolling on a 390px phone** (SC 1.4.10). Visually hidden text inside a scrolling table no longer widens the page, and a browser test checks the period grid and people list.
 
+- **D114 (maintainer decision, 2026-10-21; design audit Part 2).** Phone navigation and home pages.
+  *Built:*
+  - **Bottom tab bar on phones (below 48rem).** It holds four destinations for the person's role plus More: students get Home, My shifts, Availability and Open shifts; planners get Home, Schedule, Review and People. More opens a sheet with the rest and Sign out. The header shrinks to one row. Wide screens keep the header nav. Both are drawn from one list built in `app/core/navigation.py`, which follows the same permissions as the views.
+  - **Home answers "what now?".**
+    - Planners see "Needs your attention": counts with links for shift-lead changes, call-outs, swaps and claims, time-off and desired-hours requests, and people without availability for the current term (all limited to their departments, D95). Below it, the current periods with publish state, unpublished changes and validation summary.
+    - The setup checklist shows only until every step is done.
+    - Students see their next shift (Today, Tomorrow or the weekday), swap requests waiting for their answer, and how many shifts they could pick up.
+- **D115 (design audit Part 2).** Conventions for forms and times.
+  - **Labels:** visible labels with no trailing colon. Optional fields say "(optional)"; required ones are unmarked. Checkboxes sit before their label. An empty select reads "Choose…" when a value is required and "None" when it isn't. Every Django and allauth form renders through `app/templates/django/forms/` and `app/templates/allauth/elements/`.
+  - **Times:** people read and type 12-hour times (`9am`, `1:30pm`). Shift fields, operating hours and the availability painter write that form, and every field still accepts 24-hour input. A start at midnight is written `12am`; `midnight` means the end of the day.
+  - **Validation messages:** after a schedule change, the message sits inside the validation card and says what the change did to the issue counts, compared with the last time the period was viewed or changed in the same session.
+  - *Interpretation:* the "what changed" comparison uses the counts remembered in the person's session. On their first change in a session it reports the totals only.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

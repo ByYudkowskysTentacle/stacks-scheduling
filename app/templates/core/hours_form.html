@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
+{% if request.path|slice:":10" == "/settings/" %}{% include "core/settings_nav.html" %}{% endif %}
 <h1>{{ title }} <span class="subtle">for {{ location }}</span></h1>
 <form method="post" class="stacked-form" novalidate>
   {% csrf_token %}
   {{ form.non_field_errors }}
-  {% for field in form.visible_fields|slice:":3" %}{{ field.as_field_group }}{% endfor %}
+  {% for field in form.visible_fields|slice:":3" %}<div>{{ field.as_field_group }}</div>{% endfor %}
   <fieldset>
     <legend>Open hours per day</legend>
-    <p class="help">Enter one or more ranges per day, such as <code>07:30-22:00</code> or <code>8am-12pm, 1pm-5pm</code>. Times use 15-minute steps. Leave a day blank if closed. Put recurring closures such as Chapel in Closures instead, so they show with a reason.</p>
+    <p class="help">Enter one or more ranges per day, such as <code>7:30am-10pm</code> or <code>8am-12pm, 1pm-5pm</code>. Times use 15-minute steps. Leave a day blank if closed. Put recurring closures such as Chapel in Closures instead, so they show with a reason.</p>
     <div class="weekday-grid">
-      {% for field in form.day_fields %}{{ field.as_field_group }}{% endfor %}
+      {% for field in form.day_fields %}<div>{{ field.as_field_group }}</div>{% endfor %}
     </div>
   </fieldset>
   <div class="form-actions">

@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from django.apps import apps
@@ -128,10 +129,43 @@ def _summary(data: dict) -> str:
     return ""
 
 
+def filtered(rows: QuerySet, params) -> QuerySet:
+    """Narrow the log by what changed, who changed it and when (audit 2.24)."""
+    if what := params.get("what"):
+        rows = rows.filter(pgh_obj_model=what)
+    if (who := params.get("who", "")).isdigit():
+        rows = rows.filter(pgh_context__user=int(who))
+    elif who == "system":
+        rows = rows.filter(Q(pgh_context__isnull=True) | Q(pgh_context__user__isnull=True))
+    for key, lookup in (("from", "pgh_created_at__date__gte"), ("to", "pgh_created_at__date__lte")):
+        with contextlib.suppress(ValueError):  # a missing or malformed date doesn't filter
+            rows = rows.filter(**{lookup: date.fromisoformat(params.get(key, ""))})
+    return rows
+
+
+def _people(events) -> dict[str, dict[int, str]]:
+    """Names for the employee and availability ids in a page of events, so a row can say whose
+    record changed instead of a database id."""
+    from app.availability.models import Availability
+    from app.people.models import Employee
+
+    employee_ids = {d.get("employee_id") for e in events if (d := e.pgh_data or {}).get("employee_id")}
+    availability_ids = {
+        d.get("availability_id") for e in events if (d := e.pgh_data or {}).get("availability_id")
+    }
+    return {
+        "employee": dict(Employee.objects.filter(pk__in=employee_ids).values_list("pk", "preferred_name")),
+        "availability": dict(
+            Availability.objects.filter(pk__in=availability_ids).values_list("pk", "employee__preferred_name")
+        ),
+    }
+
+
 def describe(events) -> list[AuditRow]:
     events = list(events)
     user_ids = {e.pgh_context.get("user") for e in events if e.pgh_context and e.pgh_context.get("user")}
     emails = dict(User.objects.filter(pk__in=user_ids).values_list("pk", "email"))
+    people = _people(events)
     rows = []
     for e in events:
         ctx = e.pgh_context or {}
@@ -149,7 +183,15 @@ def describe(events) -> list[AuditRow]:
                 what=_verbose(e.pgh_obj_model),
                 object_id=str(e.pgh_obj_id),
                 changes=changes,
-                summary=_summary(e.pgh_data or {}),
+                summary=_summary(e.pgh_data or {}) or _whose(e.pgh_data or {}, people),
             )
         )
     return rows
+
+
+def _whose(data: dict, people: dict[str, dict[int, str]]) -> str:
+    if name := people["employee"].get(data.get("employee_id")):
+        return f"for {name}"
+    if name := people["availability"].get(data.get("availability_id")):
+        return f"for {name}"
+    return ""

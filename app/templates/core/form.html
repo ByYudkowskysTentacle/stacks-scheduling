@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% if request.path|slice:":10" == "/settings/" %}{% include "core/settings_nav.html" %}{% endif %}
 <h1>{{ title }}</h1>
 <form method="post" class="stacked-form" novalidate>
   {% csrf_token %}

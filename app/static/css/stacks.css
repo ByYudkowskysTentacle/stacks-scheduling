@@ -14,7 +14,24 @@
   --warn: #7a4b00;
   --focus: #ffbf47;
   --radius: 6px;
+  --radius-sm: 4px;
   --space: 1rem;
+  /* Type scale (audit 3.1): six steps instead of twelve ad-hoc sizes. */
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.9rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.15rem;
+  --fs-xl: 1.35rem;
+  --fs-2xl: 1.75rem;
+  /* Spacing scale: 4, 8, 12, 16, 24, 32px. */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --container: 72rem;
+  --container-wide: 100rem;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: var(--paper);
@@ -23,12 +40,14 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 72rem; margin: 0 auto; padding: var(--space); }
+main { max-width: var(--container); margin: 0 auto; padding: var(--space); }
 main:focus { outline: none; }
-main.main--wide { max-width: 100rem; }
-h1 { font-size: 1.6rem; margin: 0.5rem 0 1rem; }
-h2 { font-size: 1.25rem; }
-h3 { font-size: 1.05rem; }
+main.main--wide { max-width: var(--container-wide); }
+body:has(main.main--wide) .site-header__inner { max-width: var(--container-wide); }
+h1, h2, h3 { line-height: 1.25; font-weight: 700; }
+h1 { font-size: var(--fs-2xl); margin: var(--sp-2) 0 var(--sp-4); }
+h2 { font-size: var(--fs-xl); margin: var(--sp-5) 0 var(--sp-3); }
+h3 { font-size: var(--fs-lg); margin: var(--sp-4) 0 var(--sp-2); }
 a { color: var(--accent); }
 code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 /* Two-tone focus (WCAG 2.2 2.4.11/1.4.11): a yellow ring next to the element and a dark ring
@@ -40,14 +59,53 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 .site-header { background: var(--accent); color: var(--accent-ink); }
-.site-header__inner { max-width: 72rem; margin: 0 auto; padding: 0.5rem var(--space); display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
-.brand { color: var(--accent-ink); font-weight: 700; text-decoration: none; font-size: 1.15rem; }
-.org-name { opacity: 0.9; font-size: 0.9rem; }
+.site-header__inner { max-width: var(--container); margin: 0 auto; padding: 0.5rem var(--space); display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+.brand { color: var(--accent-ink); font-weight: 700; text-decoration: none; font-size: var(--fs-lg); }
+.org-name { opacity: 0.9; font-size: var(--fs-sm); }
 .main-nav { width: 100%; }
 .main-nav ul, .sub-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
 .main-nav a, .main-nav .link-button { color: var(--accent-ink); text-decoration: none; padding: 0.4rem 0; display: inline-block; min-height: 44px; line-height: 2; }
 .main-nav a[aria-current="page"] { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
 @media (min-width: 48rem) { .main-nav { width: auto; margin-left: auto; } }
+
+/* Icons: outline, drawn in the text colour. */
+.icon { width: 1.5rem; height: 1.5rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Phones: a bottom tab bar replaces the header nav (D114). Four destinations plus More, each
+   at least 56px tall; the current tab is marked by weight and a top bar, not colour alone. */
+.tab-bar { display: none; }
+@media (max-width: 47.99rem) {
+  .main-nav { display: none; }
+  body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+  .tab-bar {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: var(--paper); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-bar__tabs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .tab-bar__tabs > li { display: flex; min-width: 0; }
+  .tab-bar__tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-height: 3.5rem; padding: var(--sp-1) 2px; font-size: var(--fs-xs); line-height: 1.2; text-align: center;
+    color: var(--ink-soft); text-decoration: none; cursor: pointer; list-style: none; position: relative;
+  }
+  .tab-bar__tab::-webkit-details-marker { display: none; }
+  .tab-bar__tab::marker { content: ""; }
+  .tab-bar__tab[aria-current="page"], .tab-bar__tab[data-current], .tab-bar__more[open] > .tab-bar__tab {
+    color: var(--accent); font-weight: 700; box-shadow: inset 0 3px 0 var(--accent);
+  }
+  .tab-bar__more { flex: 1; display: flex; min-width: 0; }
+  .tab-bar__more > summary { flex: 1; }
+  .tab-bar__count { position: absolute; top: 4px; left: calc(50% + 6px); min-width: 1.25rem; padding: 0 4px; border-radius: 999px; background: var(--danger); color: #fff; font-size: var(--fs-xs); font-weight: 700; line-height: 1.25rem; }
+  .tab-bar__sheet {
+    position: absolute; left: 0; right: 0; bottom: 100%; list-style: none; margin: 0; padding: var(--sp-2) 0;
+    background: var(--paper); border-top: 1px solid var(--line); box-shadow: 0 -6px 16px rgb(0 0 0 / 0.12);
+  }
+  .tab-bar__sheet a, .tab-bar__sheet .link-button {
+    display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 3rem; padding: 0 var(--space);
+    color: var(--ink); text-decoration: none; text-align: left; font-size: var(--fs-base);
+  }
+  .tab-bar__sheet [aria-current="page"] { font-weight: 700; color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+}
 
 .sub-nav { border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
 .sub-nav a { display: inline-block; padding: 0.5rem 0; text-decoration: none; }
@@ -65,6 +123,12 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .button--danger-outline { border-color: var(--danger); color: var(--danger); }
 .button--small { padding: 0.25rem 0.6rem; min-height: 36px; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+/* Grouped actions (audit 2.6): publish, edit and view, with a divider between groups. */
+.action-bar { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: var(--sp-4) 0; }
+.action-group { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.action-group + .action-group { padding-left: var(--sp-4); border-left: 1px solid var(--line); }
+.up-to-date { font-weight: 600; color: var(--ok); }
+.up-to-date::before { content: "✓ "; }
 
 .messages { margin-bottom: 1rem; }
 .message { padding: 0.6rem 0.8rem; border-left: 5px solid var(--accent); background: var(--paper-alt); margin: 0 0 0.5rem; }
@@ -75,19 +139,21 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .message--warning::before { content: "Warning: "; font-weight: 700; }
 
 .card { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space); margin-bottom: var(--space); }
+.card > :first-child, .card > input[type="hidden"] + :is(h2, h3) { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
 .subtle { color: var(--ink-soft); font-weight: normal; }
-.small-link { font-size: 0.85rem; font-weight: normal; margin-left: 0.5rem; }
-.help, .helptext { color: var(--ink-soft); font-size: 0.9rem; }
+.small-link { font-size: var(--fs-sm); font-weight: normal; margin-left: 0.5rem; }
+.help, .helptext { color: var(--ink-soft); font-size: var(--fs-sm); }
 .plain-list { list-style: none; padding: 0; margin: 0 0 1rem; }
 .plain-list li { padding: 0.2rem 0; }
 
-.badge, .tag { display: inline-block; border: 1px solid var(--ink-soft); border-radius: 999px; padding: 0 0.5em; font-size: 0.8rem; white-space: nowrap; }
+.badge, .tag { display: inline-block; border: 1px solid var(--ink-soft); border-radius: 999px; padding: 0 0.5em; font-size: var(--fs-xs); white-space: nowrap; }
 .tag { border-style: dashed; }
 .swatch { display: inline-block; width: 1em; height: 1em; border-radius: 3px; background: var(--swatch); border: 1px solid var(--ink); vertical-align: middle; }
 
 .checklist { list-style: none; padding: 0; }
 .checklist li { padding: 0.35rem 0; display: flex; gap: 0.75rem; align-items: baseline; }
-.checklist__state { font-size: 0.8rem; min-width: 3.5rem; font-weight: 700; color: var(--warn); }
+.checklist__state { font-size: var(--fs-xs); min-width: 3.5rem; font-weight: 700; color: var(--warn); }
 .checklist .is-done .checklist__state { color: var(--ok); }
 .checklist .is-done a { color: var(--ink-soft); }
 
@@ -103,9 +169,22 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 @media (min-width: 40rem) { .details { grid-template-columns: max-content 1fr; } .details dt { margin-top: 0; } }
 
 /* Forms */
-.stacked-form > div, .stacked-form fieldset > div { margin-bottom: 0.9rem; }
-.stacked-form label { display: block; font-weight: 600; margin-bottom: 0.2rem; }
-.stacked-form input[type="checkbox"] + label, .stacked-form label:has(input[type="checkbox"]) { display: inline; font-weight: normal; }
+.stacked-form > div, .stacked-form fieldset > div { margin-bottom: var(--sp-4); }
+.stacked-form label, .stacked-form legend { display: block; font-weight: 600; margin-bottom: var(--sp-1); }
+.stacked-form .helptext { margin: 0 0 var(--sp-1); }
+.optional { font-weight: normal; color: var(--ink-soft); }
+/* Checkboxes sit before their label on one line (audit 2.20). */
+.field-check { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.field-check input { margin-top: 0.1rem; }
+.stacked-form .field-check label, .stacked-form input[type="checkbox"] + label, .stacked-form label:has(input[type="checkbox"]),
+.stacked-form label:has(input[type="radio"]) { display: inline; font-weight: normal; margin: 0; }
+.field-check__help { margin-left: calc(1.5rem + var(--sp-2)); }
+/* Text inputs wide enough for an email address, never wider than the screen. */
+.stacked-form input:is([type="text"], [type="email"], [type="password"], [type="url"], [type="search"], [type="tel"]),
+.stacked-form select, .stacked-form textarea { width: min(100%, 28rem); }
+.stacked-form textarea { width: min(100%, 40rem); }
+.stacked-form ul:has(> li > label > input[type="checkbox"]), .stacked-form ul:has(> li > label > input[type="radio"]),
+.stacked-form div:has(> div > label > input[type="checkbox"]):not(.field-check) { list-style: none; padding: 0; margin: 0; }
 input, select, textarea { font: inherit; padding: 0.45rem; border: 1px solid var(--ink-soft); border-radius: 4px; max-width: 100%; min-height: 44px; }
 /* 24px targets (WCAG 2.2 SC 2.5.8, D113). */
 input[type="checkbox"], input[type="radio"] { min-height: auto; width: 1.5rem; height: 1.5rem; vertical-align: middle; margin: 0 0.35rem 0 0; }
@@ -116,22 +195,44 @@ legend { font-weight: 700; padding: 0 0.3rem; }
 .errorlist { color: var(--danger); list-style: none; padding: 0; margin: 0.2rem 0; font-weight: 600; }
 .errorlist li::before { content: "Error: "; }
 [aria-invalid="true"] { border: 2px solid var(--danger); }
-.weekday-grid { display: grid; grid-template-columns: 1fr; gap: 0 1rem; }
+.weekday-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-3) var(--sp-4); }
 @media (min-width: 40rem) { .weekday-grid { grid-template-columns: 1fr 1fr; } }
 .inline-row { border-bottom: 1px dashed var(--line); padding: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0 1rem; }
 .inline-row > div { margin-bottom: 0.5rem; }
 .stacked-form ul#id_kind, .stacked-form [id$="kind"] { list-style: none; padding: 0; }
+/* Weekday and other multi-checkbox choices in a wrapping row, not a 7-row column (audit 2.19). */
+.stacked-form div:has(> div > label > input[type="checkbox"]):not(.field-check) { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
+/* Long settings pages: a jump list, and add forms behind a disclosure (audit 2.19). */
+.jump-list ul { list-style: none; padding: 0; margin: 0 0 var(--sp-4); display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
+.add-form { margin-top: var(--sp-3); }
+.add-form > summary { list-style: none; }
+.add-form > summary::-webkit-details-marker { display: none; }
+.add-form > summary::before { content: "+ "; font-weight: 700; }
+.add-form[open] > summary::before { content: "− "; }
+.add-form[open] > summary { margin-bottom: var(--sp-3); }
 
 .filter-bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
-.filter-bar label { display: block; font-size: 0.85rem; font-weight: 600; }
+.filter-bar label { display: block; font-size: var(--fs-sm); font-weight: 600; }
 .pager { display: flex; gap: 1rem; }
 
 .card--notice { border-left: 5px solid var(--warn); }
+/* Home (audit 2.2, 2.3): counts with a link to where each thing is done. */
+.attention-list { list-style: none; padding: 0; margin: 0; }
+.attention-list li + li { border-top: 1px solid var(--line); }
+.attention-list a { display: flex; align-items: center; gap: var(--sp-3); min-height: 2.75rem; padding: var(--sp-1) 0; }
+.attention-list__count { min-width: 2rem; padding: 0 var(--sp-2); border-radius: var(--radius-sm); background: var(--paper-alt); border: 1px solid var(--line); text-align: center; font-weight: 700; color: var(--ink); }
+.next-shift__when { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-lg); margin: 0 0 var(--sp-1); }
 .card--problem { border-left: 5px solid var(--danger); }
-.badge--not_entered { border-style: dotted; border-width: 2px; font-weight: 700; }
-.badge--needs_review { border-style: dashed; font-weight: 700; }
-.badge--entered { border-color: var(--ok); }
-pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; font-size: 0.85rem; }
+/* Availability status badges: square and filled with a text marker, unlike the rounded, dashed
+   tag pills, so a status never reads as a skill (audit 3.4). */
+.badge--not_entered, .badge--needs_review, .badge--entered { border-radius: var(--radius-sm); background: var(--paper-alt); font-weight: 700; }
+.badge--not_entered { border: 2px dotted var(--ink); }
+.badge--not_entered::before { content: "? "; }
+.badge--needs_review { border: 2px solid var(--warn); color: var(--warn); }
+.badge--needs_review::before { content: "! "; }
+.badge--entered { border-color: var(--ok); color: var(--ok); }
+.badge--entered::before { content: "✓ "; }
+pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; font-size: var(--fs-sm); }
 
 /* Hatching, solid and dark fills distinguish states without relying on colour (CLAUDE.md §2.7). */
 :root {
@@ -139,7 +240,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
   --preferred: #2f7d4f;
   --closed: #1b1f24;
 }
-.legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; font-size: 0.9rem; }
+.legend { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; font-size: var(--fs-sm); }
 .legend__key { display: inline-block; width: 1.4rem; height: 0.9rem; border: 1px solid var(--ink); vertical-align: middle; position: relative; }
 
 /* Availability entry */
@@ -150,7 +251,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
   .availability-table thead { display: none; }
   .availability-table tr { display: block; border-bottom: 1px solid var(--line); padding: 0.4rem 0; }
   .availability-table th, .availability-table td { display: block; padding: 0.15rem 0; }
-  .availability-table td::before { font-size: 0.8rem; color: var(--ink-soft); display: block; }
+  .availability-table td::before { font-size: var(--fs-xs); color: var(--ink-soft); display: block; }
   .availability-table td:nth-of-type(1)::before { content: "Can't work"; }
   .availability-table td:nth-of-type(2)::before { content: "Prefer"; }
 }
@@ -162,7 +263,12 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* On phones the page scrolls, not a box inside it, so there's room to swipe (taps paint). */
 @media (max-width: 30rem) { .painter__grid { max-height: none; overflow-y: visible; } }
 .painter__status { min-height: 1.5em; margin: 0.25rem 0; font-weight: 600; }
-.painter__table { border-collapse: collapse; width: 100%; min-width: 20rem; user-select: none; font-size: 0.75rem; }
+.painter__toolbar .button { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.painter__toolbar .legend__key { width: 1rem; height: 1rem; }
+.painter__save { margin-top: var(--sp-2); }
+/* Taller rows on phones, so a finger can hit the right quarter hour (audit 2.15). */
+@media (max-width: 30rem) { .painter__table td { height: 1.25rem; } }
+.painter__table { border-collapse: collapse; width: 100%; min-width: 20rem; user-select: none; font-size: var(--fs-xs); }
 .painter__table thead td { position: sticky; top: 0; background: var(--paper); font-weight: 700; text-align: center; padding: 0.2rem; z-index: 1; }
 .painter__table td { height: 0.85rem; border-left: 1px solid var(--line); padding: 0; cursor: crosshair; }
 .painter__table td.cell--hour { border-top: 1px solid var(--line); }
@@ -177,7 +283,11 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* Positioned so visually-hidden text inside stays in the scroll box instead of widening
    the page on phones (WCAG 1.4.10). */
 .grid-scroll { overflow-x: auto; position: relative; }
-.avail-grid { border-collapse: collapse; width: 100%; min-width: 60rem; font-size: 0.8rem; }
+/* Equal day columns, so the same hours look the same on every day (audit 2.23). */
+.avail-grid { border-collapse: collapse; width: 100%; min-width: 60rem; font-size: var(--fs-xs); table-layout: fixed; }
+.avail-grid th.avail-grid__name { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+@media (max-width: 48rem) { .avail-grid .avail-grid__name { width: 8rem; } }
+.print-only { display: none; }
 .avail-grid th, .avail-grid td { border: 1px solid var(--line); padding: 0.3rem; vertical-align: top; text-align: left; }
 .avail-grid thead th { background: var(--paper-alt); white-space: nowrap; }
 .avail-grid__name { width: 12rem; font-weight: normal; }
@@ -195,7 +305,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* Schedule grid (SPEC §14). Draft state is spelled out in text, not just colour. */
 .validation details { margin: 0.3rem 0; }
 .validation summary { cursor: pointer; font-weight: 600; }
-.severity { display: inline-block; font-size: 0.75rem; font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 0.3rem; margin-right: 0.3rem; }
+.severity { display: inline-block; font-size: var(--fs-xs); font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 0.3rem; margin-right: 0.3rem; }
 .severity--error { color: var(--danger); }
 .severity--warning { color: var(--warn); }
 .severity--info { color: var(--ink-soft); }
@@ -203,20 +313,27 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* Draft | Published switch on the Schedule tab (D111): the banner names the mode in words. */
 .view-switch { margin-bottom: 0.5rem; }
 .mode-banner { margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-left: 4px solid var(--accent); background: var(--paper-alt); }
-.schedule-grid { border-collapse: collapse; width: 100%; min-width: 56rem; font-size: 0.85rem; }
+.schedule-grid { border-collapse: collapse; width: 100%; min-width: 56rem; font-size: var(--fs-sm); }
 .schedule-grid th, .schedule-grid td { border: 1px solid var(--line); padding: 0.25rem; vertical-align: top; text-align: left; }
 .schedule-grid thead th { background: var(--paper-alt); white-space: nowrap; }
+/* Day headers and names stay in view while the grid scrolls (audit 2.5). On wide screens the grid
+   scrolls inside a viewport-high box; on phones only sideways, so the page still scrolls. */
+@media (min-width: 48rem) { .grid-scroll--sticky { max-height: calc(100vh - 5rem); overflow: auto; } }
+.schedule-grid thead th { position: sticky; top: 0; z-index: 2; }
+.schedule-grid tbody th[scope="row"], .schedule-grid tfoot th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+.schedule-grid thead th:first-child { left: 0; z-index: 3; }
+.schedule-grid tfoot th[scope="row"] { background: var(--paper-alt); }
 .schedule-grid__person { min-width: 9rem; }
-.schedule-grid tfoot th, .schedule-grid tfoot td { background: var(--paper-alt); font-size: 0.8rem; }
+.schedule-grid tfoot th, .schedule-grid tfoot td { background: var(--paper-alt); font-size: var(--fs-xs); }
 .open-row th { font-style: italic; }
 .chip {
   display: block; margin: 0 0 0.2rem; padding: 0.15rem 0.3rem 0.15rem 0.45rem; border-radius: 4px; text-decoration: none;
   color: var(--ink); background: var(--paper); border: 1px solid var(--ink-soft); border-left: 6px solid var(--chip, var(--accent));
-  white-space: nowrap; font-size: 0.8rem;
+  white-space: nowrap; font-size: var(--fs-xs); min-height: 24px; /* WCAG 2.2 target size */
 }
 .chip--new, .chip--changed { border-style: dashed; border-left-style: solid; background: #fff8e6; }
 .chip--open { border-left-color: var(--ink-soft); border-style: dotted; }
-.chip__state { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+.chip__state { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; }
 .add-link { display: inline-block; min-width: 1.6rem; text-align: center; text-decoration: none; border: 1px dashed var(--line); border-radius: 4px; color: var(--ink-soft); }
 .hours-cell { white-space: nowrap; }
 .hours-cell.is-over { font-weight: 700; color: var(--danger); }
@@ -228,7 +345,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .coverage-table .slot--closed { background: #e4e6ea; color: var(--ink-soft); }
 .shift-list { list-style: none; padding: 0; }
 .shift-card { border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
-.notification-body { white-space: pre-wrap; font-family: inherit; margin: 0; }
+.notification-body { margin: 0 0 var(--sp-2); }
 .remove-form label { display: inline; }
 .count { font-weight: 700; }
 
@@ -241,10 +358,26 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .day-list { display: grid; gap: 0.75rem; }
 @media (min-width: 60rem) { .day-list { grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); } }
 .day-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
-.day-card h2 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+.day-card h2 { font-size: var(--fs-lg); margin: 0 0 0.4rem; }
 .day-card--today { border-width: 2px; border-color: var(--accent); }
 .public-shift { display: flex; flex-wrap: wrap; gap: 0 0.6rem; padding: 0.3rem 0 0.3rem 0.5rem; border-left: 5px solid var(--chip, var(--accent)); margin-bottom: 0.3rem; }
 .public-shift__time { min-width: 7.5rem; font-variant-numeric: tabular-nums; }
 .public-shift--mine { background: var(--paper-alt); font-weight: 600; }
 .shift-card { border-left-color: var(--chip, var(--accent)); }
 .print-grid caption { text-align: left; font-weight: 700; padding: 0.5rem 0; }
+
+/* "Who could take it?": the action sits with the name, so it's on screen on a phone (audit 2.9). */
+.taker__action { margin-top: var(--sp-1); }
+.disclosure > summary { cursor: pointer; font-weight: 600; min-height: 2.75rem; display: flex; align-items: center; }
+
+/* Time off: the time fields only matter when "All day" isn't ticked (audit 2.17). */
+.stacked-form:has(#id_all_day:checked) div:has(> #id_start_min),
+.stacked-form:has(#id_all_day:checked) div:has(> #id_end_min) { display: none; }
+
+/* Long people lists in columns (audit 2.10). */
+#id_people, #id_donors { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--sp-1) var(--sp-4); }
+
+.day-card--empty { padding: var(--sp-2) var(--sp-3); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-3); }
+.day-card--empty h2 { margin: 0; font-size: var(--fs-base); }
+.day-card--empty p { margin: 0; }
+.legend .chip { display: inline-block; margin: 0 var(--sp-1) 0 0; vertical-align: middle; }

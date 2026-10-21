@@ -29,7 +29,7 @@
 {% endif %}
 
 {% if summary %}
-  <p>In a typical week you're available for <strong>{{ summary.available_minutes|hours }} of {{ summary.open_minutes|hours }}</strong> open hours.{% if summary.days_fully_out %} Out all day: {{ summary.days_fully_out|join:", " }}.{% endif %}</p>
+  <p>In a typical week {% if employee == access.employee %}you're{% else %}{{ employee.display_name }} is{% endif %} available for <strong>{{ summary.available_minutes|hours }} of {{ summary.open_minutes|hours }}</strong> open hours.{% if summary.days_fully_out %} Out all day: {{ summary.days_fully_out|join:", " }}.{% endif %}</p>
 {% endif %}
 
 <section aria-labelledby="how" class="help-block">
@@ -39,9 +39,9 @@
 
 <div id="availability-painter" class="painter" hidden>
   <div class="painter__toolbar" role="group" aria-label="Paint brush">
-    <button type="button" class="button button--small" data-brush="unavailable" aria-pressed="true">Can't work</button>
-    <button type="button" class="button button--small" data-brush="preferred" aria-pressed="false">Prefer</button>
-    <button type="button" class="button button--small" data-brush="clear" aria-pressed="false">Clear</button>
+    <button type="button" class="button" data-brush="unavailable" aria-pressed="true"><span class="legend__key cell--unavailable" aria-hidden="true"></span> Can't work</button>
+    <button type="button" class="button" data-brush="preferred" aria-pressed="false"><span class="legend__key cell--preferred" aria-hidden="true"></span> Prefer</button>
+    <button type="button" class="button" data-brush="clear" aria-pressed="false"><span class="legend__key" aria-hidden="true"></span> Clear</button>
   </div>
   <p class="help painter__hint">With a mouse, drag down a day to paint. On a phone, tap where a block starts, then tap where it ends. The grid fills in the boxes below, which you can also type in.</p>
   <p class="painter__status" role="status" aria-live="polite"></p>
@@ -51,16 +51,17 @@
     <li><span class="legend__key cell--preferred"></span> Prefer</li>
     <li><span class="legend__key cell--closed"></span> Library closed</li>
   </ul>
+  <div class="form-actions painter__save"><button type="submit" form="availability-form" class="button button--primary">Save availability</button></div>
 </div>
 {{ grid|json_script:"painter-config" }}
 
-<form method="post" class="stacked-form" novalidate>
+<form method="post" class="stacked-form" id="availability-form" novalidate>
   {% csrf_token %}
   <input type="hidden" name="term" value="{{ term.pk }}">
   {{ form.non_field_errors }}
   <fieldset>
     <legend>Times by day</legend>
-    <p class="help">Type ranges like <code>09:00-09:50, 13:00-14:15</code>, or <code>all day</code>. Leave a box blank if it doesn't apply.</p>
+    <p class="help">Type ranges like <code>9am-9:50am, 1pm-2:15pm</code>, or <code>all day</code>. Leave a box blank if it doesn't apply.</p>
     <table class="availability-table">
       <thead><tr><th scope="col">Day</th><th scope="col">Can't work</th><th scope="col">Prefer</th></tr></thead>
       <tbody>

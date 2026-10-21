@@ -1,5 +1,6 @@
-<section id="validation" class="card validation{% if report.errors %} card--problem{% endif %}" aria-labelledby="validation-heading">
+<section id="validation" class="card validation{% if report.errors %} card--problem{% elif report.counted %} card--notice{% endif %}" aria-labelledby="validation-heading">
   <h2 id="validation-heading">Validation: {{ report.summary }}</h2>
+  {% if show_messages %}{% include "_messages.html" %}{% endif %}
   {% if not report.counted %}<p>All rules pass: full coverage, no conflicts, no cap breaches.</p>{% endif %}
   {% for g in report_groups %}
     <details{% if g.issues.0.severity == "error" %} open{% endif %} class="validation__group validation__group--{{ g.issues.0.severity }}">

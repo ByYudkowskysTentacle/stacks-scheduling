@@ -16,22 +16,21 @@
 <h2>Could take it ({{ result.eligible|length }})</h2>
 {% if result.eligible %}
 <table class="data-table">
-  <thead><tr><th scope="col">Person</th><th scope="col">Hours that week</th><th scope="col">Period hours</th><th scope="col">Preferred time</th><th scope="col">Notes</th><th scope="col"><span class="visually-hidden">Action</span></th></tr></thead>
+  <thead><tr><th scope="col">Person</th><th scope="col">Hours that week</th><th scope="col">Period hours</th><th scope="col">Preferred time</th><th scope="col">Notes</th></tr></thead>
   <tbody>
   {% for t in result.eligible %}
     <tr>
-      <th scope="row">{{ t.name }}</th>
-      <td>{{ t.week_minutes|hours }}h</td>
-      <td>{{ t.period_minutes|hours }}h</td>
-      <td>{% if t.preferred %}Yes{% else %}No{% endif %}</td>
-      <td>{% if t.warnings %}<ul class="plain-list">{% for w in t.warnings %}<li><span class="severity severity--warning">Warning</span> {{ w }}</li>{% endfor %}</ul>{% else %}None{% endif %}</td>
-      <td>
-        <form method="post" class="inline-form">{% csrf_token %}
+      <th scope="row" class="taker">{{ t.name }}
+        <form method="post" class="taker__action">{% csrf_token %}
           <input type="hidden" name="employee" value="{{ t.employee_id }}">
           {% if gap %}<input type="hidden" name="date" value="{{ gap.date }}"><input type="hidden" name="start" value="{{ gap.start }}"><input type="hidden" name="end" value="{{ gap.end }}">{% endif %}
           <button type="submit" class="button button--small">{{ action_label }} {{ t.name }}</button>
         </form>
-      </td>
+      </th>
+      <td>{{ t.week_minutes|hours }}h</td>
+      <td>{{ t.period_minutes|hours }}h</td>
+      <td>{% if t.preferred %}Yes{% else %}No{% endif %}</td>
+      <td>{% if t.warnings %}<ul class="plain-list">{% for w in t.warnings %}<li><span class="severity severity--warning">Warning</span> {{ w }}</li>{% endfor %}</ul>{% else %}None{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -42,13 +41,16 @@
 
 <h2>Can't take it ({{ result.blocked|length }})</h2>
 {% if result.blocked %}
+<details class="disclosure"{% if not result.eligible %} open{% endif %}>
+<summary>Who, and why not</summary>
 <table class="data-table">
   <thead><tr><th scope="col">Person</th><th scope="col">Hours that week</th><th scope="col">Why not</th></tr></thead>
   <tbody>
   {% for t in result.blocked %}
-    <tr><th scope="row">{{ t.name }}</th><td>{{ t.week_minutes|hours }}h</td><td><ul class="plain-list">{% for b in t.blockers %}<li>{{ b }}</li>{% endfor %}</ul></td></tr>
+    <tr><th scope="row">{{ t.name }}</th><td>{{ t.week_minutes|hours }}h</td><td><ul class="plain-list">{% for b in t.blockers %}<li>{{ b|without_prefix:t.name }}</li>{% endfor %}</ul></td></tr>
   {% endfor %}
   </tbody>
 </table>
+</details>
 {% else %}<p>Nobody is blocked.</p>{% endif %}
 {% endblock %}

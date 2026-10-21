@@ -15,7 +15,7 @@ from app.core.models import (
     Term,
 )
 from domain import calendar as cal
-from domain.timeutil import Interval, format_minute, is_on_slot
+from domain.timeutil import Interval, format_minute_12h, is_on_slot
 from domain.timeutil import parse_clock as parse_time_input
 from domain.timeutil import parse_ranges as parse_day_intervals
 
@@ -28,14 +28,16 @@ class MinuteField(forms.Field):
         kwargs.setdefault(
             "widget",
             forms.TextInput(
-                attrs={"placeholder": "HH:MM", "inputmode": "text", "size": 7, "autocomplete": "off"}
+                attrs={"placeholder": "9am", "inputmode": "text", "size": 7, "autocomplete": "off"}
             ),
         )
         super().__init__(**kwargs)
 
     def prepare_value(self, value):
+        """12-hour, as the grid shows times (audit 2.11): `9am`, `1:30pm`; a start at midnight is
+        `12am` (`midnight` reads as the end of the day)."""
         if isinstance(value, int):
-            return format_minute(value)
+            return "12am" if value == 0 else format_minute_12h(value)
         return value
 
     def to_python(self, value):
@@ -48,7 +50,7 @@ class MinuteField(forms.Field):
         try:
             minute = parse_time_input(value)
         except ValueError as exc:
-            raise ValidationError("Enter a time such as 07:30 or 7:30pm.") from exc
+            raise ValidationError("Enter a time such as 9am, 1:30pm or 13:30.") from exc
         if self.on_slot and not is_on_slot(minute):
             raise ValidationError("Use a 15-minute boundary (:00, :15, :30 or :45).")
         return minute
@@ -86,15 +88,15 @@ class OperatingHoursForm(forms.ModelForm):
             for iv in self.instance.intervals.all():
                 existing.setdefault(iv.weekday, []).append(Interval(iv.start_min, iv.end_min))
         for wd in self.weekday_order:
-            self.fields[f"day_{wd}"] = forms.CharField(
+            self.fields[f"day_{wd}"] = day = forms.CharField(
                 label=cal.WEEKDAY_NAMES[wd],
                 required=False,
-                help_text="Blank means closed.",
                 initial=", ".join(
-                    f"{format_minute(i.start)}-{format_minute(i.end)}" for i in existing.get(wd, [])
+                    f"{format_minute_12h(i.start)}-{format_minute_12h(i.end)}" for i in existing.get(wd, [])
                 ),
-                widget=forms.TextInput(attrs={"placeholder": "07:30-22:00", "autocomplete": "off"}),
+                widget=forms.TextInput(attrs={"placeholder": "7:30am-10pm", "autocomplete": "off"}),
             )
+            day.hide_optional = True  # the fieldset says once that a blank day is closed
 
     def day_fields(self):
         return [self[f"day_{wd}"] for wd in self.weekday_order]
@@ -168,7 +170,7 @@ class DepartmentForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         label="Also show this department's people open shifts from",
         help_text="They see only those departments' open shifts, not their schedules, and a "
-        "supervisor of that department still approves any claim (D108).",
+        "supervisor of that department still approves any claim.",
     )
 
     class Meta:

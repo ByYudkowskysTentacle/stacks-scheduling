@@ -109,7 +109,7 @@ class CoverageOverride(models.Model):
         null=True,
         blank=True,
         related_name="coverage_overrides",
-        help_text="Blank applies to every department's schedules (D95).",
+        help_text="Blank applies to every department's schedules.",
     )
     weekdays = models.JSONField(default=list, help_text="Weekday numbers, Monday 0.")
     start_min = minute_field("from")
@@ -176,7 +176,7 @@ class TagCoverageRule(models.Model):
         null=True,
         blank=True,
         related_name="tag_rules",
-        help_text="Blank applies to every department's schedules (D95).",
+        help_text="Blank applies to every department's schedules.",
     )
     kind = models.CharField(
         max_length=20,
@@ -290,7 +290,7 @@ class Shift(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     proposed_by_lead = models.BooleanField(
-        default=False, help_text="Last changed by a shift lead; shown in the supervisor's review queue (D25)."
+        default=False, help_text="Last changed by a shift lead; shown in the supervisor's review queue."
     )
 
     objects = ShiftQuerySet.as_manager()

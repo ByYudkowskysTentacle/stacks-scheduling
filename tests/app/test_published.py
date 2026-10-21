@@ -133,7 +133,7 @@ def test_printable_version_grid(as_user, supervisor, setup):
 def test_home_shows_next_shifts(as_user, student_user, setup):
     with mock.patch("django.utils.timezone.localdate", return_value=START):
         page = as_user(student_user).get(reverse("home")).content.decode()
-    assert "Your next shifts" in page and "9am–12pm" in page
+    assert "Your next shift" in page and "9am–12pm" in page and "Monday" in page
 
 
 FAR_BEFORE = date(2026, 11, 7)  # ten weeks before the published period starts

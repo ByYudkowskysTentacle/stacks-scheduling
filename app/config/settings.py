@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.forms",  # Django's own form templates, which ours in app/templates/django/forms extend
     "django.contrib.humanize",
     "pgtrigger",
     "pghistory",
@@ -77,6 +78,10 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "app.config.urls"
 WSGI_APPLICATION = "app.config.wsgi.application"
+
+# Forms render through project templates (app/templates/django/forms/): labels without colons,
+# "(optional)" on optional fields, inline checkboxes and "Choose…" for empty selects (audit 2.20).
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 
 TEMPLATES = [
     {

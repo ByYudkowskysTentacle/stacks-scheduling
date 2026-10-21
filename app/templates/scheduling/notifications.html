@@ -1,14 +1,15 @@
 {% extends "base.html" %}
+{% load stacks %}
 {% block title %}Notifications{% endblock %}
 {% block content %}
 <h1>Notifications</h1>
 <p class="no-print"><a href="{% url 'email_settings' %}">Email settings</a>: choose which of these also come by email.</p>
 {% for n in items %}
   <article class="card{% if not n.read_at %} card--notice{% endif %}">
-    <h2>{{ n.subject }}{% if not n.read_at %} <span class="badge">New</span>{% endif %}</h2>
-    <p class="subtle">{{ n.created_at|date:"j M Y H:i" }}</p>
-    <pre class="notification-body">{{ n.body }}</pre>
-    {% if n.link %}<p><a href="{{ n.link }}">Open</a></p>{% endif %}
+    {% with prefix=site_name|add:":" %}<h2>{{ n.subject|strip_prefix:prefix|capfirst }}{% if not n.read_at %} <span class="badge">New</span>{% endif %}</h2>{% endwith %}
+    <p class="subtle">{{ n.created_at|date:"j M Y, g:i a" }}</p>
+    <div class="notification-body">{{ n.body|in_app_body|linebreaksbr }}</div>
+    {% if n.link %}<p><a href="{{ n.link }}">{{ n.link|link_label }}</a></p>{% endif %}
   </article>
 {% empty %}
   <p>No notifications.</p>

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 from django.contrib import messages
@@ -53,8 +53,8 @@ from app.scheduling.models import (
 )
 from domain.calendar import closures_on, scheduled_intervals
 from domain.schedule import on_duty_by_slot, slots_of
-from domain.timeutil import SLOT_MINUTES, format_minute_12h
-from domain.validation import CATEGORY_LABELS, Report, Severity
+from domain.timeutil import SLOT_MINUTES, Interval, format_minute_12h
+from domain.validation import CATEGORY_LABELS, Category, Report, Severity
 
 
 def report_context(report: Report) -> dict:
@@ -69,11 +69,35 @@ def report_context(report: Report) -> dict:
     return {"report": report, "report_groups": groups}
 
 
+def issue_counts(report: Report) -> dict[str, int]:
+    return dict(Counter(i.category.value for i in report.counted))
+
+
+def remember_validation(request, period: SchedulePeriod, report: Report) -> None:
+    """Keep the period's issue counts in the session, so the next change can say what it changed."""
+    request.session[f"validation:{period.pk}"] = issue_counts(report)
+
+
+def validation_delta(before: dict[str, int], after: dict[str, int]) -> str:
+    """What changed between two sets of issue counts: "+1 coverage gap, −2 cap breaches"."""
+    parts = []
+    for category in sorted(set(before) | set(after)):
+        diff = after.get(category, 0) - before.get(category, 0)
+        if diff:
+            singular, plural = CATEGORY_LABELS[Category(category)]
+            parts.append(f"{'+' if diff > 0 else '−'}{abs(diff)} {singular if abs(diff) == 1 else plural}")
+    return ", ".join(parts) or "no change"
+
+
 def flash_validation(request, period: SchedulePeriod, what: str) -> None:
-    """After every schedule change, run the full suite and say what it found (CLAUDE.md §2.4)."""
+    """After every schedule change, run the full suite and say what it found and what this change
+    did to it (CLAUDE.md §2.4, audit 2.7)."""
     report = services.validate_period(period)
+    before = request.session.get(f"validation:{period.pk}")
+    change = f" ({validation_delta(before, issue_counts(report))})" if before is not None else ""
+    remember_validation(request, period, report)
     level = messages.SUCCESS if not report.counted else messages.WARNING
-    messages.add_message(request, level, f"{what} Validation: {report.summary()}.")
+    messages.add_message(request, level, f"{what} Validation: {report.summary()}{change}.")
 
 
 class PeriodMixin(OrgViewMixin):
@@ -193,6 +217,7 @@ class PeriodView(PeriodMixin, TemplateView):
                     "open": open_ivs,
                 }
             )
+        remember_validation(self.request, period, report)
         ctx.update(
             draft_url=reverse("period", args=[period.pk]) + (f"?week={week}" if week else ""),
             published_url=f"{reverse('published_schedule')}?week={days[0].isoformat()}",
@@ -270,13 +295,29 @@ class DayView(PeriodMixin, TemplateView):
         ctx.update(
             period=period,
             day=day,
-            rows=rows,
+            rows=merge_slot_rows(rows, span_start),
             rule_issues=rule_issues,
             shifts=shifts,
             prev_day=day - timedelta(days=1),
             next_day=day + timedelta(days=1),
         )
         return ctx
+
+
+def merge_slot_rows(rows: list[dict], first_minute: int) -> list[dict]:
+    """Runs of identical 15-minute slots become one time range ("7:30am–9am"), so a day reads as
+    a handful of rows instead of 58 (audit 2.8)."""
+    merged: list[dict] = []
+    keys = ("open", "closure", "target", "count", "names", "state", "missing")
+    for i, row in enumerate(rows):
+        start = first_minute + i * SLOT_MINUTES
+        if merged and all(merged[-1][k] == row[k] for k in keys):
+            merged[-1]["end"] = start + SLOT_MINUTES
+        else:
+            merged.append({**row, "start": start, "end": start + SLOT_MINUTES})
+    for row in merged:
+        row["time"] = Interval(row["start"], row["end"]).label()
+    return merged
 
 
 RULE_CATEGORIES = ("tag_rule", "duty")  # validation issues about who is on duty, not how many
@@ -303,6 +344,10 @@ class ShiftEditMixin(PeriodMixin):
         if not (access.has(Perm.EDIT_SCHEDULE) or access.has(Perm.PROPOSE_EDITS)):
             raise PermissionDenied
 
+    def context(self, form, period, shift) -> dict:
+        state = services.shift_states(period).get(shift.pk) if shift is not None else None
+        return {"form": form, "period": period, "shift": shift, "shift_state": state}
+
     def get_shift(self, period) -> Shift | None:
         return None
 
@@ -314,7 +359,7 @@ class ShiftEditMixin(PeriodMixin):
         if shift is None:
             initial = {k: request.GET.get(k) for k in ("employee", "date") if request.GET.get(k)}
         form = ShiftForm(instance=shift, period=period, initial=initial)
-        return render(request, self.template_name, {"form": form, "period": period, "shift": shift})
+        return render(request, self.template_name, self.context(form, period, shift))
 
     def post(self, request, *args, **kwargs):
         self.check_access()
@@ -322,7 +367,7 @@ class ShiftEditMixin(PeriodMixin):
         shift = self.get_shift(period)
         form = ShiftForm(request.POST, instance=shift, period=period)
         if not form.is_valid():
-            return render(request, self.template_name, {"form": form, "period": period, "shift": shift})
+            return render(request, self.template_name, self.context(form, period, shift))
         saved = form.save(commit=False)
         saved.updated_by = request.user
         saved.proposed_by_lead = not request.access.has(Perm.EDIT_SCHEDULE)

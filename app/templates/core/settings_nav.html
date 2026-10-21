@@ -1,16 +1,18 @@
+{% comment %}Settings sub-navigation, on every settings page including add and edit pages (audit 2.18).
+The current section is matched by URL prefix, so an edit page marks its list.{% endcomment %}
+{% with p=request.path %}
 <nav aria-label="Settings" class="sub-nav">
   <ul>
-    {% with name=request.resolver_match.url_name %}
-    <li><a href="{% url 'locations' %}"{% if name == 'locations' %} aria-current="page"{% endif %}>Hours and closures</a></li>
-    <li><a href="{% url 'rules' %}"{% if name == 'rules' %} aria-current="page"{% endif %}>Scheduling rules</a></li>
-    <li><a href="{% url 'departments' %}"{% if name == 'departments' %} aria-current="page"{% endif %}>Departments</a></li>
-    <li><a href="{% url 'terms' %}"{% if name == 'terms' %} aria-current="page"{% endif %}>Terms</a></li>
-    <li><a href="{% url 'pay_roles' %}"{% if name == 'pay_roles' %} aria-current="page"{% endif %}>Pay roles</a></li>
-    <li><a href="{% url 'tags' %}"{% if name == 'tags' %} aria-current="page"{% endif %}>Tags</a></li>
-    <li><a href="{% url 'organization_settings' %}"{% if name == 'organization_settings' %} aria-current="page"{% endif %}>Organization</a></li>
-    {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'members' %}"{% if name == 'members' %} aria-current="page"{% endif %}>Roles</a></li>{% endif %}
-    {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'retention' %}"{% if name == 'retention' %} aria-current="page"{% endif %}>Retention</a></li>{% endif %}
-    {% if Perm.VIEW_AUDIT in access.perms %}<li><a href="{% url 'audit_log' %}"{% if name == 'audit_log' %} aria-current="page"{% endif %}>Audit log</a></li>{% endif %}
-    {% endwith %}
+    <li><a href="{% url 'organization_settings' %}"{% if p == '/settings/' %} aria-current="page"{% endif %}>Organization</a></li>
+    <li><a href="{% url 'locations' %}"{% if p|slice:':20' == '/settings/locations/' %} aria-current="page"{% endif %}>Hours and closures</a></li>
+    <li><a href="{% url 'departments' %}"{% if p|slice:':22' == '/settings/departments/' %} aria-current="page"{% endif %}>Departments</a></li>
+    <li><a href="{% url 'terms' %}"{% if p|slice:':16' == '/settings/terms/' %} aria-current="page"{% endif %}>Terms</a></li>
+    <li><a href="{% url 'pay_roles' %}"{% if p|slice:':20' == '/settings/pay-roles/' %} aria-current="page"{% endif %}>Pay roles</a></li>
+    <li><a href="{% url 'tags' %}"{% if p|slice:':15' == '/settings/tags/' %} aria-current="page"{% endif %}>Tags</a></li>
+    <li><a href="{% url 'rules' %}"{% if p|slice:':16' == '/settings/rules/' %} aria-current="page"{% endif %}>Scheduling rules</a></li>
+    {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'members' %}"{% if p|slice:':18' == '/settings/members/' %} aria-current="page"{% endif %}>Access</a></li>{% endif %}
+    {% if Perm.MANAGE_MEMBERS in access.perms %}<li><a href="{% url 'retention' %}"{% if p|slice:':20' == '/settings/retention/' %} aria-current="page"{% endif %}>Retention</a></li>{% endif %}
+    {% if Perm.VIEW_AUDIT in access.perms %}<li><a href="{% url 'audit_log' %}"{% if p|slice:':16' == '/settings/audit/' %} aria-current="page"{% endif %}>Audit log</a></li>{% endif %}
   </ul>
 </nav>
+{% endwith %}
