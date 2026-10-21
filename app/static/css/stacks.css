@@ -1,19 +1,32 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Mobile-first, WCAG 2.1 AA contrast. State is never shown by colour alone (CLAUDE.md §2.7). */
 
+/* Atkinson Hyperlegible (Braille Institute, SIL OFL 1.1, see fonts/OFL.txt), self-hosted so pages
+   never call a third party. Palette and type chosen in D116; every text pair is at least 5.7:1. */
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-ext-400-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-ext-700-normal.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: italic; font-weight: 400; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-ext-400-italic.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: italic; font-weight: 700; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-ext-700-italic.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: italic; font-weight: 400; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-400-italic.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: italic; font-weight: 700; font-display: swap; src: url("../fonts/atkinson-hyperlegible-latin-700-italic.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 :root {
-  --ink: #1b1f24;
-  --ink-soft: #4a5260;
-  --paper: #ffffff;
-  --paper-alt: #f4f6f8;
-  --line: #c9ced6;
-  --accent: #1f4f8f;
+  --ink: #1c1b19;
+  --ink-soft: #55524b;
+  --paper: #fbfaf7; /* warm page */
+  --surface: #ffffff; /* cards, inputs and chips sit on white */
+  --paper-alt: #f1efe9;
+  --line: #d8d4ca;
+  --accent: #0d6274; /* deep teal: links, buttons, current markers */
+  --header: #12434f;
   --accent-ink: #ffffff;
   --danger: #a3221b;
   --ok: #1e6b35;
   --warn: #7a4b00;
   --focus: #ffbf47;
-  --radius: 6px;
+  --radius: 8px;
   --radius-sm: 4px;
   --space: 1rem;
   /* Type scale (audit 3.1): six steps instead of twelve ad-hoc sizes. */
@@ -32,14 +45,14 @@
   --sp-6: 2rem;
   --container: 72rem;
   --container-wide: 100rem;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
   background: var(--paper);
   line-height: 1.5;
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; }
+body { margin: 0; background: var(--paper); }
 main { max-width: var(--container); margin: 0 auto; padding: var(--space); }
 main:focus { outline: none; }
 main.main--wide { max-width: var(--container-wide); }
@@ -58,7 +71,7 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .skip-link:focus { left: 0.5rem; }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.site-header { background: var(--accent); color: var(--accent-ink); }
+.site-header { background: var(--header); color: var(--accent-ink); }
 .site-header__inner { max-width: var(--container); margin: 0 auto; padding: 0.5rem var(--space); display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
 .brand { color: var(--accent-ink); font-weight: 700; text-decoration: none; font-size: var(--fs-lg); }
 .org-name { opacity: 0.9; font-size: var(--fs-sm); }
@@ -116,7 +129,7 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 
 .button {
   display: inline-block; font: inherit; padding: 0.5rem 1rem; min-height: 44px; border-radius: var(--radius);
-  border: 1px solid var(--accent); background: var(--paper); color: var(--accent); text-decoration: none; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--surface); color: var(--accent); text-decoration: none; cursor: pointer;
 }
 .button--primary { background: var(--accent); color: var(--accent-ink); }
 .button--danger { background: var(--danger); border-color: var(--danger); color: #fff; }
@@ -138,7 +151,7 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .message--error::before { content: "Problem: "; font-weight: 700; }
 .message--warning::before { content: "Warning: "; font-weight: 700; }
 
-.card { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space); margin-bottom: var(--space); }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space); margin-bottom: var(--space); background: var(--surface); }
 .card > :first-child, .card > input[type="hidden"] + :is(h2, h3) { margin-top: 0; }
 .card > :last-child { margin-bottom: 0; }
 .subtle { color: var(--ink-soft); font-weight: normal; }
@@ -185,7 +198,7 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .stacked-form textarea { width: min(100%, 40rem); }
 .stacked-form ul:has(> li > label > input[type="checkbox"]), .stacked-form ul:has(> li > label > input[type="radio"]),
 .stacked-form div:has(> div > label > input[type="checkbox"]):not(.field-check) { list-style: none; padding: 0; margin: 0; }
-input, select, textarea { font: inherit; padding: 0.45rem; border: 1px solid var(--ink-soft); border-radius: 4px; max-width: 100%; min-height: 44px; }
+input, select, textarea { font: inherit; background: var(--surface); color: var(--ink); padding: 0.45rem; border: 1px solid var(--ink-soft); border-radius: 4px; max-width: 100%; min-height: 44px; }
 /* 24px targets (WCAG 2.2 SC 2.5.8, D113). */
 input[type="checkbox"], input[type="radio"] { min-height: auto; width: 1.5rem; height: 1.5rem; vertical-align: middle; margin: 0 0.35rem 0 0; }
 input[type="color"] { padding: 0.1rem; width: 4rem; }
@@ -328,7 +341,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .open-row th { font-style: italic; }
 .chip {
   display: block; margin: 0 0 0.2rem; padding: 0.15rem 0.3rem 0.15rem 0.45rem; border-radius: 4px; text-decoration: none;
-  color: var(--ink); background: var(--paper); border: 1px solid var(--ink-soft); border-left: 6px solid var(--chip, var(--accent));
+  color: var(--ink); background: var(--surface); border: 1px solid var(--ink-soft); border-left: 6px solid var(--chip, var(--accent));
   white-space: nowrap; font-size: var(--fs-xs); min-height: 24px; /* WCAG 2.2 target size */
 }
 .chip--new, .chip--changed { border-style: dashed; border-left-style: solid; background: #fff8e6; }
@@ -357,7 +370,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* Published schedule for phones (SPEC §9.2). */
 .day-list { display: grid; gap: 0.75rem; }
 @media (min-width: 60rem) { .day-list { grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); } }
-.day-card { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
+.day-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6rem 0.8rem; }
 .day-card h2 { font-size: var(--fs-lg); margin: 0 0 0.4rem; }
 .day-card--today { border-width: 2px; border-color: var(--accent); }
 .public-shift { display: flex; flex-wrap: wrap; gap: 0 0.6rem; padding: 0.3rem 0 0.3rem 0.5rem; border-left: 5px solid var(--chip, var(--accent)); margin-bottom: 0.3rem; }

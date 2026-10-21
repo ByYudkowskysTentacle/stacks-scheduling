@@ -464,6 +464,17 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - **Validation messages:** after a schedule change, the message sits inside the validation card and says what the change did to the issue counts, compared with the last time the period was viewed or changed in the same session.
   - *Interpretation:* the "what changed" comparison uses the counts remembered in the person's session. On their first change in a session it reports the totals only.
 
+- **D116 (maintainer decision, 2026-10-21; design audit Part 3, option B).** Visual identity: legible type, deep teal and warm paper.
+  - **Typeface:** Atkinson Hyperlegible, designed by the Braille Institute for low-vision readers. It's self-hosted from `app/static/fonts/` (SIL OFL 1.1, notice in README), so no page calls a third party. Latin and Latin Extended subsets load by `unicode-range`; a typical page loads about 35 KB.
+  - **Colours** (tokens in `stacks.css`):
+    - header `#12434f`
+    - accent `#0d6274` (links, buttons, current markers)
+    - page `#fbfaf7` (warm paper), with cards, inputs and chips on white
+    - text `#1c1b19`, secondary text `#55524b`
+    - danger, success and warning unchanged
+  - **Contrast:** every text pair is at least 5.7:1 (WCAG 2.2 AA asks for 4.5:1). The focus ring keeps 3:1 on both the header and the page.
+  - **Corners:** 8px.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

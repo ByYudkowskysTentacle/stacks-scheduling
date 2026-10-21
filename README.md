@@ -29,3 +29,5 @@ Student employee records (availability, hours, wages, work-study awards) are tre
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [`LICENSE`](LICENSE).
 
 SPDX-License-Identifier: `AGPL-3.0-or-later`
+
+The bundled typeface, Atkinson Hyperlegible (in `app/static/fonts/`), is © 2020 Braille Institute of America, Inc., and licensed separately under the SIL Open Font License 1.1: see [`app/static/fonts/OFL.txt`](app/static/fonts/OFL.txt).
