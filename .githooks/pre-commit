@@ -17,12 +17,45 @@ fi
 if command -v gitleaks >/dev/null 2>&1; then
   gitleaks git --pre-commit --staged --redact --no-banner .
 elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  # pwd -W gives a Windows path under Git Bash; MSYS_NO_PATHCONV stops the mount being rewritten.
-  # GIT_CONFIG_* marks the mounted repo as safe for git running as a different user in the container.
-  REPO=$(pwd -W 2>/dev/null || pwd)
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$REPO:/repo" \
+  # Absolute host path of a directory. pwd -W gives a Windows path under Git Bash.
+  host_dir() { (cd "$1" && { pwd -W 2>/dev/null || pwd -P; }); }
+  blocked() {
+    echo "pre-commit: $1; commit blocked. Install gitleaks locally or fix the hook." >&2
+    exit 1
+  }
+  # The container gets the work tree at /repo and the shared git directory at /git, and git there
+  # is pointed at them with GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE. Mounting the work tree alone
+  # isn't enough: in a linked worktree .git is a file naming a directory outside the work tree, and
+  # git commit -a or git commit <paths> stages into a temporary index (GIT_INDEX_FILE) rather than
+  # .git/index.
+  TOP=$(host_dir .) # hooks run at the top of the work tree
+  COMMON=$(host_dir "$(git rev-parse --git-common-dir)")
+  GITDIR=$(host_dir "$(git rev-parse --git-dir)")
+  INDEX=$(git rev-parse --git-path index) # follows GIT_INDEX_FILE
+  INDEX=$(host_dir "$(dirname "$INDEX")")/$(basename "$INDEX")
+  in_common() {
+    case "$1" in
+      "$COMMON") echo /git ;;
+      "$COMMON"/*) echo "/git/${1#"$COMMON"/}" ;;
+      *) return 1 ;;
+    esac
+  }
+  C_GITDIR=$(in_common "$GITDIR") || blocked "git directory $GITDIR is outside $COMMON"
+  C_INDEX=$(in_common "$INDEX") || blocked "index $INDEX is outside $COMMON"
+  # gitleaks logs git errors but still reports "no leaks found" and exits 0, so the container
+  # first checks that it sees the same index as this commit. MSYS_NO_PATHCONV stops Git Bash
+  # rewriting the paths; GIT_CONFIG_* marks the mounted repo as safe for git running as a
+  # different user in the container.
+  INDEX_ID=$(git ls-files --stage -z | git hash-object --stdin)
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$TOP:/repo:ro" -v "$COMMON:/git:ro" \
+    -e GIT_DIR="$C_GITDIR" -e GIT_WORK_TREE=/repo -e GIT_INDEX_FILE="$C_INDEX" -e INDEX_ID="$INDEX_ID" \
     -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*' \
-    "$GITLEAKS_IMAGE" git --pre-commit --staged --redact --no-banner /repo
+    --entrypoint sh "$GITLEAKS_IMAGE" -c '
+      if [ "$(git ls-files --stage -z | git hash-object --stdin)" != "$INDEX_ID" ]; then
+        echo "pre-commit: gitleaks in Docker cannot read the staged changes; commit blocked." >&2
+        exit 1
+      fi
+      exec gitleaks git --pre-commit --staged --redact --no-banner /repo'
 else
   echo "pre-commit: gitleaks not installed and Docker not running; secrets check skipped locally (CI still runs it)." >&2
 fi
