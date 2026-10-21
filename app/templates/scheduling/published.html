@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block main_class %}main--wide{% endblock %}
 {% block title %}Schedule for the week of {{ week_start|date:"j M" }}{% endblock %}
 {% block content %}
 <h1>Schedule <span class="subtle">week of {{ week_start|date:"D j M Y" }}</span></h1>
@@ -8,6 +9,9 @@
   <a href="?week={{ prev_week|date:'Y-m-d' }}">← Previous week</a>
   <a href="?week={{ next_week|date:'Y-m-d' }}">Next week →</a>
 </nav>
+{% if next_with_shifts %}
+<p class="mode-banner">No published shifts this week. <a href="?week={{ next_with_shifts|date:'Y-m-d' }}">Go to the next published week, starting {{ next_with_shifts|date:"D j M Y" }}</a></p>
+{% endif %}
 <div class="day-list">
 {% for d in days %}
   <section class="day-card{% if d.day == today %} day-card--today{% endif %}" aria-labelledby="day-{{ forloop.counter }}">
@@ -18,6 +22,7 @@
         <li class="public-shift{% if me and s.employee_id == me.pk %} public-shift--mine{% endif %}" style="--chip: {{ s.color }}">
           <span class="public-shift__time">{{ s.interval.label }}</span>
           <span class="public-shift__name">{% if me and s.employee_id == me.pk %}<strong>You</strong>{% else %}{{ s.name }}{% endif %}</span>
+          {% if s.role %}<span class="subtle">{{ s.role }}</span>{% endif %}
           {% if s.note %}<span class="subtle">{{ s.note }}</span>{% endif %}
         </li>
       {% endfor %}

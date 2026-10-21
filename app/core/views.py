@@ -49,7 +49,7 @@ class HomeView(OrgViewMixin, TemplateView):
             from app.availability.models import Availability
             from app.scheduling.published import my_upcoming
 
-            ctx["upcoming"] = my_upcoming(employee, timezone.localdate(), weeks=2)[:3]
+            ctx["upcoming"] = my_upcoming(employee, timezone.localdate())[:3]
 
             term = Term.current_for(org, timezone.localdate())
             if term is not None:
@@ -217,6 +217,11 @@ class ClosureCreateView(ClosureFormMixin, CreateView):
 class ClosureUpdateView(ClosureFormMixin, UpdateView):
     extra_context = {"title": "Edit closure"}
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["delete_url"] = reverse("closure_delete", args=[self.kwargs["location_pk"], self.object.pk])
+        return ctx
+
 
 class ClosureDeleteView(LocationChildMixin, DeleteView):
     permission = Perm.CONFIGURE
@@ -364,6 +369,11 @@ class MemberListView(OrgViewMixin, TemplateView):
             messages.error(request, "Unknown role.")
         elif member.user_id == request.user.pk and role != Role.ADMIN:
             messages.error(request, "You can't remove your own admin role. Ask another admin.")
+        elif (
+            Role.ADMIN in (role, member.role) and role != member.role and request.POST.get("confirm") != "yes"
+        ):
+            # Admin access covers every department's student records and wages: confirm it first.
+            return self.render_to_response(self.get_context_data(pending=member, pending_role=Role(role)))
         else:
             member.role = role
             member.save(update_fields=["role"])
@@ -437,6 +447,11 @@ class RetentionView(OrgViewMixin, TemplateView):
         form = RetentionPolicyForm(request.POST, instance=policy)
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
+        # New periods start a nightly purge that can't be undone, so show what tonight's run
+        # would remove and ask for a tick before saving (CLAUDE.md §2.3).
+        due = [d for d in retention.preview(org, policy=form.save(commit=False)) if d.count]
+        if due and request.POST.get("confirm_save") != "yes":
+            return self.render_to_response(self.get_context_data(form=form, pending_due=due))
         form.save()
         messages.success(
             request, "Retention periods saved. Nothing is purged until the nightly run or Purge now."

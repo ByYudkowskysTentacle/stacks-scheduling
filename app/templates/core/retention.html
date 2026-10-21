@@ -6,8 +6,16 @@
 <p class="help">How long Stacks keeps each kind of personal data (SPEC §11). Leave a period blank to keep that data. Expired data is purged every night by the worker. The audit log keeps its history of what was purged until the audit log's own period, if you set one. A purge can't be undone, so check the counts below first. Shifts, published schedules and hours history are never purged here; to remove one person's data, use their record's erase option.</p>
 <form method="post" class="stacked-form" novalidate>{% csrf_token %}
   {{ form.as_div }}
+  {% if pending_due %}
+  <div class="card card--problem" role="alert">
+    <h2>Check before saving</h2>
+    <p>With these periods, tonight's purge permanently removes:</p>
+    <ul>{% for d in pending_due %}<li>{{ d.label }}: <strong>{{ d.count }}</strong></li>{% endfor %}</ul>
+    <div><label><input type="checkbox" name="confirm_save" value="yes" required> I understand this data will be removed tonight and can't be recovered.</label></div>
+  </div>
+  {% endif %}
   <div class="form-actions">
-    <button type="submit" name="action" value="save" class="button button--primary">Save periods</button>
+    <button type="submit" name="action" value="save" class="button button--primary">{% if pending_due %}Save and purge tonight{% else %}Save periods{% endif %}</button>
     <button type="submit" name="action" value="suggest" class="button" formnovalidate>Use suggested periods</button>
   </div>
 </form>

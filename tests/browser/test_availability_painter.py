@@ -84,3 +84,34 @@ def test_phone_taps_start_then_end(browser, live_server, org, location, student_
     cell(pg, 3, 11 * 60 + 15).tap()
     assert pg.locator("input[name=unavailable_3]").input_value() == "10:00-11:30"
     context.close()
+
+
+def test_phone_scroll_gestures_never_paint(browser, live_server, org, location, student_user):
+    """A swipe that starts on the grid (pointer moves, or the browser cancels it to scroll) must
+    not count as a tap; only a real tap sets the start, and the status line says what's next."""
+    Term.objects.create(
+        organization=org, name="Spring 2027", start_date=date(2027, 1, 11), end_date=date(2027, 5, 7)
+    )
+    context = browser.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+    pg = context.new_page()
+    pg.goto(live_server.url + "/accounts/login/")
+    pg.fill("input[name=login]", student_user.email)
+    pg.fill("input[name=password]", PASSWORD)
+    pg.click("button[type=submit]")
+    pg.goto(live_server.url + "/availability/")
+    touch = {"pointerType": "touch", "pointerId": 7, "bubbles": True, "clientX": 100, "clientY": 300}
+    start, end = cell(pg, 3, 10 * 60), cell(pg, 3, 11 * 60 + 15)
+    # Two swipes in the same column: one cancelled by the browser, one that moves too far.
+    start.dispatch_event("pointerdown", touch)
+    start.dispatch_event("pointercancel", touch)
+    end.dispatch_event("pointerdown", touch)
+    end.dispatch_event("pointermove", {**touch, "clientY": 360})
+    end.dispatch_event("pointerup", {**touch, "clientY": 360})
+    assert pg.locator("input[name=unavailable_3]").input_value() == ""
+    assert pg.locator(".painter__status").inner_text() == ""
+    start.tap()
+    assert "Start: " in pg.locator(".painter__status").inner_text()
+    end.tap()
+    assert pg.locator("input[name=unavailable_3]").input_value() == "10:00-11:30"
+    assert "Painted " in pg.locator(".painter__status").inner_text()
+    context.close()

@@ -68,6 +68,8 @@ function clipOutside(ranges, lo, hi) {
   return out;
 }
 
+const TAP_SLOP = 10; // px a finger may move and still count as a tap
+
 function init() {
   const root = document.getElementById("availability-painter");
   const configEl = document.getElementById("painter-config");
@@ -84,6 +86,17 @@ function init() {
   let painting = false;
   let dirtyDay = null;
   let lastSlot = null;
+  let touch = null; // a touch that may become a tap
+  const status = root.querySelector(".painter__status");
+  const clock = (slot) => {
+    const m = cfg.start + slot * SLOT;
+    const h = Math.floor(m / 60) % 24;
+    const mm = m % 60 ? `:${String(m % 60).padStart(2, "0")}` : "";
+    return `${h % 12 || 12}${mm}${h < 12 ? "am" : "pm"}`;
+  };
+  function announce(text) {
+    if (status) status.textContent = text;
+  }
 
   function isOpen(wd, slot) {
     const m = cfg.start + slot * SLOT;
@@ -180,17 +193,34 @@ function init() {
       paint(wd, slot, slot);
       return;
     }
-    // Touch and pen: tap the start, then the end, so the page can still scroll.
+    // Touch and pen: act only on a real tap (finger lifted where it went down), never on
+    // the start of a scroll, so swiping through the grid can't paint anything.
+    touch = { id: e.pointerId, wd, slot, x: e.clientX, y: e.clientY };
+  });
+  table.addEventListener("pointermove", (e) => {
+    if (touch && e.pointerId === touch.id && Math.hypot(e.clientX - touch.x, e.clientY - touch.y) > TAP_SLOP) {
+      touch = null;
+    }
+  });
+  table.addEventListener("pointercancel", () => {
+    touch = null; // the browser took over to scroll
+  });
+  table.addEventListener("pointerup", (e) => {
+    if (!touch || e.pointerId !== touch.id) return;
+    const { wd, slot } = touch;
+    touch = null;
     if (anchor && anchor.wd === wd) {
       const from = anchor.slot;
       anchor = null;
       paint(wd, from, slot);
       writeDay(wd);
+      announce(`Painted ${cfg.names[wd]} ${clock(Math.min(from, slot))}–${clock(Math.max(from, slot) + 1)}. Tap a new start, or save below.`);
     } else {
       const previous = anchor;
       anchor = { wd, slot };
       if (previous) render(previous.wd);
       render(wd);
+      announce(`Start: ${cfg.names[wd]} ${clock(slot)}. Now tap where it ends on the same day.`);
     }
   });
   table.addEventListener("pointerover", (e) => {

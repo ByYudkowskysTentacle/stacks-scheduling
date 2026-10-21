@@ -99,6 +99,7 @@ def test_supervisor_sends_by_hand_with_confirmation(as_user, supervisor, term):
     page = client.get(url).content.decode()
     assert "Not entered or not confirmed (3)" in page and "no sign-in account yet" in page
     assert "Scheduled reminders are off" in page
+    assert "Send 2 reminders" in page and "the 2 of 3 people above" in page
     resp = client.post(reverse("availability_reminders"), {"term": term.pk}, follow=True)
     assert "Tick the confirmation box" in resp.content.decode()
     resp = client.post(reverse("availability_reminders"), {"term": term.pk, "confirm": "yes"}, follow=True)
@@ -163,3 +164,11 @@ def test_reminder_task_is_scheduled():
     crons = {p.task.name: p.cron for p in procrastinate_app.periodic_registry.periodic_tasks.values()}
     assert crons["availability.send_reminders"] == "5 14 * * *"
     assert crons["core.retention_purge"] == "17 3 * * *"
+
+
+def test_no_send_button_when_no_one_can_be_emailed(as_user, supervisor, org, term):
+    Employee.objects.filter(organization=org).exclude(full_name="No Account").update(
+        archived_at=timezone.now()
+    )
+    page = as_user(supervisor).get(reverse("availability_reminders") + f"?term={term.pk}").content.decode()
+    assert "there's no one to email" in page and "Send " not in page.split("No one above")[1]

@@ -7,6 +7,13 @@
   {% if prev_day >= period.start_date %}<a href="{% url 'period_day' period.pk prev_day|date:'Y-m-d' %}">← {{ prev_day|date:"D j M" }}</a>{% endif %}
   {% if next_day <= period.end_date %}<a href="{% url 'period_day' period.pk next_day|date:'Y-m-d' %}">{{ next_day|date:"D j M" }} →</a>{% endif %}
 </p>
+{% if rule_issues %}
+<div class="card card--notice">
+  <h2>Rules not met on this day</h2>
+  <ul>{% for i in rule_issues %}<li>{{ i.message }}</li>{% endfor %}</ul>
+  <p><a href="{% url 'period' period.pk %}#validation">See the full validation report</a></p>
+</div>
+{% endif %}
 {% if not rows %}<p>The library is closed all day.</p>{% else %}
 <table class="data-table coverage-table">
   <caption class="visually-hidden">Coverage by 15-minute slot</caption>
@@ -21,7 +28,7 @@
         <td>{{ r.target }}</td>
         <td>{{ r.count }}</td>
         <td>{{ r.names|join:", " }}</td>
-        <td>{% if r.state == "short" %}<strong>Short</strong>{% elif r.state == "over" %}Over{% else %}OK{% endif %}</td>
+        <td>{% if r.state == "short" %}<strong>Short</strong>{% elif r.state == "over" %}Over{% endif %}{% if r.missing %}{% if r.state == "short" or r.state == "over" %}; {% endif %}<strong>Missing: {{ r.missing|join:", " }}</strong>{% elif r.state != "short" and r.state != "over" %}OK{% endif %}</td>
       {% endif %}
     </tr>
   {% endfor %}

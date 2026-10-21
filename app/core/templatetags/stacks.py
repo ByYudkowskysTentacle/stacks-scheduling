@@ -37,3 +37,9 @@ def hours(minutes):
         return ""
     value = int(minutes) / 60
     return f"{value:g}"
+
+
+@register.filter
+def reachable_count(due):
+    """How many people in an availability-reminder list can actually be emailed."""
+    return sum(1 for d in due if d.can_remind)

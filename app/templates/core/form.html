@@ -7,6 +7,7 @@
   <div class="form-actions">
     <button type="submit" class="button button--primary">Save</button>
     <a href="{{ cancel_url|default:'/' }}" class="button">Cancel</a>
+    {% if delete_url %}<a href="{{ delete_url }}" class="button button--danger-outline">Remove</a>{% endif %}
   </div>
 </form>
 {% endblock %}

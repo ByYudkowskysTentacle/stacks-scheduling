@@ -21,7 +21,7 @@
 {% if open_shifts %}
 <ul class="shift-list">
   {% for s, asked in open_shifts %}
-  <li class="shift-card" style="--chip: {{ s.color }}"><strong>{{ s.day|date:"l j M" }}</strong> {{ s.interval.label }} <span class="subtle">{{ s.location }}</span>
+  <li class="shift-card" style="--chip: {{ s.color }}"><strong>{{ s.day|date:"l j M" }}</strong> {{ s.interval.label }} <span class="subtle">{% if s.role %}{{ s.role }}, {% endif %}{{ s.location }}</span>
     {% if asked %}<br><span class="badge">You asked for this</span>{% else %}
     <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ s.shift_id }}"><button type="submit" name="action" value="claim" class="button button--small">Ask for this shift</button></form>{% endif %}
   </li>
@@ -44,7 +44,7 @@
 {% if my_shifts %}
 <ul class="shift-list">
   {% for m, offered in my_shifts %}
-  <li class="shift-card" style="--chip: {{ m.shift.color }}"><strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}
+  <li class="shift-card" style="--chip: {{ m.shift.color }}"><strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}{% if m.shift.role %} <span class="subtle">{{ m.shift.role }}</span>{% endif %}
     {% if offered %}<br><span class="badge">Offered or in a swap</span>{% else %}
     <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="shift" value="{{ m.shift.shift_id }}"><button type="submit" name="action" value="offer" class="button button--small">Offer for cover</button></form>
     <a href="{% url 'shift_swap' m.shift.shift_id %}" class="button button--small">Swap it</a>{% endif %}

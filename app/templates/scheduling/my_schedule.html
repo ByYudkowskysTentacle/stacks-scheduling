@@ -2,12 +2,12 @@
 {% block title %}My schedule{% endblock %}
 {% block content %}
 <h1>My schedule</h1>
-<p class="help">Your published shifts for the next four weeks. Changes appear here once a supervisor publishes them. <a href="{% url 'published_schedule' %}">See everyone's schedule</a>.</p>
+<p class="help">Your upcoming published shifts. Changes appear here once a supervisor publishes them. <a href="{% url 'published_schedule' %}">See everyone's schedule</a>.</p>
 <p class="no-print"><a href="{% url 'calendar_feed_manage' %}">Add your shifts to your phone's calendar</a> · <a href="{% url 'my_time_off' %}">Request time off</a> · <a href="{% url 'shift_exchange' %}">Offer a shift or pick one up</a></p>
 <ul class="shift-list">
   {% for m in shifts %}
     <li class="shift-card" style="--chip: {{ m.shift.color }}">
-      <strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}
+      <strong>{{ m.shift.day|date:"l j M" }}</strong> {{ m.shift.interval.label }}{% if m.shift.role %} <span class="subtle">{{ m.shift.role }}</span>{% endif %}
       {% if m.with_me %}<br><span class="subtle">With {{ m.with_me|join:", " }}</span>{% endif %}
       {% if m.shift.note %}<br><span class="subtle">{{ m.shift.note }}</span>{% endif %}
     </li>

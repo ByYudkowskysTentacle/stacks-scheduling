@@ -433,6 +433,24 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
     - The published week shows all the departments a planner works with (D95), so for a supervisor of several departments it can show more than the period they came from.
     - The URLs stay the same (`/schedule/…` and `/published/`), so links in emails, bookmarks and the "My schedule" page keep working.
 
+- **D112 (design audit, 2026-10-21; refines D6 and D75).** Pay roles in the published views, and other safety fixes from the audit (`docs/design-audit-2026-10.md`, Part 1).
+  *Built:*
+  - **Pay role shown as text, not colour alone (WCAG 1.4.1).** On your own shifts (Home, My schedule, the published week, Open shifts) and on open shifts, the pay role is named next to its colour. The supervisor grid has a printable key of the pay roles in use, and each shift chip's screen-reader text includes its role.
+  - **Co-workers' pay roles stay private.** A pay role can reveal work-study status, which is a student record (CLAUDE.md §2.1). So in the published week a co-worker's shift gets a neutral bar, with no role colour or name. *Interpretation (conservative, please confirm):* D6 listed "pay-role colour" as visible to co-workers. Showing it as text would make that disclosure explicit, and keeping it as colour alone fails WCAG 1.4.1, so co-workers' roles are now hidden instead.
+  - **No fixed look-ahead for your shifts.** Home and My schedule list your published shifts as far ahead as anything is published (Home shows the next three), instead of 2 or 4 weeks. An empty published week links to the next week that has shifts.
+  - **Coverage views count skill and duty rules.** The day page lists the day's unmet skill (tag) and duty rules and marks each affected slot "Missing: …" instead of "OK". The grid's coverage row adds "N skill or duty rules not met", linked to the validation report (CLAUDE.md §2.4).
+  - **Confirmations added (CLAUDE.md §2.3).**
+    - Removing a cap, override, tag rule, rotation, duty or target needs a visible "Yes, remove" tick (labelled with the item for screen readers), and returns to the same section.
+    - Saving retention periods that would purge anything tonight shows the counts first and needs a tick.
+    - Granting or removing Admin needs a confirmation.
+    - Closures can be removed from their edit page.
+  - **Phone painter.** Availability painting on touch acts only on real taps (finger lifted within 10px, not cancelled by scrolling), and a status line says what the next tap does. On phones the page scrolls instead of a box inside it.
+  - **Reminders.** The send button says how many people will actually get an email, and it's replaced by a note when no one listed has a sign-in account.
+- **D113 (maintainer decision, 2026-10-21; revises CLAUDE.md §2.7 and ADR 0001).** Stacks targets **WCAG 2.2 AA**, up from 2.1 AA. In practice:
+  - **Targets:** at least 24px (SC 2.5.8); checkboxes and radios are 24px.
+  - **Focus indicator:** two-tone (a yellow ring next to the element and a dark ring outside it), so it has 3:1 contrast on white pages and on the blue header (SC 2.4.11, 1.4.11). The old yellow-only ring measured 1.64:1 on white.
+  - **No horizontal page scrolling on a 390px phone** (SC 1.4.10). Visually hidden text inside a scrolling table no longer widens the page, and a browser test checks the period grid and people list.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

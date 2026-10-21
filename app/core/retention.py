@@ -134,10 +134,11 @@ def policy_for(org: Organization) -> RetentionPolicy:
     return RetentionPolicy.objects.get_or_create(organization=org)[0]
 
 
-def preview(org: Organization, today: date | None = None) -> list[Due]:
-    """What a purge would remove today, without removing anything."""
+def preview(org: Organization, today: date | None = None, policy: RetentionPolicy | None = None) -> list[Due]:
+    """What a purge would remove today, without removing anything. Pass an unsaved `policy` to
+    see what new periods would remove before saving them."""
     today = today or timezone.localdate()
-    policy = policy_for(org)
+    policy = policy or policy_for(org)
     out = []
     for rule in RULES:
         days = getattr(policy, rule.field)

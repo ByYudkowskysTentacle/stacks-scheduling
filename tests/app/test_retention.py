@@ -138,7 +138,15 @@ def test_only_admins_manage_retention(as_user, admin_user, supervisor, org, data
     assert as_user(supervisor).get(url).status_code == 403
     client = as_user(admin_user)
     assert client.get(url).status_code == 200
-    client.post(url, {"action": "save", "notification_days": "180", "availability_days": ""})
+    resp = client.post(url, {"action": "save", "notification_days": "180", "availability_days": ""})
+    page = resp.content.decode()  # a period that would purge something asks first (CLAUDE.md §2.3)
+    assert (
+        "tonight's purge permanently removes" in page and "In-app notifications: <strong>1</strong>" in page
+    )
+    assert retention.policy_for(org).notification_days is None
+    client.post(
+        url, {"action": "save", "notification_days": "180", "availability_days": "", "confirm_save": "yes"}
+    )
     assert retention.policy_for(org).notification_days == 180
     resp = client.post(url, {"action": "purge"}, follow=True)
     assert "Tick the confirmation box" in resp.content.decode() and Notification.objects.exists()
@@ -201,3 +209,8 @@ def test_recent_audit_entries_stay(org, data):
     _age_audit(30)
     assert retention.purge(org, TODAY).get("Audit log") == 0
     assert apps.get_model("availability", "TimeOffEvent").objects.filter(organization_id=org.pk).exists()
+
+
+def test_periods_that_purge_nothing_save_without_a_second_step(as_user, admin_user, org, data):
+    resp = as_user(admin_user).post(reverse("retention"), {"action": "save", "notification_days": "99999"})
+    assert resp.status_code == 302 and retention.policy_for(org).notification_days == 99999

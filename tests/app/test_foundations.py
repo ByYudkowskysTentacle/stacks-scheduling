@@ -366,3 +366,33 @@ def test_other_supervisors_see_another_org_only_with_membership(as_user, org, ot
     sup = make_user(other_org, "other@example.edu", Role.SUPERVISOR)
     Employee.objects.create(organization=org, full_name="Avery Example", preferred_name="Avery")
     assert b"Avery" not in as_user(sup).get(reverse("employees")).content
+
+
+def test_granting_or_removing_admin_needs_a_confirmation(as_user, org, admin_user, supervisor):
+    """Admin access covers every department's student records and wages (CLAUDE.md §2.3)."""
+    client = as_user(admin_user)
+    sup = Membership.objects.get(user=supervisor)
+    page = client.post(reverse("members"), {"membership": sup.pk, "role": Role.ADMIN}).content.decode()
+    sup.refresh_from_db()
+    assert sup.role == Role.SUPERVISOR and "Confirm the role change" in page
+    client.post(reverse("members"), {"membership": sup.pk, "role": Role.ADMIN, "confirm": "yes"})
+    sup.refresh_from_db()
+    assert sup.role == Role.ADMIN
+    client.post(reverse("members"), {"membership": sup.pk, "role": Role.SUPERVISOR})
+    sup.refresh_from_db()
+    assert sup.role == Role.ADMIN  # demotion asks too
+    own = Membership.objects.get(user=admin_user)
+    page = client.get(reverse("members")).content.decode()
+    assert f'id="role-{own.pk}"' not in page and "That's you" in page
+
+
+def test_closure_edit_page_offers_remove(as_user, org, location, supervisor):
+    from datetime import date
+
+    from app.core.models import Closure
+
+    closure = Closure.objects.create(
+        organization=org, location=location, kind=Closure.DATED, on_date=date(2027, 1, 18), reason="Holiday"
+    )
+    page = as_user(supervisor).get(reverse("closure_edit", args=[location.pk, closure.pk])).content.decode()
+    assert reverse("closure_delete", args=[location.pk, closure.pk]) in page
