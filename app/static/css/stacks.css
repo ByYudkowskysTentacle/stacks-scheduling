@@ -192,6 +192,9 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .severity--warning { color: var(--warn); }
 .severity--info { color: var(--ink-soft); }
 .status-line { margin: 0 0 0.5rem; }
+/* Draft | Published switch on the Schedule tab (D111): the banner names the mode in words. */
+.view-switch { margin-bottom: 0.5rem; }
+.mode-banner { margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-left: 4px solid var(--accent); background: var(--paper-alt); }
 .schedule-grid { border-collapse: collapse; width: 100%; min-width: 56rem; font-size: 0.85rem; }
 .schedule-grid th, .schedule-grid td { border: 1px solid var(--line); padding: 0.25rem; vertical-align: top; text-align: left; }
 .schedule-grid thead th { background: var(--paper-alt); white-space: nowrap; }

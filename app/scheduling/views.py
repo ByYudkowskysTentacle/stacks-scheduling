@@ -185,6 +185,8 @@ class PeriodView(PeriodMixin, TemplateView):
                 {"day": d, "gap": gaps, "over": over, "scheduled": people_hours, "open": open_ivs}
             )
         ctx.update(
+            draft_url=reverse("period", args=[period.pk]) + (f"?week={week}" if week else ""),
+            published_url=f"{reverse('published_schedule')}?week={days[0].isoformat()}",
             period=period,
             week=week,
             weeks=range(period.weeks),
@@ -763,7 +765,24 @@ class PublishedScheduleView(OrgViewMixin, TemplateView):
             today=today,
             me=self.request.access.employee,
         )
+        if self.request.access.has(Perm.VIEW_DRAFTS):
+            ctx["draft_url"] = self.draft_url(start)
+            ctx["published_url"] = f"{reverse('published_schedule')}?week={start.isoformat()}"
         return ctx
+
+    def draft_url(self, week_start: date) -> str:
+        """The Draft side of the switch (D111): the working copy of the same week when exactly one
+        of my periods covers it, otherwise the list of schedules to choose from."""
+        periods = [
+            p
+            for p in self.org_queryset(SchedulePeriod).filter(start_date__lte=week_start)
+            if p.contains(week_start)
+        ]
+        if len(periods) != 1:
+            return reverse("schedule_index")
+        period = periods[0]
+        week = (week_start - period.start_date).days // 7
+        return reverse("period", args=[period.pk]) + (f"?week={week}" if week else "")
 
 
 class VersionExportView(PeriodMixin, View):

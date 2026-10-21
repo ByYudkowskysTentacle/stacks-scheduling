@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""One Schedule tab with a Draft | Published switch for planners (D111). Students keep seeing the
+published week only, and never a draft (CLAUDE.md §2.2)."""
+
+from __future__ import annotations
+
+import re
+from datetime import date
+
+import pytest
+from django.urls import reverse
+
+from app.scheduling import services
+from app.scheduling.models import SchedulePeriod, Shift
+
+pytestmark = pytest.mark.django_db
+START = date(2027, 1, 16)
+WEEK_2 = date(2027, 1, 23)
+
+
+@pytest.fixture
+def period(org, location, supervisor, employee, pay_role):
+    period = SchedulePeriod.objects.create(organization=org, location=location, start_date=START, weeks=2)
+    Shift.objects.create(
+        organization=org,
+        location=location,
+        period=period,
+        employee=employee,
+        date=date(2027, 1, 18),
+        start_min=540,
+        end_min=720,
+        pay_role=pay_role,
+    )
+    services.publish(period, supervisor)
+    return period
+
+
+def main_nav(html: str) -> list[tuple[str, str, bool]]:
+    """(label, href, is current) for each link in the main navigation."""
+    nav = re.search(r'<nav aria-label="Main".*?</nav>', html, re.S)
+    assert nav, "main navigation missing"
+    return [
+        (label.strip(), href, "aria-current" in attrs)
+        for href, attrs, label in re.findall(r'<a href="([^"]+)"([^>]*)>([^<]+)</a>', nav.group(0))
+    ]
+
+
+def switch(html: str) -> dict[str, tuple[str, bool]] | None:
+    """{label: (href, is current)} for the Draft | Published switch, or None when absent."""
+    nav = re.search(r'<nav class="sub-nav view-switch[^"]*" aria-label="Schedule view">.*?</nav>', html, re.S)
+    if not nav:
+        return None
+    links = re.findall(r'<a href="([^"]+)"([^>]*)>([^<]+)</a>', nav.group(0))
+    return {label: (href.replace("&amp;", "&"), "aria-current" in attrs) for href, attrs, label in links}
+
+
+def page(client, name, *args, query=""):
+    resp = client.get(reverse(name, args=args) + query)
+    assert resp.status_code == 200
+    return resp.content.decode()
+
+
+def test_students_get_one_schedule_tab_that_opens_the_published_week(as_user, student_user, period):
+    html = page(as_user(student_user), "published_schedule", query="?week=2027-01-18")
+    nav = main_nav(html)
+    labels = [label for label, _, _ in nav]
+    assert labels.count("Schedule") == 1 and "Published" not in labels
+    assert ("Schedule", reverse("published_schedule"), True) in nav
+    assert switch(html) is None and "mode-banner" not in html
+    assert "Changes appear here once a supervisor publishes them." in html
+
+
+def test_students_still_cannot_open_any_draft_view(as_user, student_user, period):
+    client = as_user(student_user)
+    for url in (reverse("schedule_index"), reverse("period", args=[period.pk])):
+        assert client.get(url).status_code == 403
+
+
+def test_planners_get_one_schedule_tab_that_opens_the_working_copy(as_user, supervisor, period):
+    html = page(as_user(supervisor), "schedule_index")
+    nav = main_nav(html)
+    labels = [label for label, _, _ in nav]
+    assert labels.count("Schedule") == 1 and "Published" not in labels
+    assert ("Schedule", reverse("schedule_index"), True) in nav
+    assert switch(html) == {
+        "Draft": (reverse("schedule_index"), True),
+        "Published": (reverse("published_schedule"), False),
+    }
+    assert "<strong>Draft:</strong>" in html
+
+
+def test_period_week_switches_to_the_same_published_week(as_user, supervisor, period):
+    html = page(as_user(supervisor), "period", period.pk, query="?week=1")
+    assert switch(html) == {
+        "Draft": (reverse("period", args=[period.pk]) + "?week=1", True),
+        "Published": (reverse("published_schedule") + "?week=2027-01-23", False),
+    }
+    assert "Staff don't see changes here until they're published." in html
+
+
+def test_published_week_switches_back_to_the_period_that_covers_it(as_user, supervisor, period):
+    html = page(as_user(supervisor), "published_schedule", query=f"?week={WEEK_2.isoformat()}")
+    assert switch(html) == {
+        "Draft": (reverse("period", args=[period.pk]) + "?week=1", False),
+        "Published": (reverse("published_schedule") + "?week=2027-01-23", True),
+    }
+    assert "<strong>Published:</strong> what staff see." in html
+    assert ("Schedule", reverse("schedule_index"), True) in main_nav(html)  # still the Schedule tab
+
+
+def test_draft_side_falls_back_to_the_list_when_no_single_period_covers_the_week(
+    as_user, admin_user, org, location, period
+):
+    client = as_user(admin_user)  # sees every department's periods
+    html = page(client, "published_schedule", query="?week=2027-03-06")  # no period that week
+    assert switch(html)["Draft"] == (reverse("schedule_index"), False)
+    from app.core.models import Department
+
+    other = Department.objects.create(organization=org, name="Special Collections")
+    SchedulePeriod.objects.create(
+        organization=org, location=location, department=other, start_date=START, weeks=2
+    )
+    html = page(client, "published_schedule", query="?week=2027-01-16")  # two periods cover it
+    assert switch(html)["Draft"] == (reverse("schedule_index"), False)
+
+
+def test_shift_leads_get_the_switch_too(as_user, lead_user, period):
+    html = page(as_user(lead_user), "published_schedule", query="?week=2027-01-16")
+    assert switch(html) is not None
+    assert [label for label, _, _ in main_nav(html)].count("Schedule") == 1
