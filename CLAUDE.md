@@ -94,9 +94,11 @@ python tools/check_sensitive.py --all   # same personal-data check CI runs
 cp .env.example .env                     # then set POSTGRES_PASSWORD and DJANGO_SECRET_KEY
 docker compose -f compose.yaml -f compose.dev.yaml up --build
 docker compose -f compose.yaml -f compose.dev.yaml exec web python manage.py seed_demo   # synthetic demo data
+docker compose -f compose.yaml -f compose.dev.yaml run --rm --no-deps -T web pytest -q -p no:cacheprovider -m "not slow"   # fast suite; the dev image has Chromium for tests/browser
 
 # without Docker for the app (needs Postgres; settings come from the environment)
 uv sync
+uv run playwright install --with-deps chromium   # Chromium for tests/browser, as CI does
 DJANGO_DEBUG=1 uv run python manage.py migrate
 DJANGO_DEBUG=1 uv run python manage.py seed_demo          # supervisor@example.edu / demo-password-123
 DJANGO_DEBUG=1 uv run python manage.py seed_demo --reset --generate 30   # plus a generated, published period
@@ -161,7 +163,7 @@ tests/adapters/       parser and adapter contract tests
 tests/app/            view, permission and integration tests against PostgreSQL
 tests/engine/         engine unit and property tests, and the SPEC §12 acceptance scenarios
                       (marked slow: `pytest -m slow`, about five minutes on 4 CPUs)
-tests/browser/        Playwright tests: paint grid, print layout, scrolling tables (skipped without Chromium;
-                      set CHROMIUM_PATH to use a local binary)
+tests/browser/        Playwright tests: paint grid, print layout, scrolling tables (the dev image has Chromium;
+                      elsewhere they skip without it: set CHROMIUM_PATH to use a local binary)
 docs/formats/         the documented import formats (D13)
 ```

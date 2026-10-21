@@ -21,6 +21,8 @@ EXPOSE 8000
 CMD ["gunicorn", "app.config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logformat", "%(m)s %(U)s %(s)s %(L)ss"]
 
 FROM base AS dev
+# Browsers outside $HOME so the app user can launch what root installed.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 # git for tools/check_sensitive.py; libatomic1 for the Node that pyright downloads.
 # safe.directory: the bind-mounted checkout is often owned by another uid than app.
 RUN apt-get update \
@@ -29,6 +31,9 @@ RUN apt-get update \
     && git config --system --add safe.directory /srv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
+# Headless Chromium for tests/browser, the build matching the locked Playwright (as in CI).
+RUN playwright install --with-deps --only-shell chromium \
+    && rm -rf /var/lib/apt/lists/*
 COPY . .
 USER app
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
