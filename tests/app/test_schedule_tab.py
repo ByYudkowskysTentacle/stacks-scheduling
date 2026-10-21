@@ -128,3 +128,13 @@ def test_shift_leads_get_the_switch_too(as_user, lead_user, period):
     html = page(as_user(lead_user), "published_schedule", query="?week=2027-01-16")
     assert switch(html) is not None
     assert [label for label, _, _ in main_nav(html)].count("Schedule") == 1
+
+
+def test_switch_pages_share_one_width_so_the_switch_does_not_jump(as_user, supervisor, period):
+    client = as_user(supervisor)
+    for html in (
+        page(client, "schedule_index"),
+        page(client, "period", period.pk),
+        page(client, "published_schedule", query="?week=2027-01-16"),
+    ):
+        assert re.search(r'<main[^>]*class="[^"]*main--wide', html)

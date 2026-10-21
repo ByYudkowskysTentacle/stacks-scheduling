@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block main_class %}main--wide{% endblock %}
 {% block title %}Schedule for the week of {{ week_start|date:"j M" }}{% endblock %}
 {% block content %}
 <h1>Schedule <span class="subtle">week of {{ week_start|date:"D j M Y" }}</span></h1>
