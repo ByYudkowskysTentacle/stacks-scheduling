@@ -123,6 +123,12 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .button--danger-outline { border-color: var(--danger); color: var(--danger); }
 .button--small { padding: 0.25rem 0.6rem; min-height: 36px; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+/* Grouped actions (audit 2.6): publish, edit and view, with a divider between groups. */
+.action-bar { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; margin: var(--sp-4) 0; }
+.action-group { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.action-group + .action-group { padding-left: var(--sp-4); border-left: 1px solid var(--line); }
+.up-to-date { font-weight: 600; color: var(--ok); }
+.up-to-date::before { content: "✓ "; }
 
 .messages { margin-bottom: 1rem; }
 .message { padding: 0.6rem 0.8rem; border-left: 5px solid var(--accent); background: var(--paper-alt); margin: 0 0 0.5rem; }
@@ -301,6 +307,13 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .schedule-grid { border-collapse: collapse; width: 100%; min-width: 56rem; font-size: var(--fs-sm); }
 .schedule-grid th, .schedule-grid td { border: 1px solid var(--line); padding: 0.25rem; vertical-align: top; text-align: left; }
 .schedule-grid thead th { background: var(--paper-alt); white-space: nowrap; }
+/* Day headers and names stay in view while the grid scrolls (audit 2.5). On wide screens the grid
+   scrolls inside a viewport-high box; on phones only sideways, so the page still scrolls. */
+@media (min-width: 48rem) { .grid-scroll--sticky { max-height: calc(100vh - 5rem); overflow: auto; } }
+.schedule-grid thead th { position: sticky; top: 0; z-index: 2; }
+.schedule-grid tbody th[scope="row"], .schedule-grid tfoot th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+.schedule-grid thead th:first-child { left: 0; z-index: 3; }
+.schedule-grid tfoot th[scope="row"] { background: var(--paper-alt); }
 .schedule-grid__person { min-width: 9rem; }
 .schedule-grid tfoot th, .schedule-grid tfoot td { background: var(--paper-alt); font-size: var(--fs-xs); }
 .open-row th { font-style: italic; }
@@ -343,3 +356,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .public-shift--mine { background: var(--paper-alt); font-weight: 600; }
 .shift-card { border-left-color: var(--chip, var(--accent)); }
 .print-grid caption { text-align: left; font-weight: 700; padding: 0.5rem 0; }
+
+/* "Who could take it?": the action sits with the name, so it's on screen on a phone (audit 2.9). */
+.taker__action { margin-top: var(--sp-1); }
+.disclosure > summary { cursor: pointer; font-weight: 600; min-height: 2.75rem; display: flex; align-items: center; }

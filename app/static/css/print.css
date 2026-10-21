@@ -29,4 +29,14 @@ a { color: #000; text-decoration: none; }
 .schedule-grid th, .schedule-grid td { border: 1px solid #555; padding: 1.5pt; overflow-wrap: anywhere; }
 .schedule-grid thead { display: table-header-group; }
 .chip { white-space: normal; font-size: 7pt; border-color: #000; }
-.add-link, .validation details:not([open]) { display: none !important; }
+.add-link { display: none !important; }
+
+/* The grid prints in full, with its week named and a wider name column (audit 2.12). */
+.grid-scroll--sticky { max-height: none !important; }
+.schedule-grid th { position: static !important; }
+.schedule-grid > caption.visually-hidden {
+  position: static !important; width: auto !important; height: auto !important; overflow: visible !important;
+  clip: auto !important; white-space: normal !important; text-align: left; font-weight: 700; padding-bottom: 4pt;
+}
+.schedule-grid .col-person { width: 14%; }
+.schedule-grid .col-hours { width: 6%; }

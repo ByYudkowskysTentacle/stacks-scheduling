@@ -2,6 +2,7 @@
 {% load stacks %}
 {% block title %}Schedule {{ period }}{% endblock %}
 {% block main_class %}main--wide{% endblock %}
+{% block messages %}{% endblock messages %}{# shown inside the validation card, where saving lands (audit 2.7) #}
 {% block content %}
 <p class="no-print"><a href="{% url 'schedule_index' %}">← Schedules</a></p>
 <h1>Schedule <span class="subtle">{{ period }}{% if period.department %}, {{ period.department }}{% endif %}</span></h1>
@@ -10,18 +11,28 @@
   {% if latest %}Published version {{ latest.number }} on {{ latest.published_at|date:"j M Y H:i" }}.{% else %}Not published yet.{% endif %}
   {% if pending %}<strong>Draft changes affect {{ pending|length }} employee{{ pending|length|pluralize }}.</strong> Nobody is notified until you publish.{% else %}No unpublished changes.{% endif %}
 </p>
-<div class="form-actions no-print">
-  {% if Perm.PUBLISH in access.perms %}<a class="button button--primary" href="{% url 'publish' period.pk %}">Review and publish</a>{% endif %}
-  {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'solve_start' period.pk %}">Generate or rebalance</a>
-  <a class="button" href="{% url 'targeted_move' period.pk %}">Move hours</a>{% endif %}
-  {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}<a class="button" href="{% url 'shift_add' period.pk %}">Add a shift</a>{% endif %}
-  <a class="button" href="{% url 'versions' period.pk %}">Versions</a>
-  {% if Perm.VIEW_HOURS in access.perms %}<a class="button" href="{% url 'reports' period.pk %}">Hours and coverage reports</a>{% endif %}
-  {% if latest and pending and Perm.EDIT_SCHEDULE in access.perms %}<a class="button button--danger-outline" href="{% url 'discard_drafts' period.pk %}">Discard drafts</a>{% endif %}
-  <button type="button" class="button" onclick="window.print()">Print</button>
+<div class="action-bar no-print">
+  {% if Perm.PUBLISH in access.perms or latest and pending and Perm.EDIT_SCHEDULE in access.perms %}
+  <div class="action-group" role="group" aria-label="Publish">
+    {% if Perm.PUBLISH in access.perms %}{% if pending or not latest %}<a class="button button--primary" href="{% url 'publish' period.pk %}">Review and publish</a>{% else %}<span class="up-to-date">Published version is up to date</span>{% endif %}{% endif %}
+    {% if latest and pending and Perm.EDIT_SCHEDULE in access.perms %}<a class="button button--danger-outline" href="{% url 'discard_drafts' period.pk %}">Discard drafts</a>{% endif %}
+  </div>
+  {% endif %}
+  {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}
+  <div class="action-group" role="group" aria-label="Edit">
+    {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="button" href="{% url 'solve_start' period.pk %}">Generate or rebalance</a>
+    <a class="button" href="{% url 'targeted_move' period.pk %}">Move hours</a>{% endif %}
+    <a class="button" href="{% url 'shift_add' period.pk %}">Add a shift</a>
+  </div>
+  {% endif %}
+  <div class="action-group" role="group" aria-label="View">
+    <a class="button" href="{% url 'versions' period.pk %}">Versions</a>
+    {% if Perm.VIEW_HOURS in access.perms %}<a class="button" href="{% url 'reports' period.pk %}">Reports</a>{% endif %}
+    <button type="button" class="button" onclick="window.print()">Print</button>
+  </div>
 </div>
 
-{% include "scheduling/_report.html" %}
+{% include "scheduling/_report.html" with show_messages=True %}
 
 {% if weeks|length > 1 %}
 <nav class="sub-nav no-print" aria-label="Weeks">
@@ -38,9 +49,10 @@
   {% for r in pay_roles %}<li><span class="legend__key" style="background: {{ r.color }}" aria-hidden="true"></span> {{ r.name }}</li>{% endfor %}
 </ul>{% endif %}
 
-<div class="grid-scroll">
+<div class="grid-scroll grid-scroll--sticky">
 <table class="schedule-grid">
-  <caption class="visually-hidden">Shifts by person, week {{ week|add:1 }}</caption>
+  <caption class="visually-hidden">Week {{ week|add:1 }}: {{ days.0|date:"D j M" }} to {{ days|last|date:"D j M Y" }}</caption>
+  <colgroup><col class="col-person">{% for d in days %}<col>{% endfor %}{% if Perm.VIEW_HOURS in access.perms %}<col class="col-hours"><col class="col-hours">{% endif %}</colgroup>
   <thead>
     <tr>
       <th scope="col">Person</th>
@@ -54,7 +66,7 @@
       <th scope="row" class="schedule-grid__person">{{ r.employee.display_name }}
         {% if r.status == "not_entered" %}<span class="badge badge--not_entered">No availability</span>{% endif %}
         {% for t in r.tags %}<span class="tag">{{ t }}</span>{% endfor %}
-        {% if Perm.EDIT_SCHEDULE in access.perms %}<a class="small-link no-print" href="{% url 'raise_hours' period.pk r.employee.pk %}">Raise hours<span class="visually-hidden"> for {{ r.employee.display_name }}</span></a>{% endif %}
+        {% if Perm.EDIT_SCHEDULE in access.perms and r.employee.in_scheduling_pool %}{% with m=r.week_minutes.0 cap=r.week_minutes.1 %}{% if not cap or m < cap %}<a class="small-link no-print" href="{% url 'raise_hours' period.pk r.employee.pk %}">Raise hours<span class="visually-hidden"> for {{ r.employee.display_name }}</span></a>{% endif %}{% endwith %}{% endif %}
       </th>
       {% for cell in r.cells %}
         <td>

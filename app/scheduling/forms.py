@@ -75,7 +75,7 @@ class PeriodForm(forms.ModelForm):
 
 
 class ShiftForm(forms.ModelForm):
-    start_min = MinuteField(label="Start", help_text="For example 9:00 or 1:30pm.")
+    start_min = MinuteField(label="Start", help_text="For example 9am or 1:30pm.")
     end_min = MinuteField(label="End")
 
     class Meta:

@@ -158,3 +158,30 @@ def test_day_page_and_grid_footer_report_unmet_skill_rules(as_user, supervisor, 
 def test_day_page_says_ok_when_rules_are_met(as_user, supervisor, period):
     day = page(as_user(supervisor), "period_day", period.pk, "2027-01-18")
     assert "Rules not met on this day" not in day and "Missing: " not in day
+
+
+def test_saving_a_shift_reports_what_it_changed_inside_the_validation_card(as_user, supervisor, period):
+    client = as_user(supervisor)
+    page(client, "period", period.pk)  # remembers the current issue counts
+    shift = period.shifts.live().first()
+    resp = client.post(
+        reverse("shift_edit", args=[period.pk, shift.pk]),
+        {
+            "employee": shift.employee_id,
+            "date": "2027-01-18",
+            "start_min": "9am",
+            "end_min": "12pm",
+            "pay_role": shift.pay_role_id,
+        },
+        follow=True,
+    )
+    html = resp.content.decode()
+    card = html.split('id="validation"')[1].split("</section>")[0]
+    assert "Validation:" in card and re.search(r"\((no change|[+−]\d)", card)
+
+
+def test_raise_hours_only_where_it_can_work(as_user, supervisor, period, employee):
+    employee.in_scheduling_pool = False
+    employee.save()
+    html = page(as_user(supervisor), "period", period.pk)
+    assert "Raise hours" not in html

@@ -43,3 +43,12 @@ def hours(minutes):
 def reachable_count(due):
     """How many people in an availability-reminder list can actually be emailed."""
     return sum(1 for d in due if d.can_remind)
+
+
+@register.filter
+def without_prefix(text, prefix):
+    """ "Umi Tue 19 Jan: 8h in a day" -> "Tue 19 Jan: 8h in a day" in a row already headed "Umi".
+    A sentence with the name as its subject ("Umi is unavailable…") is left whole."""
+    text, prefix = str(text), f"{prefix} "
+    rest = text[len(prefix) :] if text.startswith(prefix) else ""
+    return rest if rest and not rest[0].islower() else text
