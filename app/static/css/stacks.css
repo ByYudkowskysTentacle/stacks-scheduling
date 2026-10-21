@@ -380,3 +380,4 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .day-card--empty { padding: var(--sp-2) var(--sp-3); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-3); }
 .day-card--empty h2 { margin: 0; font-size: var(--fs-base); }
 .day-card--empty p { margin: 0; }
+.legend .chip { display: inline-block; margin: 0 var(--sp-1) 0 0; vertical-align: middle; }
