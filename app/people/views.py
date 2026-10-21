@@ -73,6 +73,33 @@ class EmployeeDetailView(OrgObjectMixin, DetailView):
             .prefetch_related("pay_roles__pay_role", "employee_tags__tag")
         )
 
+    def get_context_data(self, **kwargs):
+        """The rules that shape this person's hours, gathered from Scheduling rules, so "why do
+        they get so few hours?" is answered on their record (audit 2.22)."""
+        from django.db.models import Q
+        from django.utils import timezone
+
+        from app.availability.models import Availability
+        from app.core.models import Term
+        from app.scheduling.models import DutyAssignment, HourCapRule, HourTargetRule, RotationAssignment
+
+        ctx = super().get_context_data(**kwargs)
+        e = self.object
+        org = self.request.organization
+        tag_ids = [et.tag_id for et in e.employee_tags.all()]
+        term = Term.current_for(org, timezone.localdate())
+        availability = Availability.objects.filter(employee=e, term=term).first() if term else None
+        ctx.update(
+            term=term,
+            availability_status=availability.status if availability else "not_entered",
+            availability_label=availability.get_status_display() if availability else "Not entered",
+            caps=HourCapRule.objects.filter(organization=org).filter(Q(employee=e) | Q(tag_id__in=tag_ids)),
+            duties=DutyAssignment.objects.filter(organization=org, employee=e),
+            targets=HourTargetRule.objects.filter(organization=org, employee=e),
+            rotation=RotationAssignment.objects.filter(organization=org, employee=e).first(),
+        )
+        return ctx
+
 
 class EmployeeEditMixin(OrgObjectMixin):
     permission = Perm.MANAGE_PEOPLE

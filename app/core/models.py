@@ -190,7 +190,7 @@ class Term(models.Model):
     availability_reminders = models.BooleanField(
         "Email availability reminders",
         default=False,
-        help_text="Off unless you turn it on (SPEC §5.2). Emails people who haven't entered or confirmed "
+        help_text="Off unless you turn it on. Emails people who haven't entered or confirmed "
         "their availability, a few days before the deadline and on the day.",
     )
     reminder_days = models.JSONField(
@@ -309,7 +309,7 @@ class RetentionPolicy(models.Model):
     They keep the audit history of what they remove; the audit log has its own period (D109)."""
 
     organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="retention")
-    availability_days = _days("Term availability", "Days after the term ends. SPEC example: 365.")
+    availability_days = _days("Term availability", "Days after the term ends, for example 365.")
     time_off_days = _days("Time-off requests", "Days after the time off ends.")
     import_days = _days("Import data", "Days after an import: the parsed rows, preview and undo data.")
     notification_days = _days("In-app notifications", "Days after a notification was sent.")

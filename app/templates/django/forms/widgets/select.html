@@ -1,0 +1,7 @@
+{% comment %}A select whose empty choice says "Choose…" when a value is required and "None" when it
+isn't, instead of Django's "---------" (audit 2.20).{% endcomment %}<select name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>{% with required=widget.attrs.required %}{% for group_name, group_choices, group_index in widget.optgroups %}{% if group_name %}
+  <optgroup label="{{ group_name }}">{% endif %}{% for option in group_choices %}{% if option.label == "---------" %}
+  <option value="{{ option.value|stringformat:'s' }}"{% include "django/forms/widgets/attrs.html" with widget=option %}>{% if required %}Choose…{% else %}None{% endif %}</option>{% else %}
+  {% include option.template_name with widget=option %}{% endif %}{% endfor %}{% if group_name %}
+  </optgroup>{% endif %}{% endfor %}{% endwith %}
+</select>

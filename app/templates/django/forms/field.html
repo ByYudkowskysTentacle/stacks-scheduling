@@ -1,0 +1,19 @@
+{% comment %}One form field (audit 2.20): label without a colon and "(optional)" where it applies, help
+text between the label and the input, errors next to the field, checkboxes inline with their label.
+Django adds aria-describedby and aria-invalid to the widget itself.{% endcomment %}
+{% if field.widget_type == "checkbox" %}
+  {{ field.errors }}
+  <div class="field-check">{{ field }}<label for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+  {% if field.help_text %}<div class="helptext field-check__help"{% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %}>{{ field.help_text|safe }}</div>{% endif %}
+{% else %}
+  {% if field.use_fieldset %}
+    <fieldset{% if field.aria_describedby %} aria-describedby="{{ field.aria_describedby }}"{% endif %}>
+    {% if field.label %}<legend>{{ field.label }}{% if not field.field.required and field.widget_type != "checkboxselectmultiple" %} <span class="optional">(optional)</span>{% endif %}</legend>{% endif %}
+  {% elif field.label %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required and not field.field.hide_optional %} <span class="optional">(optional)</span>{% endif %}</label>
+  {% endif %}
+  {% if field.help_text %}<div class="helptext"{% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %}>{{ field.help_text|safe }}</div>{% endif %}
+  {{ field.errors }}
+  {{ field }}
+  {% if field.use_fieldset %}</fieldset>{% endif %}
+{% endif %}

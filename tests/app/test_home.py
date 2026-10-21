@@ -98,3 +98,24 @@ def test_review_pages_mark_review_as_the_current_section(as_user, supervisor):
     assert re.search(r'aria-current="page">Review<', nav) and not re.search(
         r'aria-current="page">Schedule<', nav
     )
+
+
+def test_settings_sub_nav_shows_on_edit_pages_and_marks_the_section(as_user, supervisor, org, pay_role):
+    page = as_user(supervisor).get(reverse("pay_role_edit", args=[pay_role.pk])).content.decode()
+    nav = re.search(r'<nav aria-label="Settings" class="sub-nav">.*?</nav>', page, re.S).group(0)
+    assert re.search(r'aria-current="page">Pay roles<', nav)
+
+
+def test_forms_have_no_label_colons_and_mark_optional_fields(as_user, supervisor):
+    page = as_user(supervisor).get(reverse("schedule_index")).content.decode()
+    form = page.split("Start a planning period")[1]
+    assert ":</label>" not in form and "---------" not in form
+
+
+def test_employee_record_shows_the_rules_that_shape_their_hours(as_user, supervisor, org, employee):
+    from app.scheduling.models import HourCapRule
+
+    HourCapRule.objects.create(organization=org, scope="week", minutes=600, employee=employee)
+    page = as_user(supervisor).get(reverse("employee_detail", args=[employee.pk])).content.decode()
+    section = page.split("<h2>Scheduling</h2>")[1]
+    assert "Hour caps" in section and "Only the default weekly cap" not in section

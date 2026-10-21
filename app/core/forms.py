@@ -86,15 +86,15 @@ class OperatingHoursForm(forms.ModelForm):
             for iv in self.instance.intervals.all():
                 existing.setdefault(iv.weekday, []).append(Interval(iv.start_min, iv.end_min))
         for wd in self.weekday_order:
-            self.fields[f"day_{wd}"] = forms.CharField(
+            self.fields[f"day_{wd}"] = day = forms.CharField(
                 label=cal.WEEKDAY_NAMES[wd],
                 required=False,
-                help_text="Blank means closed.",
                 initial=", ".join(
                     f"{format_minute(i.start)}-{format_minute(i.end)}" for i in existing.get(wd, [])
                 ),
-                widget=forms.TextInput(attrs={"placeholder": "07:30-22:00", "autocomplete": "off"}),
+                widget=forms.TextInput(attrs={"placeholder": "7:30am-10pm", "autocomplete": "off"}),
             )
+            day.hide_optional = True  # the fieldset says once that a blank day is closed
 
     def day_fields(self):
         return [self[f"day_{wd}"] for wd in self.weekday_order]
@@ -168,7 +168,7 @@ class DepartmentForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         label="Also show this department's people open shifts from",
         help_text="They see only those departments' open shifts, not their schedules, and a "
-        "supervisor of that department still approves any claim (D108).",
+        "supervisor of that department still approves any claim.",
     )
 
     class Meta:

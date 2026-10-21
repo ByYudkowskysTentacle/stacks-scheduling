@@ -56,7 +56,7 @@ class PeriodForm(forms.ModelForm):
         widgets = {"start_date": DateInput()}
         help_texts = {
             "start_date": "Moved back to the start of its week if needed.",
-            "department": "Whose schedule this is. Each department plans its own (D95).",
+            "department": "Whose schedule this is. Each department plans its own.",
         }
 
     def __init__(self, *args, organization, departments=None, **kwargs):

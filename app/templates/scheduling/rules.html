@@ -5,10 +5,21 @@
 {% include "core/settings_nav.html" %}
 <h1>Scheduling rules</h1>
 <p class="help">After any change, the current period is validated right away and its new issues are shown. Nothing in the schedule changes on its own.</p>
+<nav aria-label="On this page" class="jump-list">
+  <ul>
+    <li><a href="#main-h">Coverage, shift shape and caps</a></li>
+    <li><a href="#ov-h">Coverage overrides ({{ overrides|length }})</a></li>
+    <li><a href="#cap-h">Hour caps ({{ caps|length }})</a></li>
+    <li><a href="#tr-h">Tag coverage rules ({{ tag_rules|length }})</a></li>
+    <li><a href="#rot-h">Rotation groups ({{ rotation|length }})</a></li>
+    <li><a href="#duty-h">Duties ({{ duties|length }})</a></li>
+    <li><a href="#tgt-h">Hour targets ({{ targets|length }})</a></li>
+  </ul>
+</nav>
 
 <form method="post" class="stacked-form card" novalidate>{% csrf_token %}
   <input type="hidden" name="form" value="rules">
-  <h2>Coverage, shift shape and caps</h2>
+  <h2 id="main-h">Coverage, shift shape and caps</h2>
   {{ rules_form.as_div }}
   <div class="form-actions"><button type="submit" class="button button--primary">Save</button></div>
 </form>
@@ -19,8 +30,11 @@
     {% for o in overrides %}<li>{{ o }} on {% for wd in o.weekdays %}{{ wd|weekday_short }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if o.department %} <span class="tag">{{ o.department }}</span>{% endif %}
       {% include "scheduling/_remove.html" with kind="override" pk=o.pk item=o section="ov-h" %}</li>{% empty %}<li>None. The default applies at all open hours.</li>{% endfor %}
   </ul>
-  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="override">
-    {{ override_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add override</button></div></form>
+  <details class="add-form"{% if override_form.errors %} open{% endif %}>
+    <summary class="button">Add a coverage override</summary>
+    <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="override">
+        {{ override_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add override</button></div></form>
+  </details>
 </section>
 
 <section class="card" aria-labelledby="cap-h">
@@ -28,8 +42,11 @@
   <ul class="plain-list">
     {% for c in caps %}<li>{{ c }}{% if c.label %} ({{ c.label }}){% endif %} {% include "scheduling/_remove.html" with kind="cap" pk=c.pk item=c section="cap-h" %}</li>{% empty %}<li>Only the default weekly cap above.</li>{% endfor %}
   </ul>
-  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="cap">
-    {{ cap_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add cap</button></div></form>
+  <details class="add-form"{% if cap_form.errors %} open{% endif %}>
+    <summary class="button">Add an hour cap</summary>
+    <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="cap">
+        {{ cap_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add cap</button></div></form>
+  </details>
 </section>
 
 <section class="card" aria-labelledby="tr-h">
@@ -37,8 +54,11 @@
   <ul class="plain-list">
     {% for r in tag_rules %}<li>{{ r }} ({% if r.hard %}hard{% else %}soft{% endif %}){% if r.department %} <span class="tag">{{ r.department }}</span>{% endif %} {% include "scheduling/_remove.html" with kind="tag_rule" pk=r.pk item=r section="tr-h" %}</li>{% empty %}<li>None yet.</li>{% endfor %}
   </ul>
-  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="tag_rule">
-    {{ tag_rule_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add rule</button></div></form>
+  <details class="add-form"{% if tag_rule_form.errors %} open{% endif %}>
+    <summary class="button">Add a tag coverage rule</summary>
+    <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="tag_rule">
+        {{ tag_rule_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add rule</button></div></form>
+  </details>
 </section>
 <section class="card" aria-labelledby="rot-h">
   <h2 id="rot-h">Rotation groups</h2>
@@ -46,8 +66,11 @@
   <ul class="plain-list">
     {% for r in rotation %}<li>{{ r }} {% include "scheduling/_remove.html" with kind="rotation" pk=r.pk item=r section="rot-h" %}</li>{% empty %}<li>No one is in a group.</li>{% endfor %}
   </ul>
-  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="rotation">
-    {{ rotation_form.as_div }}<div class="form-actions"><button type="submit" class="button">Set group</button></div></form>
+  <details class="add-form"{% if rotation_form.errors %} open{% endif %}>
+    <summary class="button">Put someone in a rotation group</summary>
+    <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="rotation">
+        {{ rotation_form.as_div }}<div class="form-actions"><button type="submit" class="button">Set group</button></div></form>
+  </details>
 </section>
 
 <section class="card" aria-labelledby="duty-h">
@@ -56,8 +79,11 @@
   <ul class="plain-list">
     {% for d in duties %}<li>{{ d }} {% include "scheduling/_remove.html" with kind="duty" pk=d.pk item=d section="duty-h" %}</li>{% empty %}<li>No duties yet.</li>{% endfor %}
   </ul>
-  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="duty">
-    {{ duty_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add duty</button></div></form>
+  <details class="add-form"{% if duty_form.errors %} open{% endif %}>
+    <summary class="button">Add a duty</summary>
+    <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="duty">
+        {{ duty_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add duty</button></div></form>
+  </details>
 </section>
 
 <section class="card" aria-labelledby="tgt-h">
@@ -66,7 +92,10 @@
   <ul class="plain-list">
     {% for t in targets %}<li>{{ t }}{% if t.note %} ({{ t.note }}){% endif %} {% include "scheduling/_remove.html" with kind="target" pk=t.pk item=t section="tgt-h" %}</li>{% empty %}<li>No targets.</li>{% endfor %}
   </ul>
-  <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="target">
-    {{ target_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add target</button></div></form>
+  <details class="add-form"{% if target_form.errors %} open{% endif %}>
+    <summary class="button">Add an hour target</summary>
+    <form method="post" class="stacked-form" novalidate>{% csrf_token %}<input type="hidden" name="form" value="target">
+        {{ target_form.as_div }}<div class="form-actions"><button type="submit" class="button">Add target</button></div></form>
+  </details>
 </section>
 {% endblock %}

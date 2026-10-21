@@ -174,9 +174,9 @@ def test_grid_filters_by_status(as_user, term, location, supervisor, grid_people
 
 def test_nav_shows_links_for_the_role(as_user, supervisor, student_user, term, location):
     page = as_user(supervisor).get(reverse("home")).content.decode()
-    assert reverse("availability_grid") in page and reverse("locations") in page
+    assert reverse("availability_grid") in page and f'href="{reverse("organization_settings")}"' in page
     page = as_user(student_user).get(reverse("home")).content.decode()
-    assert reverse("my_availability") in page and reverse("locations") not in page
+    assert reverse("my_availability") in page and f'href="{reverse("organization_settings")}"' not in page
 
 
 # --- Imports --------------------------------------------------------------------------------

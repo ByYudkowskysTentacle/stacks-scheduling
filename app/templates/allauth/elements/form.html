@@ -1,0 +1,5 @@
+{% load allauth %}{% comment %}allauth forms in the project's form style (audit 2.20).{% endcomment %}
+<form method="{{ attrs.method }}"{% if attrs.action %} action="{{ attrs.action }}"{% endif %} class="stacked-form">
+  {% slot body %}{% endslot %}
+  <div class="form-actions">{% slot actions %}{% endslot %}</div>
+</form>

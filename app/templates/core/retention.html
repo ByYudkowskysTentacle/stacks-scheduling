@@ -3,7 +3,7 @@
 {% block content %}
 {% include "core/settings_nav.html" %}
 <h1>Data retention</h1>
-<p class="help">How long Stacks keeps each kind of personal data (SPEC §11). Leave a period blank to keep that data. Expired data is purged every night by the worker. The audit log keeps its history of what was purged until the audit log's own period, if you set one. A purge can't be undone, so check the counts below first. Shifts, published schedules and hours history are never purged here; to remove one person's data, use their record's erase option.</p>
+<p class="help">How long Stacks keeps each kind of personal data. Leave a period blank to keep that data. Expired data is purged every night by the worker. The audit log keeps its history of what was purged until the audit log's own period, if you set one. A purge can't be undone, so check the counts below first. Shifts, published schedules and hours history are never purged here; to remove one person's data, use their record's erase option.</p>
 <form method="post" class="stacked-form" novalidate>{% csrf_token %}
   {{ form.as_div }}
   {% if pending_due %}

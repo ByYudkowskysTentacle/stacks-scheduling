@@ -163,9 +163,22 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 @media (min-width: 40rem) { .details { grid-template-columns: max-content 1fr; } .details dt { margin-top: 0; } }
 
 /* Forms */
-.stacked-form > div, .stacked-form fieldset > div { margin-bottom: 0.9rem; }
-.stacked-form label { display: block; font-weight: 600; margin-bottom: 0.2rem; }
-.stacked-form input[type="checkbox"] + label, .stacked-form label:has(input[type="checkbox"]) { display: inline; font-weight: normal; }
+.stacked-form > div, .stacked-form fieldset > div { margin-bottom: var(--sp-4); }
+.stacked-form label, .stacked-form legend { display: block; font-weight: 600; margin-bottom: var(--sp-1); }
+.stacked-form .helptext { margin: 0 0 var(--sp-1); }
+.optional { font-weight: normal; color: var(--ink-soft); }
+/* Checkboxes sit before their label on one line (audit 2.20). */
+.field-check { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.field-check input { margin-top: 0.1rem; }
+.stacked-form .field-check label, .stacked-form input[type="checkbox"] + label, .stacked-form label:has(input[type="checkbox"]),
+.stacked-form label:has(input[type="radio"]) { display: inline; font-weight: normal; margin: 0; }
+.field-check__help { margin-left: calc(1.5rem + var(--sp-2)); }
+/* Text inputs wide enough for an email address, never wider than the screen. */
+.stacked-form input:is([type="text"], [type="email"], [type="password"], [type="url"], [type="search"], [type="tel"]),
+.stacked-form select, .stacked-form textarea { width: min(100%, 28rem); }
+.stacked-form textarea { width: min(100%, 40rem); }
+.stacked-form ul:has(> li > label > input[type="checkbox"]), .stacked-form ul:has(> li > label > input[type="radio"]),
+.stacked-form div:has(> div > label > input[type="checkbox"]):not(.field-check) { list-style: none; padding: 0; margin: 0; }
 input, select, textarea { font: inherit; padding: 0.45rem; border: 1px solid var(--ink-soft); border-radius: 4px; max-width: 100%; min-height: 44px; }
 /* 24px targets (WCAG 2.2 SC 2.5.8, D113). */
 input[type="checkbox"], input[type="radio"] { min-height: auto; width: 1.5rem; height: 1.5rem; vertical-align: middle; margin: 0 0.35rem 0 0; }
@@ -176,11 +189,21 @@ legend { font-weight: 700; padding: 0 0.3rem; }
 .errorlist { color: var(--danger); list-style: none; padding: 0; margin: 0.2rem 0; font-weight: 600; }
 .errorlist li::before { content: "Error: "; }
 [aria-invalid="true"] { border: 2px solid var(--danger); }
-.weekday-grid { display: grid; grid-template-columns: 1fr; gap: 0 1rem; }
+.weekday-grid { display: grid; grid-template-columns: 1fr; gap: var(--sp-3) var(--sp-4); }
 @media (min-width: 40rem) { .weekday-grid { grid-template-columns: 1fr 1fr; } }
 .inline-row { border-bottom: 1px dashed var(--line); padding: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0 1rem; }
 .inline-row > div { margin-bottom: 0.5rem; }
 .stacked-form ul#id_kind, .stacked-form [id$="kind"] { list-style: none; padding: 0; }
+/* Weekday and other multi-checkbox choices in a wrapping row, not a 7-row column (audit 2.19). */
+.stacked-form div:has(> div > label > input[type="checkbox"]):not(.field-check) { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
+/* Long settings pages: a jump list, and add forms behind a disclosure (audit 2.19). */
+.jump-list ul { list-style: none; padding: 0; margin: 0 0 var(--sp-4); display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); }
+.add-form { margin-top: var(--sp-3); }
+.add-form > summary { list-style: none; }
+.add-form > summary::-webkit-details-marker { display: none; }
+.add-form > summary::before { content: "+ "; font-weight: 700; }
+.add-form[open] > summary::before { content: "− "; }
+.add-form[open] > summary { margin-bottom: var(--sp-3); }
 
 .filter-bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
 .filter-bar label { display: block; font-size: var(--fs-sm); font-weight: 600; }

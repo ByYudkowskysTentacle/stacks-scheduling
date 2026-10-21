@@ -126,7 +126,13 @@ def build(request, unread: int = 0) -> Navigation | None:
         items.append(NavItem("people", "People", reverse("employees"), "users", on_people, tab_priority=3))
     if access.has(Perm.CONFIGURE):
         items.append(
-            NavItem("settings", "Settings", reverse("locations"), "settings", path.startswith("/settings/"))
+            NavItem(
+                "settings",
+                "Settings",
+                reverse("organization_settings"),
+                "settings",
+                path.startswith("/settings/"),
+            )
         )
     items += [
         NavItem(
