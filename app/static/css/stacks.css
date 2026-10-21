@@ -263,6 +263,11 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* On phones the page scrolls, not a box inside it, so there's room to swipe (taps paint). */
 @media (max-width: 30rem) { .painter__grid { max-height: none; overflow-y: visible; } }
 .painter__status { min-height: 1.5em; margin: 0.25rem 0; font-weight: 600; }
+.painter__toolbar .button { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.painter__toolbar .legend__key { width: 1rem; height: 1rem; }
+.painter__save { margin-top: var(--sp-2); }
+/* Taller rows on phones, so a finger can hit the right quarter hour (audit 2.15). */
+@media (max-width: 30rem) { .painter__table td { height: 1.25rem; } }
 .painter__table { border-collapse: collapse; width: 100%; min-width: 20rem; user-select: none; font-size: var(--fs-xs); }
 .painter__table thead td { position: sticky; top: 0; background: var(--paper); font-weight: 700; text-align: center; padding: 0.2rem; z-index: 1; }
 .painter__table td { height: 0.85rem; border-left: 1px solid var(--line); padding: 0; cursor: crosshair; }
@@ -278,7 +283,11 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* Positioned so visually-hidden text inside stays in the scroll box instead of widening
    the page on phones (WCAG 1.4.10). */
 .grid-scroll { overflow-x: auto; position: relative; }
-.avail-grid { border-collapse: collapse; width: 100%; min-width: 60rem; font-size: var(--fs-xs); }
+/* Equal day columns, so the same hours look the same on every day (audit 2.23). */
+.avail-grid { border-collapse: collapse; width: 100%; min-width: 60rem; font-size: var(--fs-xs); table-layout: fixed; }
+.avail-grid th.avail-grid__name { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+@media (max-width: 48rem) { .avail-grid .avail-grid__name { width: 8rem; } }
+.print-only { display: none; }
 .avail-grid th, .avail-grid td { border: 1px solid var(--line); padding: 0.3rem; vertical-align: top; text-align: left; }
 .avail-grid thead th { background: var(--paper-alt); white-space: nowrap; }
 .avail-grid__name { width: 12rem; font-weight: normal; }
@@ -336,7 +345,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .coverage-table .slot--closed { background: #e4e6ea; color: var(--ink-soft); }
 .shift-list { list-style: none; padding: 0; }
 .shift-card { border: 1px solid var(--line); border-left: 6px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.8rem; margin-bottom: 0.5rem; }
-.notification-body { white-space: pre-wrap; font-family: inherit; margin: 0; }
+.notification-body { margin: 0 0 var(--sp-2); }
 .remove-form label { display: inline; }
 .count { font-weight: 700; }
 
@@ -360,3 +369,14 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* "Who could take it?": the action sits with the name, so it's on screen on a phone (audit 2.9). */
 .taker__action { margin-top: var(--sp-1); }
 .disclosure > summary { cursor: pointer; font-weight: 600; min-height: 2.75rem; display: flex; align-items: center; }
+
+/* Time off: the time fields only matter when "All day" isn't ticked (audit 2.17). */
+.stacked-form:has(#id_all_day:checked) div:has(> #id_start_min),
+.stacked-form:has(#id_all_day:checked) div:has(> #id_end_min) { display: none; }
+
+/* Long people lists in columns (audit 2.10). */
+#id_people, #id_donors { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--sp-1) var(--sp-4); }
+
+.day-card--empty { padding: var(--sp-2) var(--sp-3); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-3); }
+.day-card--empty h2 { margin: 0; font-size: var(--fs-base); }
+.day-card--empty p { margin: 0; }

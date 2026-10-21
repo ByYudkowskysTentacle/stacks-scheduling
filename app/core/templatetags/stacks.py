@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import re
+
 from django import template
 
 from domain.calendar import WEEKDAY_SHORT
@@ -52,3 +54,37 @@ def without_prefix(text, prefix):
     text, prefix = str(text), f"{prefix} "
     rest = text[len(prefix) :] if text.startswith(prefix) else ""
     return rest if rest and not rest[0].islower() else text
+
+
+URL_LINE = re.compile(r"(https?://\S+|\s/[\w/.-]*)\s*$")
+
+
+@register.filter
+def in_app_body(text):
+    """A notification's text without the lines that only carry a link: emails need them, the
+    app shows a proper link underneath instead (audit 3.7)."""
+    return "\n".join(line for line in str(text).splitlines() if not URL_LINE.search(line)).strip()
+
+
+LINK_LABELS = {
+    "/my-schedule/": "See my shifts",
+    "/published/": "See the schedule",
+    "/shifts/exchange/": "Open shifts and swaps",
+    "/time-off/": "See my time off",
+    "/availability/": "Enter my availability",
+    "/notifications/email/": "Email settings",
+}
+
+
+@register.filter
+def link_label(url):
+    """Link text that says where a notification's link goes, instead of "Open"."""
+    path = str(url).split("?")[0]
+    return next((label for prefix, label in LINK_LABELS.items() if path.endswith(prefix)), "Open")
+
+
+@register.filter
+def strip_prefix(text, prefix):
+    """ "Stacks: your schedule…" -> "your schedule…" (then capfirst in the template)."""
+    text = str(text)
+    return text[len(prefix) :].lstrip() if text.startswith(str(prefix)) else text

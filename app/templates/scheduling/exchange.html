@@ -54,6 +54,7 @@
 {% else %}<p>No published shifts coming up.</p>{% endif %}
 
 <h2>Your requests</h2>
+{% if my_requests %}
 <table class="data-table">
   <thead><tr><th scope="col">Shift</th><th scope="col">What</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
   <tbody>
@@ -62,7 +63,8 @@
       <td>{% if ex.kind == "swap" %}{% if ex.requester_id == me.pk %}You asked {{ ex.taker.preferred_name }} to swap it for their {{ ex.other_shift.date|date:"D j M" }} {{ ex.other_shift.interval.label }}{% else %}{{ ex.requester.preferred_name }} asked to swap it for your {{ ex.other_shift.date|date:"D j M" }} {{ ex.other_shift.interval.label }}{% endif %}{% elif ex.kind == "claim" %}You asked for this open shift{% elif ex.requester_id == me.pk %}You offered it{% if ex.taker %}; {{ ex.taker.preferred_name }} volunteered{% endif %}{% else %}You volunteered to cover {{ ex.requester.preferred_name }}{% endif %}</td>
       <td>{{ ex.get_status_display }}</td>
       <td>{% if ex.status == "open" or ex.status == "pending" or ex.status == "asked" %}<form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="exchange" value="{{ ex.pk }}"><button type="submit" name="action" value="withdraw" class="button button--small">Withdraw</button></form>{% endif %}</td></tr>
-  {% empty %}<tr><td colspan="4">None yet.</td></tr>{% endfor %}
+  {% endfor %}
   </tbody>
 </table>
+{% else %}<p>None yet.</p>{% endif %}
 {% endblock %}

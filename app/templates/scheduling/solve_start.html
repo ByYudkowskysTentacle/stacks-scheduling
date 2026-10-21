@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Generate or rebalance{% endblock %}
 {% block content %}
-<p><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
+<p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
 <h1>Generate or rebalance <span class="subtle">{{ period }}</span></h1>
 <p class="help">Every run is a what-if: you'll see the options, what changes and who gains or loses hours before anything is saved. Applying an option only changes drafts, and you can undo it.</p>
 <form method="post" class="stacked-form" novalidate>
   {% csrf_token %}
-  {{ form.as_div }}
+  {{ form.non_field_errors }}
+  <div>{{ form.mode.as_field_group }}</div>
+  <details class="disclosure"{% if form.change_limit_percent.errors or form.freeze_hours.errors or form.first_day.errors or form.last_day.errors or form.people.errors %} open{% endif %}>
+    <summary>Advanced: change limit, freeze window, dates and people</summary>
+    {% for field in form %}{% if field.name != "mode" %}<div>{{ field.as_field_group }}</div>{% endif %}{% endfor %}
+  </details>
   <div class="form-actions"><button type="submit" class="button button--primary">Run</button>
     <a href="{% url 'period' period.pk %}" class="button">Cancel</a></div>
 </form>

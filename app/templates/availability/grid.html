@@ -21,15 +21,18 @@
   <div><button type="button" class="button" onclick="window.print()">Print</button></div>
 </form>
 <p class="pager">
-  <a href="?term={{ term.pk }}&amp;week={{ prev_week|date:'Y-m-d' }}">← Previous week</a>
-  <a href="?term={{ term.pk }}&amp;week={{ next_week|date:'Y-m-d' }}">Next week →</a>
+  <a href="?term={{ term.pk }}&amp;week={{ prev_week|date:'Y-m-d' }}{% if filters.q %}&amp;q={{ filters.q|urlencode }}{% endif %}{% if filters.tag %}&amp;tag={{ filters.tag }}{% endif %}{% if filters.status %}&amp;status={{ filters.status }}{% endif %}">← Previous week</a>
+  <a href="?term={{ term.pk }}&amp;week={{ next_week|date:'Y-m-d' }}{% if filters.q %}&amp;q={{ filters.q|urlencode }}{% endif %}{% if filters.tag %}&amp;tag={{ filters.tag }}{% endif %}{% if filters.status %}&amp;status={{ filters.status }}{% endif %}">Next week →</a>
 </p>
+<p class="print-only">Showing {{ term.name }}, week of {{ week|date:"D j M Y" }}{% if filters.q %}; name contains "{{ filters.q }}"{% endif %}{% for t in tags %}{% if filters.tag == t.pk|stringformat:"d" %}; tag {{ t.name }}{% endif %}{% endfor %}{% for v, l in statuses %}{% if filters.status == v %}; status {{ l|lower }}{% endif %}{% endfor %}. Printed {% now "j M Y, g:i a" %}.</p>
 
 {% if not location %}<p>Add a location and its operating hours first.</p>{% else %}
 <ul class="legend" aria-label="Key">
   <li><span class="legend__key bar-seg--unavailable"></span> Can't work (hatched)</li>
   <li><span class="legend__key bar-seg--preferred"></span> Prefers (solid)</li>
   <li><span class="legend__key bar-seg--closed"></span> Closed (dark)</li>
+  <li><span class="legend__key"></span> Free (blank)</li>
+  <li><strong>?</strong> Availability not entered</li>
 </ul>
 <div class="grid-scroll">
 <table class="avail-grid">
@@ -71,10 +74,9 @@
   {% endfor %}
   </tbody>
   <tfoot>
-    <tr>
-      <th scope="row">Free all open hours / part / not entered</th>
-      {% for c in coverage %}<td>{{ c.free_all_open_hours }} / {{ c.free_part }} / {{ c.not_entered }}</td>{% endfor %}
-    </tr>
+    <tr><th scope="row">Free all open hours</th>{% for c in coverage %}<td>{{ c.free_all_open_hours }}</td>{% endfor %}</tr>
+    <tr><th scope="row">Free part of the day</th>{% for c in coverage %}<td>{{ c.free_part }}</td>{% endfor %}</tr>
+    <tr><th scope="row">Not entered</th>{% for c in coverage %}<td>{{ c.not_entered }}</td>{% endfor %}</tr>
   </tfoot>
 </table>
 </div>

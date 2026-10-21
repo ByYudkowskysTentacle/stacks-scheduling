@@ -44,7 +44,7 @@ def test_mouse_drag_paints_unavailable_time(page):
     page.mouse.down()
     cell(page, 0, 9 * 60 + 45).hover()
     page.mouse.up()
-    assert page.locator("input[name=unavailable_0]").input_value() == "09:00-10:00"
+    assert page.locator("input[name=unavailable_0]").input_value() == "9am-10am"
     assert page.locator("input[name=unavailable_2]").input_value() == "all day"
 
 
@@ -54,7 +54,7 @@ def test_preferred_brush_and_text_box_sync(page):
     page.mouse.down()
     cell(page, 1, 14 * 60 + 45).hover()
     page.mouse.up()
-    assert page.locator("input[name=preferred_1]").input_value() == "13:00-15:00"
+    assert page.locator("input[name=preferred_1]").input_value() == "1pm-3pm"
     page.locator("input[name=unavailable_1]").fill("13:30-14:00")
     page.locator("input[name=unavailable_1]").dispatch_event("change")
     assert "cell--unavailable" in (cell(page, 1, 13 * 60 + 30).get_attribute("class") or "")
@@ -65,8 +65,8 @@ def test_saved_form_round_trips(page):
     page.mouse.down()
     cell(page, 4, 12 * 60 + 15).hover()
     page.mouse.up()
-    page.get_by_role("button", name="Save availability").click()
-    assert page.locator("input[name=unavailable_4]").input_value() == "12:00-12:30"
+    page.get_by_role("button", name="Save availability").first.click()  # the one under the grid
+    assert page.locator("input[name=unavailable_4]").input_value() == "12pm-12:30pm"
 
 
 def test_phone_taps_start_then_end(browser, live_server, org, location, student_user):
@@ -82,7 +82,7 @@ def test_phone_taps_start_then_end(browser, live_server, org, location, student_
     pg.goto(live_server.url + "/availability/")
     cell(pg, 3, 10 * 60).tap()
     cell(pg, 3, 11 * 60 + 15).tap()
-    assert pg.locator("input[name=unavailable_3]").input_value() == "10:00-11:30"
+    assert pg.locator("input[name=unavailable_3]").input_value() == "10am-11:30am"
     context.close()
 
 
@@ -112,6 +112,6 @@ def test_phone_scroll_gestures_never_paint(browser, live_server, org, location, 
     start.tap()
     assert "Start: " in pg.locator(".painter__status").inner_text()
     end.tap()
-    assert pg.locator("input[name=unavailable_3]").input_value() == "10:00-11:30"
+    assert pg.locator("input[name=unavailable_3]").input_value() == "10am-11:30am"
     assert "Painted " in pg.locator(".painter__status").inner_text()
     context.close()

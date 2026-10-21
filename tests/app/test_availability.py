@@ -62,7 +62,7 @@ def test_student_enters_own_availability(as_user, org, term, location, student_u
     ]
     # Exact off-grid times survive a round trip through the form (SPEC §3.3).
     page = client.get(reverse("my_availability") + f"?term={term.pk}").content.decode()
-    assert 'value="09:00-09:50, 13:00-14:15"' in page and 'value="all day"' in page
+    assert 'value="9am-9:50am, 1pm-2:15pm"' in page and 'value="all day"' in page
 
 
 def test_saving_empty_means_available_any_time_not_not_entered(
@@ -332,3 +332,12 @@ def test_windows_encoded_file_is_accepted(as_user, supervisor):
         {"kind": "roster", "file": SimpleUploadedFile("r.csv", content, content_type="text/csv")},
     )
     assert ImportBatch.objects.get().plan["create"][0]["name"] == "Renée"
+
+
+def test_grid_week_pager_keeps_filters_and_footer_rows_are_labelled(as_user, supervisor, term, location):
+    url = reverse("availability_grid") + f"?term={term.pk}&q=Ca&status=entered"
+    page = as_user(supervisor).get(url).content.decode()
+    pager = page.split('class="pager"')[1].split("</p>")[0]
+    assert pager.count("q=Ca") == 2 and pager.count("status=entered") == 2
+    assert "Free part of the day</th>" in page and "Not entered</th>" in page
+    assert 'class="print-only"' in page and 'name contains "Ca"' in page

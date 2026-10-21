@@ -47,6 +47,9 @@ class SolveForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.period = period
         self.fields["people"].queryset = services.employees_for_grid(period).order_by("preferred_name")
+        from app.scheduling.forms import label_with_hours, minutes_by_person
+
+        self.fields["people"].label_from_instance = label_with_hours(minutes_by_person(period))
         self.fields["first_day"].widget.attrs.update(
             min=period.start_date.isoformat(), max=period.end_date.isoformat()
         )

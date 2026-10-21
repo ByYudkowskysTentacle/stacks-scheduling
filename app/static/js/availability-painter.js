@@ -49,8 +49,14 @@ function merge(ranges) {
   return out;
 }
 
+// 12-hour, as the grid and shift times read (audit 2.16): 9am, 1:30pm; 12am starts the day and
+// midnight ends it, so the server's parser reads each back to the same minute.
 function fmt(m) {
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  if (m === 0) return "12am";
+  if (m === DAY) return "midnight";
+  const h = Math.floor(m / 60);
+  const mm = m % 60 ? `:${String(m % 60).padStart(2, "0")}` : "";
+  return `${h % 12 || 12}${mm}${h < 12 ? "am" : "pm"}`;
 }
 
 function formatRanges(ranges) {
@@ -97,6 +103,17 @@ function init() {
   function announce(text) {
     if (status) status.textContent = text;
   }
+  // Painting only fills the text boxes; nothing is saved until the form is sent (audit 2.14).
+  let dirty = false;
+  const form = document.getElementById("availability-form");
+  function markDirty() {
+    dirty = true;
+    root.classList.add("painter--dirty");
+  }
+  window.addEventListener("beforeunload", (e) => {
+    if (dirty) e.preventDefault();
+  });
+  if (form) form.addEventListener("submit", () => { dirty = false; });
 
   function isOpen(wd, slot) {
     const m = cfg.start + slot * SLOT;
@@ -117,6 +134,7 @@ function init() {
   }
 
   function writeDay(wd) {
+    markDirty();
     for (const [kind, code] of [["unavailable", "u"], ["preferred", "p"]]) {
       const input = inputs[`${kind}_${wd}`];
       const kept = clipOutside(parseRanges(input.value) || [], cfg.start, cfg.end);
@@ -214,7 +232,7 @@ function init() {
       anchor = null;
       paint(wd, from, slot);
       writeDay(wd);
-      announce(`Painted ${cfg.names[wd]} ${clock(Math.min(from, slot))}–${clock(Math.max(from, slot) + 1)}. Tap a new start, or save below.`);
+      announce(`Painted ${cfg.names[wd]} ${clock(Math.min(from, slot))}–${clock(Math.max(from, slot) + 1)}. Not saved yet: press Save availability.`);
     } else {
       const previous = anchor;
       anchor = { wd, slot };

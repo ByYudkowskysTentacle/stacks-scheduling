@@ -119,3 +119,20 @@ def test_employee_record_shows_the_rules_that_shape_their_hours(as_user, supervi
     page = as_user(supervisor).get(reverse("employee_detail", args=[employee.pk])).content.decode()
     section = page.split("<h2>Scheduling</h2>")[1]
     assert "Hour caps" in section and "Only the default weekly cap" not in section
+
+
+def test_in_app_notifications_drop_the_email_only_parts(as_user, student_user, org):
+    from django.conf import settings
+
+    from app.scheduling.models import Notification
+
+    Notification.objects.create(
+        organization=org,
+        user=student_user,
+        subject=f"{settings.STACKS_SITE_NAME}: your schedule for 16 Jan to 29 Jan has changed",
+        body="Added: Mon 18 Jan 9am–12pm\nSee your full schedule: https://stacks.example.edu/my-schedule/",
+        link="/my-schedule/",
+    )
+    page = as_user(student_user).get(reverse("notifications")).content.decode()
+    assert "Your schedule for 16 Jan to 29 Jan has changed" in page
+    assert "https://stacks.example.edu" not in page and "See my shifts</a>" in page

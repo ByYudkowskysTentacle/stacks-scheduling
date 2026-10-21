@@ -375,6 +375,26 @@ def desired_initial(desired: DesiredHours | None) -> dict:
     return {"hours": f"{desired.minutes / 60:g}"} if desired else {}
 
 
+def minutes_by_person(period: SchedulePeriod) -> dict[int, int]:
+    """Scheduled minutes per employee in the period's working copy."""
+    out: dict[int, int] = {}
+    for employee_id, start, end in (
+        period.shifts.live().filter(employee__isnull=False).values_list("employee_id", "start_min", "end_min")
+    ):
+        out[employee_id] = out.get(employee_id, 0) + end - start
+    return out
+
+
+def label_with_hours(minutes: dict[int, int]):
+    """Choice labels such as "Palmer (18h this period)", so a supervisor picking donors can see
+    who has hours to spare without leaving the page (audit 2.10)."""
+
+    def label(e: Employee) -> str:
+        return f"{e.display_name} ({minutes.get(e.pk, 0) / 60:g}h this period)"
+
+    return label
+
+
 class TargetedMoveForm(forms.Form):
     """ "Move about 2 hours from D, T or P to J, keeping J in one week" (SPEC §7.3)."""
 
@@ -396,6 +416,9 @@ class TargetedMoveForm(forms.Form):
         )
         self.fields["recipient"].queryset = people
         self.fields["donors"].queryset = people
+        label = label_with_hours(minutes_by_person(period))
+        self.fields["recipient"].label_from_instance = label
+        self.fields["donors"].label_from_instance = label
         self.fields["week"].choices = [("", "Any week")] + [
             (w, f"Week {w + 1} only") for w in range(period.weeks)
         ]

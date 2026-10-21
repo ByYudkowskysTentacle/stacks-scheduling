@@ -13,7 +13,7 @@ from django import forms
 from app.core.forms import MinuteField
 from domain import calendar as cal
 from domain.availability import AvailabilityBlock, BlockKind, WeeklyAvailability, normalise_blocks
-from domain.timeutil import DAY_MINUTES, Interval, format_ranges, parse_ranges
+from domain.timeutil import DAY_MINUTES, Interval, format_ranges_12h, parse_ranges
 
 ALL_DAY_WORDS = {"all day", "all-day", "allday", "all"}
 
@@ -42,7 +42,7 @@ class WeeklyAvailabilityForm(forms.Form):
                 initial = ""
                 if initial_availability is not None:
                     exact = initial_availability.exact(wd, kind)
-                    initial = "all day" if exact == [Interval(0, DAY_MINUTES)] else format_ranges(exact)
+                    initial = "all day" if exact == [Interval(0, DAY_MINUTES)] else format_ranges_12h(exact)
                 self.fields[field_name(kind, wd)] = forms.CharField(
                     label=f"{cal.WEEKDAY_NAMES[wd]}: {label.lower()}",
                     required=False,
@@ -89,18 +89,16 @@ class WeeklyAvailabilityForm(forms.Form):
 class TimeOffForm(forms.Form):
     """A time-off request. No reason is asked for (SPEC §11)."""
 
-    start_date = forms.DateField(label="From", widget=forms.DateInput(attrs={"type": "date"}))
+    start_date = forms.DateField(label="First day", widget=forms.DateInput(attrs={"type": "date"}))
     end_date = forms.DateField(
-        label="Until",
+        label="Last day",
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
         help_text="Leave blank for one day.",
     )
     all_day = forms.BooleanField(label="All day", required=False, initial=True)
-    start_min = MinuteField(
-        label="From (time)", required=False, help_text="Only if not all day, for example 9:00."
-    )
-    end_min = MinuteField(label="Until (time)", required=False)
+    start_min = MinuteField(label="Start time", required=False, help_text="For example 9am or 1:30pm.")
+    end_min = MinuteField(label="End time", required=False)
 
     MAX_DAYS = 60
 

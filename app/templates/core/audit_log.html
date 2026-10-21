@@ -4,6 +4,15 @@
 {% include "core/settings_nav.html" %}
 <h1>Audit log</h1>
 <p class="help">Every change to settings, people, wages and tags, newest first.</p>
+<form method="get" class="filter-bar" role="search" aria-label="Filter the audit log">
+  <div><label for="f-what">What</label>
+    <select id="f-what" name="what"><option value="">Anything</option>{% for k, label in kinds %}<option value="{{ k }}"{% if filters.what == k %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div><label for="f-who">Who</label>
+    <select id="f-who" name="who"><option value="">Anyone</option><option value="system"{% if filters.who == "system" %} selected{% endif %}>System</option>{% for m in people %}<option value="{{ m.user_id }}"{% if filters.who == m.user_id|stringformat:"d" %} selected{% endif %}>{{ m.user.email }}</option>{% endfor %}</select></div>
+  <div><label for="f-from">From</label><input id="f-from" type="date" name="from" value="{{ filters.from }}"></div>
+  <div><label for="f-to">To</label><input id="f-to" type="date" name="to" value="{{ filters.to }}"></div>
+  <div><button type="submit" class="button">Show</button></div>
+</form>
 <table class="data-table audit-table">
   <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th><th scope="col">Change</th></tr></thead>
   <tbody>
@@ -11,19 +20,19 @@
     <tr>
       <td>{{ r.when|date:"j M Y H:i" }}</td>
       <td>{{ r.who }}</td>
-      <td>{{ r.action }} {{ r.what|lower }} #{{ r.object_id }}{% if r.summary %} ({{ r.summary }}){% endif %}</td>
+      <td>{{ r.action }} {{ r.what|lower }}{% if r.summary %} {{ r.summary }}{% else %} #{{ r.object_id }}{% endif %}</td>
       <td>{% if r.changes %}<ul class="plain-list">{% for field, before, after in r.changes %}<li><code>{{ field }}</code>: {{ before|default_if_none:"(blank)" }} → {{ after|default_if_none:"(blank)" }}</li>{% endfor %}</ul>{% endif %}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="4">Nothing recorded yet.</td></tr>
+    <tr><td colspan="4">Nothing matches.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 {% if page.has_other_pages %}
 <nav aria-label="Pages" class="pager">
-  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Newer</a>{% endif %}
+  {% if page.has_previous %}<a href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}">Newer</a>{% endif %}
   <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
-  {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Older</a>{% endif %}
+  {% if page.has_next %}<a href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}">Older</a>{% endif %}
 </nav>
 {% endif %}
 {% endblock %}

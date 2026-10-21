@@ -505,11 +505,20 @@ class AuditLogView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        page = Paginator(audit_log.events_for(self.request.organization, self.request.access), 50).get_page(
-            self.request.GET.get("page")
+        org, params = self.request.organization, self.request.GET
+        events = audit_log.events_for(org, self.request.access)
+        kinds = sorted(set(events.values_list("pgh_obj_model", flat=True)), key=audit_log._verbose)
+        page = Paginator(audit_log.filtered(events, params), 50).get_page(params.get("page"))
+        query = params.copy()
+        query.pop("page", None)
+        ctx.update(
+            page=page,
+            rows=audit_log.describe(page.object_list),
+            kinds=[(k, audit_log._verbose(k)) for k in kinds],
+            people=self.org_queryset(Membership).select_related("user").order_by("user__email"),
+            filters=params,
+            query=query.urlencode(),
         )
-        ctx["page"] = page
-        ctx["rows"] = audit_log.describe(page.object_list)
         return ctx
 
 
