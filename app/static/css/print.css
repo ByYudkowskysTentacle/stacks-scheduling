@@ -2,7 +2,7 @@
 /* Print: landscape, repeated table headers, no clipped cells (CLAUDE.md §2.7). */
 @page { size: landscape; margin: 10mm; }
 
-.site-header, .sub-nav, .skip-link, .form-actions, .filter-bar, .messages, .pager, button, .button,
+.site-header, .tab-bar, .sub-nav, .skip-link, .form-actions, .filter-bar, .messages, .pager, button, .button,
 .no-print, .painter { display: none !important; }
 body { font-size: 9pt; color: #000; background: #fff; }
 * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }

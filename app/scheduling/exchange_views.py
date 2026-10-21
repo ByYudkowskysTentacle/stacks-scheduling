@@ -26,6 +26,26 @@ from domain import calendar as cal
 WEEKS = 4
 
 
+def available_to(me, today):
+    """Open shifts I could claim and co-workers' shifts offered for cover, from today on: the
+    lists on the Open shifts page and the count on Home."""
+    org = me.organization
+    start = cal.week_start_for(today, org.week_start)
+    open_shifts = [
+        s
+        for w in range(WEEKS)
+        for d in published_week(org, start + timedelta(days=7 * w), me, open_shift_departments(me))
+        for s in d.shifts
+        if s.employee_id is None and s.day >= today and s.shift_id
+    ]
+    offers = ShiftExchange.objects.filter(
+        organization=org, kind=ExchangeKind.COVER, status=ExchangeStatus.OPEN, shift__date__gte=today
+    )
+    if (mine := student_departments(me)) is not None:  # co-workers in my departments (D108)
+        offers = offers.filter(shift__period__department__in=mine)
+    return open_shifts, offers.exclude(requester=me)
+
+
 class ShiftExchangeView(OrgViewMixin, TemplateView):
     template_name = "scheduling/exchange.html"
 
@@ -39,25 +59,15 @@ class ShiftExchangeView(OrgViewMixin, TemplateView):
         me = self.employee()
         org = me.organization
         today = timezone.localdate()
-        start = cal.week_start_for(today, org.week_start)
         active = ShiftExchange.objects.filter(organization=org, status__in=ACTIVE_EXCHANGE)
         my_claims = set(active.filter(taker=me, kind=ExchangeKind.CLAIM).values_list("shift_id", flat=True))
         offered = set(active.values_list("shift_id", flat=True)) | set(
             active.exclude(other_shift=None).values_list("other_shift_id", flat=True)
         )
-        open_shifts = [
-            s
-            for w in range(WEEKS)
-            for d in published_week(org, start + timedelta(days=7 * w), me, open_shift_departments(me))
-            for s in d.shifts
-            if s.employee_id is None and s.day >= today and s.shift_id
-        ]
-        offers = active.filter(kind=ExchangeKind.COVER, status=ExchangeStatus.OPEN, shift__date__gte=today)
-        if (mine := student_departments(me)) is not None:  # co-workers in my departments (D108)
-            offers = offers.filter(shift__period__department__in=mine)
+        open_shifts, offers = available_to(me, today)
         ctx.update(
             open_shifts=[(s, s.shift_id in my_claims) for s in open_shifts],
-            offers=offers.exclude(requester=me).select_related("shift__location", "requester"),
+            offers=offers.select_related("shift__location", "requester"),
             my_shifts=[(m, m.shift.shift_id in offered) for m in my_upcoming(me, today, WEEKS)],
             swaps_for_me=active.filter(
                 kind=ExchangeKind.SWAP, status=ExchangeStatus.ASKED, taker=me

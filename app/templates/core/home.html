@@ -2,15 +2,76 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 <h1>Welcome{% if access.employee %}, {{ access.employee.display_name }}{% endif %}</h1>
+
 {% if access.employee %}
-  <section aria-labelledby="next-heading" class="card">
-    <h2 id="next-heading">Your next shifts</h2>
-    {% if upcoming %}
-      <ul class="plain-list">{% for m in upcoming %}<li><strong>{{ m.shift.day|date:"D j M" }}</strong> {{ m.shift.interval.label }}{% if m.shift.role %} · {{ m.shift.role }}{% endif %}{% if m.with_me %} <span class="subtle">with {{ m.with_me|join:", " }}</span>{% endif %}</li>{% endfor %}</ul>
-    {% else %}<p>No published shifts coming up. You'll get a notification when your schedule is published.</p>{% endif %}
-    <p><a href="{% url 'my_schedule' %}">My schedule</a> · <a href="{% url 'published_schedule' %}">Everyone's schedule</a></p>
+  {% with next=upcoming.0 %}
+  <section aria-labelledby="next-heading" class="card next-shift">
+    <h2 id="next-heading">Your next shift</h2>
+    {% if next %}
+      <p class="next-shift__when">
+        <span class="badge">{{ next_when }}</span>
+        <strong>{{ next.shift.day|date:"D j M" }}, {{ next.shift.interval.label }}</strong>
+      </p>
+      <p class="subtle">{% if next.shift.role %}{{ next.shift.role }} · {% endif %}{{ next.shift.location }}{% if next.with_me %} · with {{ next.with_me|join:", " }}{% endif %}</p>
+      {% if upcoming|length > 1 %}
+      <h3>After that</h3>
+      <ul class="plain-list">{% for m in upcoming|slice:"1:" %}<li><strong>{{ m.shift.day|date:"D j M" }}</strong> {{ m.shift.interval.label }}{% if m.shift.role %} · {{ m.shift.role }}{% endif %}</li>{% endfor %}</ul>
+      {% endif %}
+    {% else %}
+      <p>No published shifts coming up. You'll get a notification when your schedule is published.</p>
+    {% endif %}
+    <div class="form-actions"><a class="button" href="{% url 'my_schedule' %}">All my shifts</a><a class="button" href="{% url 'published_schedule' %}">Everyone's schedule</a></div>
+  </section>
+  {% endwith %}
+
+  {% if swaps_for_me or can_pick_up %}
+  <section aria-labelledby="answer-heading" class="card card--notice">
+    <h2 id="answer-heading">{% if swaps_for_me %}Needs your answer{% else %}Shifts you could pick up{% endif %}</h2>
+    <ul class="attention-list">
+      {% if swaps_for_me %}<li><a href="{% url 'shift_exchange' %}"><span class="attention-list__count">{{ swaps_for_me }}</span> swap request{{ swaps_for_me|pluralize }} waiting for you</a></li>{% endif %}
+      {% if can_pick_up %}<li><a href="{% url 'shift_exchange' %}"><span class="attention-list__count">{{ can_pick_up }}</span> open or offered shift{{ can_pick_up|pluralize }} you could pick up</a></li>{% endif %}
+    </ul>
+  </section>
+  {% endif %}
+{% endif %}
+
+{% if attention is not None %}
+  <section aria-labelledby="attention-heading" class="card{% if attention %} card--notice{% endif %}">
+    <h2 id="attention-heading">Needs your attention</h2>
+    {% if attention %}
+      <ul class="attention-list">
+        {% for n, what, url in attention %}<li><a href="{{ url }}"><span class="attention-list__count">{{ n }}</span> {{ what }}</a></li>{% endfor %}
+      </ul>
+    {% else %}
+      <p>Nothing is waiting for you: no changes to review, requests to approve or missing availability.</p>
+    {% endif %}
   </section>
 {% endif %}
+
+{% if periods is not None %}
+  <section aria-labelledby="periods-heading" class="card">
+    <h2 id="periods-heading">Schedules</h2>
+    {% if periods %}
+    <table class="data-table">
+      <thead><tr><th scope="col">Period</th><th scope="col">Published</th><th scope="col">Unpublished changes</th><th scope="col">Validation</th></tr></thead>
+      <tbody>
+      {% for r in periods %}
+        <tr>
+          <th scope="row"><a href="{% url 'period' r.period.pk %}">{{ r.period }}</a>{% if r.period.department %} <span class="subtle">{{ r.period.department }}</span>{% endif %}</th>
+          <td>{% if r.latest %}Version {{ r.latest.number }}, {{ r.latest.published_at|date:"j M" }}{% else %}<strong>Not yet</strong>{% endif %}</td>
+          <td>{% if r.pending %}<strong>{{ r.pending }} employee{{ r.pending|pluralize }} affected</strong>{% else %}None{% endif %}</td>
+          <td>{% if r.issues %}<a href="{% url 'period' r.period.pk %}#validation">{{ r.summary }}</a>{% else %}0 issues{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p>No current or upcoming schedule periods.</p>
+    {% endif %}
+    <p><a href="{% url 'schedule_index' %}">All schedules</a></p>
+  </section>
+{% endif %}
+
 {% if term %}
   <section aria-labelledby="avail-heading" class="card">
     <h2 id="avail-heading">Your availability for {{ term.name }}</h2>
@@ -18,6 +79,7 @@
     <p><a class="button{% if availability_status != 'Entered' %} button--primary{% endif %}" href="{% url 'my_availability' %}?term={{ term.pk }}">{% if availability_status == "Entered" %}Review or change it{% elif availability_status == "Needs review" %}Check and confirm it{% else %}Enter it now{% endif %}</a></p>
   </section>
 {% endif %}
+
 {% if setup %}
   <section aria-labelledby="setup-heading" class="card">
     <h2 id="setup-heading">Set up {{ organization.name }}</h2>
@@ -30,7 +92,7 @@
       {% endfor %}
     </ol>
   </section>
-{% elif not term %}
+{% elif not term and not access.employee and periods is None %}
   <p>Your schedule will appear here once it's published.</p>
 {% endif %}
 {% endblock %}
