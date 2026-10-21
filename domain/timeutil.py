@@ -174,3 +174,16 @@ def parse_ranges(text: str, *, on_slot: bool = True) -> list[Interval]:
 
 def format_ranges(intervals: Iterable[Interval]) -> str:
     return ", ".join(f"{format_minute(iv.start)}-{format_minute(iv.end)}" for iv in merge(intervals))
+
+
+def format_clock_entry(minute: int) -> str:
+    """A time as people type it, 12-hour: `9am`, `1:30pm`, `12am` for a start at midnight and
+    `midnight` for the end of the day, so parse_clock reads it back to the same minute."""
+    return "12am" if minute == 0 else format_minute_12h(minute)
+
+
+def format_ranges_12h(intervals: Iterable[Interval]) -> str:
+    """Ranges as people type them: `9am-9:50am, 1pm-2:15pm` (round-trips through parse_ranges)."""
+    return ", ".join(
+        f"{format_clock_entry(iv.start)}-{format_clock_entry(iv.end)}" for iv in merge(intervals)
+    )

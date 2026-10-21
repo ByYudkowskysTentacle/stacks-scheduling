@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -137,10 +138,8 @@ def filtered(rows: QuerySet, params) -> QuerySet:
     elif who == "system":
         rows = rows.filter(Q(pgh_context__isnull=True) | Q(pgh_context__user__isnull=True))
     for key, lookup in (("from", "pgh_created_at__date__gte"), ("to", "pgh_created_at__date__lte")):
-        try:
+        with contextlib.suppress(ValueError):  # a missing or malformed date doesn't filter
             rows = rows.filter(**{lookup: date.fromisoformat(params.get(key, ""))})
-        except ValueError:
-            pass
     return rows
 
 
