@@ -2,7 +2,8 @@
 {% block title %}Schedule for the week of {{ week_start|date:"j M" }}{% endblock %}
 {% block content %}
 <h1>Schedule <span class="subtle">week of {{ week_start|date:"D j M Y" }}</span></h1>
-<p class="help">The published schedule. Changes appear here once a supervisor publishes them.</p>
+{% if Perm.VIEW_DRAFTS in access.perms %}{% include "scheduling/_view_switch.html" with mode="published" %}
+{% else %}<p class="help">The published schedule. Changes appear here once a supervisor publishes them.</p>{% endif %}
 <nav class="pager" aria-label="Weeks">
   <a href="?week={{ prev_week|date:'Y-m-d' }}">← Previous week</a>
   <a href="?week={{ next_week|date:'Y-m-d' }}">Next week →</a>

@@ -18,13 +18,15 @@
         <nav aria-label="Main" class="main-nav">
           <ul>
             <li><a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Home</a></li>
+            {# One Schedule tab (D111): planners open the working copy and switch to the published view there. #}
             {% if Perm.VIEW_DRAFTS in access.perms %}
-              <li><a href="{% url 'schedule_index' %}"{% if request.path|slice:':10' == '/schedule/' and request.resolver_match.url_name != 'review_queue' %} aria-current="page"{% endif %}>Schedule</a></li>
+              <li><a href="{% url 'schedule_index' %}"{% if request.path|slice:':10' == '/schedule/' and request.resolver_match.url_name != 'review_queue' or request.resolver_match.url_name == 'published_schedule' %} aria-current="page"{% endif %}>Schedule</a></li>
+            {% else %}
+              <li><a href="{% url 'published_schedule' %}"{% if request.resolver_match.url_name == 'published_schedule' %} aria-current="page"{% endif %}>Schedule</a></li>
             {% endif %}
             {% if Perm.EDIT_SCHEDULE in access.perms %}
               <li><a href="{% url 'review_queue' %}"{% if request.resolver_match.url_name == 'review_queue' %} aria-current="page"{% endif %}>Review</a></li>
             {% endif %}
-            <li><a href="{% url 'published_schedule' %}"{% if request.resolver_match.url_name == 'published_schedule' %} aria-current="page"{% endif %}>Published</a></li>
             {% if access.employee %}
               <li><a href="{% url 'my_schedule' %}"{% if request.resolver_match.url_name == 'my_schedule' %} aria-current="page"{% endif %}>My schedule</a></li>
               <li><a href="{% url 'my_availability' %}"{% if request.resolver_match.url_name == 'my_availability' %} aria-current="page"{% endif %}>My availability</a></li>

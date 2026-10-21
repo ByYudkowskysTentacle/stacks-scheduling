@@ -1,0 +1,17 @@
+{% comment %}
+The Draft | Published switch on the one Schedule tab (D111). Only people who can see drafts get it;
+everyone else only ever sees the published view. Include with mode="draft" or mode="published",
+draft_url and published_url. The banner names the mode in words, so it never rests on colour.
+{% endcomment %}
+{% if Perm.VIEW_DRAFTS in access.perms %}
+<nav class="sub-nav view-switch no-print" aria-label="Schedule view">
+  <ul>
+    <li><a href="{{ draft_url }}"{% if mode == "draft" %} aria-current="page"{% endif %}>Draft</a></li>
+    <li><a href="{{ published_url }}"{% if mode == "published" %} aria-current="page"{% endif %}>Published</a></li>
+  </ul>
+</nav>
+<p class="mode-banner">
+  {% if mode == "draft" %}<strong>Draft:</strong> the working copy. Staff don't see changes here until they're published.
+  {% else %}<strong>Published:</strong> what staff see. Draft changes don't appear here.{% endif %}
+</p>
+{% endif %}

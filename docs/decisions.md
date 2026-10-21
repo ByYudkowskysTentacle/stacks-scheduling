@@ -422,6 +422,16 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - *Interpretation:*
     - Moved schedules use the receiving department's coverage settings, and the moved coverage overrides and skill rules apply to all its schedules. The page says so and suggests reviewing Scheduling rules.
     - Departments that showed the removed department's open shifts to their people (D108) stop doing so, rather than switching to the receiving department; the admin can turn that on again. The confirmation message names them.
+- **D111 (maintainer request, 2026-10-21; revises the navigation in D75).** One Schedule tab instead of separate Schedule and Published tabs.
+  *Built:*
+  - **Everyone sees one "Schedule" tab.** Students and other staff without draft access open the published week, as before (D75). Supervisors, admins and shift leads open the working copy (the schedule list and period grid).
+  - **A Draft | Published switch** sits at the top of the schedule list, the period grid and the published week, for people who can see drafts only. The Published side is the same view staff get, so planners preview what staff see without a second tab.
+  - **The mode is named in words** in a banner under the switch ("Draft: the working copy…" or "Published: what staff see…"), not by colour alone (CLAUDE.md §2.7). The switch is hidden in print; the banner prints.
+  - Nothing about what students can see changes: drafts stay invisible to them (CLAUDE.md §2.2), and the published projection keeps D6.
+  - *Interpretation:*
+    - From a period's week, Published opens that same week. From the published week, Draft opens the period and week that covers it when exactly one of the planner's periods does; otherwise (none, or several departments' periods) it opens the schedule list.
+    - The published week shows all the departments a planner works with (D95), so for a supervisor of several departments it can show more than the period they came from.
+    - The URLs stay the same (`/schedule/…` and `/published/`), so links in emails, bookmarks and the "My schedule" page keep working.
 
 ## Open items for the maintainer
 

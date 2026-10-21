@@ -2,6 +2,8 @@
 {% block title %}Schedules{% endblock %}
 {% block content %}
 <h1>Schedules</h1>
+{% url 'schedule_index' as draft_url %}{% url 'published_schedule' as published_url %}
+{% include "scheduling/_view_switch.html" with mode="draft" %}
 <table class="data-table">
   <thead><tr><th scope="col">Period</th><th scope="col">Department</th><th scope="col">Published</th><th scope="col">Unpublished changes</th></tr></thead>
   <tbody>
