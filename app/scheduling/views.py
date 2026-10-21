@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import date, timedelta
 
@@ -181,8 +182,16 @@ class PeriodView(PeriodMixin, TemplateView):
             over = sum(i.minutes for i in report.issues if i.day == d and i.category.value == "over_coverage")
             open_ivs = dctx.open_on(d)
             people_hours = sum(len(duty[d][slot]) for iv in open_ivs for slot in slots_of(iv)) * SLOT_MINUTES
+            rule_misses = sum(1 for i in report.issues if i.day == d and i.category.value in RULE_CATEGORIES)
             coverage.append(
-                {"day": d, "gap": gaps, "over": over, "scheduled": people_hours, "open": open_ivs}
+                {
+                    "day": d,
+                    "gap": gaps,
+                    "over": over,
+                    "rules": rule_misses,
+                    "scheduled": people_hours,
+                    "open": open_ivs,
+                }
             )
         ctx.update(
             draft_url=reverse("period", args=[period.pk]) + (f"?week={week}" if week else ""),
@@ -198,6 +207,7 @@ class PeriodView(PeriodMixin, TemplateView):
             latest=period.latest_version(),
             pending=services.pending_changes(period),
             removed=period.shifts.filter(deleted_at__isnull=False).select_related("employee")[:20],
+            pay_roles=sorted({s.pay_role for s in shifts if s.pay_role}, key=lambda r: r.name),
             **report_context(report),
         )
         return ctx
@@ -226,6 +236,10 @@ class DayView(PeriodMixin, TemplateView):
         scheduled = scheduled_intervals(day, dctx.hours)
         closures = closures_on(day, dctx.closures)
         names = {s.employee_id: s.employee.display_name for s in shifts if s.employee}
+        # Head counts alone can say "OK" while a skill or duty rule is unmet (CLAUDE.md §2.4).
+        rule_issues = [
+            i for i in services.validate(dctx).issues if i.day == day and i.category.value in RULE_CATEGORIES
+        ]
         span_start = min((iv.start for iv in scheduled), default=0)
         span_end = max((iv.end for iv in scheduled), default=0)
         rows = []
@@ -244,17 +258,28 @@ class DayView(PeriodMixin, TemplateView):
                     "count": len(on),
                     "names": sorted(names.get(e, "?") for e in on),
                     "state": slot_state(is_open, len(on), target, cov.mode),
+                    "missing": sorted(
+                        {
+                            i.message.split(":")[0]
+                            for i in rule_issues
+                            if i.interval is not None and i.interval.start <= minute < i.interval.end
+                        }
+                    ),
                 }
             )
         ctx.update(
             period=period,
             day=day,
             rows=rows,
+            rule_issues=rule_issues,
             shifts=shifts,
             prev_day=day - timedelta(days=1),
             next_day=day + timedelta(days=1),
         )
         return ctx
+
+
+RULE_CATEGORIES = ("tag_rule", "duty")  # validation issues about who is on duty, not how many
 
 
 def slot_state(is_open: bool, count: int, target: int, mode: str) -> str:
@@ -653,12 +678,14 @@ class RulesView(OrgViewMixin, TemplateView):
                 raise Http404
             obj = get_object_or_404(model.objects.filter(organization=org), pk=request.POST.get("pk"))
             if request.POST.get("confirm") != "yes":
-                messages.error(request, "Tick the box next to Remove to confirm.")
+                messages.error(request, f'Not removed: tick "Yes, remove" next to {obj} first.')
             else:
                 obj.delete()
                 messages.success(request, f"Removed: {obj}.")
                 self._revalidate_note(request)
-            return redirect("rules")
+            section = request.POST.get("section", "")
+            anchor = f"#{section}" if re.fullmatch(r"[a-z-]{1,20}", section) else ""
+            return redirect(reverse("rules") + anchor)
         if which not in self.FORMS:
             raise Http404
         forms = self.forms(request.POST, which)
@@ -765,6 +792,11 @@ class PublishedScheduleView(OrgViewMixin, TemplateView):
             today=today,
             me=self.request.access.employee,
         )
+        if not any(d.shifts for d in ctx["days"]):
+            from app.scheduling.published import next_published_day
+
+            later = next_published_day(org, start + timedelta(days=7), None, self.departments())
+            ctx["next_with_shifts"] = cal.week_start_for(later, org.week_start) if later else None
         if self.request.access.has(Perm.VIEW_DRAFTS):
             ctx["draft_url"] = self.draft_url(start)
             ctx["published_url"] = f"{reverse('published_schedule')}?week={start.isoformat()}"

@@ -34,6 +34,9 @@
   <li><span class="chip chip--new">9am–1pm <span class="chip__state">new</span></span> Draft, new</li>
   <li><span class="chip chip--changed">9am–1pm <span class="chip__state">changed</span></span> Draft, changed</li>
 </ul>
+{% if pay_roles %}<ul class="legend" aria-label="Pay roles (the coloured bar on each shift)">
+  {% for r in pay_roles %}<li><span class="legend__key" style="background: {{ r.color }}" aria-hidden="true"></span> {{ r.name }}</li>{% endfor %}
+</ul>{% endif %}
 
 <div class="grid-scroll">
 <table class="schedule-grid">
@@ -57,7 +60,7 @@
         <td>
           {% for s in cell %}
             {% with state=states|get_item:s.pk %}
-            <a class="chip chip--{{ state }}" href="{% url 'shift_edit' period.pk s.pk %}"{% if s.pay_role %} style="--chip: {{ s.pay_role.color }}"{% endif %}>{{ s.interval.label }}{% if state != "published" %} <span class="chip__state">{{ state }}</span>{% endif %}<span class="visually-hidden">, edit</span></a>
+            <a class="chip chip--{{ state }}" href="{% url 'shift_edit' period.pk s.pk %}"{% if s.pay_role %} style="--chip: {{ s.pay_role.color }}"{% endif %}>{{ s.interval.label }}{% if state != "published" %} <span class="chip__state">{{ state }}</span>{% endif %}<span class="visually-hidden">{% if s.pay_role %}, {{ s.pay_role.name }}{% endif %}, edit</span></a>
             {% endwith %}
           {% endfor %}
           {% if Perm.EDIT_SCHEDULE in access.perms or Perm.PROPOSE_EDITS in access.perms %}
@@ -86,7 +89,7 @@
     <tr>
       <th scope="row">Coverage</th>
       {% for c in coverage %}
-        <td>{% if not c.open %}Closed{% else %}{% if c.gap %}<strong>{{ c.gap|hours }} person-hours short</strong>{% else %}Covered{% endif %}{% if c.over %}<br>{{ c.over|hours }} person-hours over{% endif %}{% endif %}</td>
+        <td>{% if not c.open %}Closed{% else %}{% if c.gap %}<strong>{{ c.gap|hours }} person-hours short</strong>{% else %}Covered{% endif %}{% if c.over %}<br>{{ c.over|hours }} person-hours over{% endif %}{% if c.rules %}<br><a href="#validation"><strong>{{ c.rules }} skill or duty rule{{ c.rules|pluralize }} not met</strong></a>{% endif %}{% endif %}</td>
       {% endfor %}
       {% if Perm.VIEW_HOURS in access.perms %}<td></td><td></td>{% endif %}
     </tr>

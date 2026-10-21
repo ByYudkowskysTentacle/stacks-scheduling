@@ -423,3 +423,27 @@ def test_shifts_on_another_schedule_count_for_double_booking(org, location, peri
     issues = [i for i in services.validate_period(period).issues if i.category == "double_booking"]
     assert len(issues) == 1 and issues[0].shift_id == mine.pk
     assert "on another schedule" in issues[0].message
+
+
+def test_rule_removal_needs_a_visible_confirmation_and_returns_to_its_section(as_user, supervisor, org):
+    """The confirmation tick next to Remove is visible and labelled (WCAG 3.3.2), and the page
+    returns to the section the rule was in, not the top of a long page."""
+    from app.scheduling.models import HourCapRule
+
+    cap = HourCapRule.objects.create(organization=org, scope="week", minutes=600)
+    client = as_user(supervisor)
+    page = client.get(reverse("rules")).content.decode()
+    assert "Yes, remove" in page and 'name="confirm" value="yes" required' in page
+    resp = client.post(reverse("rules"), {"form": "delete", "kind": "cap", "pk": cap.pk, "section": "cap-h"})
+    assert resp.status_code == 302 and resp.url.endswith("#cap-h")
+    assert HourCapRule.objects.filter(pk=cap.pk).exists()  # no tick, nothing removed
+    resp = client.post(
+        reverse("rules"),
+        {"form": "delete", "kind": "cap", "pk": cap.pk, "section": "cap-h", "confirm": "yes"},
+    )
+    assert not HourCapRule.objects.filter(pk=cap.pk).exists()
+    resp = client.post(
+        reverse("rules"),
+        {"form": "delete", "kind": "cap", "pk": 0, "section": 'x" onclick=', "confirm": "yes"},
+    )
+    assert resp.status_code == 404

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
   function update() {
-    document.querySelectorAll(".data-table, .grid-scroll").forEach(function (el) {
+    document.querySelectorAll(".data-table, .grid-scroll, pre.sample").forEach(function (el) {
       if (el.scrollWidth > el.clientWidth + 1) {
         el.setAttribute("tabindex", "0");
       } else if (el.getAttribute("tabindex") === "0") {

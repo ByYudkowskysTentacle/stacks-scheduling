@@ -1,5 +1,7 @@
+{% comment %}A remove button that needs a visible, ticked confirmation (CLAUDE.md §2.3, WCAG 3.3.2).
+Include with kind, pk, item (what is removed, for screen readers) and section (the heading id to return to).{% endcomment %}
 <form method="post" class="inline-form remove-form">{% csrf_token %}
-  <input type="hidden" name="form" value="delete"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="pk" value="{{ pk }}">
-  <label><input type="checkbox" name="confirm" value="yes"> <span class="visually-hidden">Confirm removal</span></label>
+  <input type="hidden" name="form" value="delete"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="pk" value="{{ pk }}"><input type="hidden" name="section" value="{{ section }}">
+  <label><input type="checkbox" name="confirm" value="yes" required> Yes, remove<span class="visually-hidden"> {{ item }}</span></label>
   <button type="submit" class="button button--small button--danger-outline">Remove</button>
 </form>

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from datetime import date
 from decimal import Decimal
 from unittest import mock
@@ -17,6 +18,7 @@ from app.core.models import Term
 from app.people.models import Employee, EmployeeTag, Tag
 from app.scheduling import services
 from app.scheduling.models import SchedulePeriod, Shift
+from app.scheduling.published import NEUTRAL_CHIP
 
 pytestmark = pytest.mark.django_db
 START = date(2027, 1, 16)
@@ -132,3 +134,46 @@ def test_home_shows_next_shifts(as_user, student_user, setup):
     with mock.patch("django.utils.timezone.localdate", return_value=START):
         page = as_user(student_user).get(reverse("home")).content.decode()
     assert "Your next shifts" in page and "9am–12pm" in page
+
+
+FAR_BEFORE = date(2026, 11, 7)  # ten weeks before the published period starts
+
+
+def test_home_and_my_schedule_show_shifts_beyond_a_few_weeks(as_user, student_user, setup):
+    client = as_user(student_user)
+    with mock.patch("django.utils.timezone.localdate", return_value=FAR_BEFORE):
+        home = client.get(reverse("home")).content.decode()
+        mine = client.get(reverse("my_schedule")).content.decode()
+    assert "Mon 18 Jan" in home and "No published shifts coming up" not in home
+    assert "18 Jan" in mine and "No published shifts coming up" not in mine
+
+
+def test_an_empty_published_week_points_to_the_next_week_with_shifts(as_user, student_user, setup):
+    page = as_user(student_user).get(reverse("published_schedule") + "?week=2026-11-07").content.decode()
+    assert "No published shifts this week." in page
+    assert "?week=2027-01-16" in page
+
+
+def test_a_week_with_shifts_has_no_next_week_hint(as_user, student_user, setup):
+    page = as_user(student_user).get(reverse("published_schedule") + "?week=2027-01-18").content.decode()
+    assert "No published shifts this week." not in page
+
+
+def test_pay_roles_show_as_text_on_your_own_shifts_and_stay_private_on_others(
+    as_user, student_user, setup, pay_role
+):
+    """Colour alone isn't enough (WCAG 1.4.1); a co-worker's pay role can reveal work-study
+    status, so theirs isn't shown at all (D112)."""
+    page = as_user(student_user).get(reverse("published_schedule") + "?week=2027-01-18").content.decode()
+    assert page.count(pay_role.name) == 1  # on "You" only, not on Blake's shift
+    blake_line = re.search(r'<li class="public-shift"[^>]*>(?:(?!</li>).)*Blake', page, re.S).group(0)
+    assert pay_role.color not in blake_line and NEUTRAL_CHIP in blake_line  # Blake's bar is neutral
+    with mock.patch("django.utils.timezone.localdate", return_value=START):
+        mine = as_user(student_user).get(reverse("my_schedule")).content.decode()
+    assert pay_role.name in mine
+
+
+def test_the_supervisor_grid_names_each_pay_role(as_user, supervisor, setup, pay_role):
+    period, _, _ = setup
+    page = as_user(supervisor).get(reverse("period", args=[period.pk])).content.decode()
+    assert 'aria-label="Pay roles' in page and pay_role.name in page

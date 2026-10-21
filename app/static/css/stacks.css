@@ -31,7 +31,9 @@ h2 { font-size: 1.25rem; }
 h3 { font-size: 1.05rem; }
 a { color: var(--accent); }
 code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Two-tone focus (WCAG 2.2 2.4.11/1.4.11): a yellow ring next to the element and a dark ring
+   outside it, so one of them always has 3:1 contrast, on white pages and on the blue header. */
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; box-shadow: 0 0 0 3px var(--focus); }
 
 .skip-link { position: absolute; left: -999px; top: 0; background: var(--paper); padding: 0.5rem; z-index: 10; }
 .skip-link:focus { left: 0.5rem; }
@@ -90,7 +92,7 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .checklist .is-done a { color: var(--ink-soft); }
 
 /* Tables scroll inside their own box on phones rather than widening the page. */
-.data-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; display: block; overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; display: block; overflow-x: auto; position: relative; }
 @media (min-width: 48rem) { .data-table { display: table; } }
 .data-table th, .data-table td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
 .data-table thead th { border-bottom: 2px solid var(--ink-soft); white-space: nowrap; }
@@ -105,7 +107,8 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .stacked-form label { display: block; font-weight: 600; margin-bottom: 0.2rem; }
 .stacked-form input[type="checkbox"] + label, .stacked-form label:has(input[type="checkbox"]) { display: inline; font-weight: normal; }
 input, select, textarea { font: inherit; padding: 0.45rem; border: 1px solid var(--ink-soft); border-radius: 4px; max-width: 100%; min-height: 44px; }
-input[type="checkbox"], input[type="radio"] { min-height: auto; width: 1.2rem; height: 1.2rem; vertical-align: middle; }
+/* 24px targets (WCAG 2.2 SC 2.5.8, D113). */
+input[type="checkbox"], input[type="radio"] { min-height: auto; width: 1.5rem; height: 1.5rem; vertical-align: middle; margin: 0 0.35rem 0 0; }
 input[type="color"] { padding: 0.1rem; width: 4rem; }
 textarea { width: 100%; }
 fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.75rem 1rem; margin: 0 0 1rem; }
@@ -156,6 +159,9 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .painter__toolbar [aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .painter__toolbar [aria-pressed="true"]::before { content: "✓ "; }
 .painter__grid { overflow-x: auto; max-height: 70vh; overflow-y: auto; border: 1px solid var(--line); }
+/* On phones the page scrolls, not a box inside it, so there's room to swipe (taps paint). */
+@media (max-width: 30rem) { .painter__grid { max-height: none; overflow-y: visible; } }
+.painter__status { min-height: 1.5em; margin: 0.25rem 0; font-weight: 600; }
 .painter__table { border-collapse: collapse; width: 100%; min-width: 20rem; user-select: none; font-size: 0.75rem; }
 .painter__table thead td { position: sticky; top: 0; background: var(--paper); font-weight: 700; text-align: center; padding: 0.2rem; z-index: 1; }
 .painter__table td { height: 0.85rem; border-left: 1px solid var(--line); padding: 0; cursor: crosshair; }
@@ -168,7 +174,9 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .cell--anchor { outline: 3px solid var(--focus); outline-offset: -3px; }
 
 /* Availability grid (SPEC §5.3) */
-.grid-scroll { overflow-x: auto; }
+/* Positioned so visually-hidden text inside stays in the scroll box instead of widening
+   the page on phones (WCAG 1.4.10). */
+.grid-scroll { overflow-x: auto; position: relative; }
 .avail-grid { border-collapse: collapse; width: 100%; min-width: 60rem; font-size: 0.8rem; }
 .avail-grid th, .avail-grid td { border: 1px solid var(--line); padding: 0.3rem; vertical-align: top; text-align: left; }
 .avail-grid thead th { background: var(--paper-alt); white-space: nowrap; }

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load stacks %}
 {% block title %}Availability reminders{% endblock %}
 {% block content %}
 <p class="no-print"><a href="{% url 'availability_grid' %}?term={{ term.pk }}">← Availability grid</a></p>
@@ -19,13 +20,17 @@
 <h2>Not entered or not confirmed ({{ due|length }})</h2>
 <table class="data-table">
   <thead><tr><th scope="col">Person</th><th scope="col">Status</th></tr></thead>
-  <tbody>{% for d in due %}<tr><th scope="row">{{ d.employee.display_name }}</th><td>{% if d.status == "needs_review" %}Imported, needs confirming{% else %}Not entered{% endif %}{% if not d.can_remind %}; no sign-in account yet{% endif %}</td></tr>{% empty %}<tr><td colspan="2">Everyone has entered and confirmed their availability.</td></tr>{% endfor %}</tbody>
+  <tbody>{% for d in due %}<tr><th scope="row"><a href="{% url 'employee_detail' d.employee.pk %}">{{ d.employee.display_name }}</a></th><td>{% if d.status == "needs_review" %}Imported, needs confirming{% else %}Not entered{% endif %}{% if not d.can_remind %}; no sign-in account yet{% endif %}</td></tr>{% empty %}<tr><td colspan="2">Everyone has entered and confirmed their availability.</td></tr>{% endfor %}</tbody>
 </table>
-{% if due %}
+{% if due %}{% with reachable=due|reachable_count %}
+{% if reachable %}
 <form method="post" class="stacked-form">{% csrf_token %}<input type="hidden" name="term" value="{{ term.pk }}">
-  <div><label><input type="checkbox" name="confirm" value="yes" required> Email a reminder now to everyone above with a sign-in account.</label></div>
-  <div class="form-actions"><button type="submit" class="button button--primary">Send reminders now</button></div>
+  <div><label><input type="checkbox" name="confirm" value="yes" required> Email a reminder now to the {{ reachable }} of {{ due|length }} people above who have a sign-in account.</label></div>
+  <div class="form-actions"><button type="submit" class="button button--primary">Send {{ reachable }} reminder{{ reachable|pluralize }}</button></div>
 </form>
+{% else %}
+<p><strong>No one above has a sign-in account yet, so there's no one to email.</strong> Open each person's record and invite them first.</p>
 {% endif %}
+{% endwith %}{% endif %}
 {% if sent %}<h2>Sent</h2><ul>{% for s in sent %}<li>{{ s.sent_on|date:"D j M Y" }}: {{ s.n }}</li>{% endfor %}</ul>{% endif %}
 {% endblock %}

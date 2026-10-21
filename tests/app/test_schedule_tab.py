@@ -138,3 +138,23 @@ def test_switch_pages_share_one_width_so_the_switch_does_not_jump(as_user, super
         page(client, "published_schedule", query="?week=2027-01-16"),
     ):
         assert re.search(r'<main[^>]*class="[^"]*main--wide', html)
+
+
+def test_day_page_and_grid_footer_report_unmet_skill_rules(as_user, supervisor, org, period):
+    """A head-count "OK" must not hide an unmet skill rule (CLAUDE.md §2.4)."""
+    from app.people.models import Tag
+    from app.scheduling.models import TagCoverageRule
+
+    lead = Tag.objects.create(organization=org, name="Shift lead")
+    TagCoverageRule.objects.create(organization=org, tag=lead, kind="min_on_duty", count=1)
+    client = as_user(supervisor)
+    day = page(client, "period_day", period.pk, "2027-01-18")
+    assert "Rules not met on this day" in day
+    assert "Missing: " in day and "Shift lead" in day
+    grid = page(client, "period", period.pk)
+    assert re.search(r"\d+ skill or duty rules? not met", grid)
+
+
+def test_day_page_says_ok_when_rules_are_met(as_user, supervisor, period):
+    day = page(as_user(supervisor), "period_day", period.pk, "2027-01-18")
+    assert "Rules not met on this day" not in day and "Missing: " not in day

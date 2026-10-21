@@ -11,7 +11,7 @@ The hard requirements come from CLAUDE.md §1 and the planning decisions:
 - **Self-hosted with `docker compose up`** on one modest server. The pilot runs on an Ubuntu VPS (D8), and development uses Docker Desktop on Windows (D23). A small library IT team must be able to install, back up and upgrade it.
 - **Relational and transactional:** PostgreSQL. Bulk changes are all-or-nothing with undo (SPEC §9.3), and every write is audited (CLAUDE.md §6).
 - **A real optimization solver** for generate, rebalance and what-if (SPEC §7), meeting the targets for about 30 people over 2 weeks: rebalance under 30 seconds and generate under 5 minutes, on modest hardware. The prototype's PuLP/CBC approach hit time limits on joint two-week problems.
-- **Light front end:** server-rendered pages that work on phones and print cleanly, and meet WCAG 2.1 AA.
+- **Light front end:** server-rendered pages that work on phones and print cleanly, and meet WCAG 2.1 AA (raised to 2.2 AA by D113).
 - **Authentication:** local accounts first, then Google Workspace via generic OIDC, then SAML 2.0 (D5), with optional TOTP.
 - **Licensing:** AGPL-3.0, confirmed by the maintainer (D3). Every dependency must be compatible.
 - **Spring 2027 go-live** (D15, D16), about 14 weeks out, built by a small team. Batteries-included tooling matters more than flexibility.

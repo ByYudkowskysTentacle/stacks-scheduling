@@ -6,8 +6,8 @@
   <section aria-labelledby="next-heading" class="card">
     <h2 id="next-heading">Your next shifts</h2>
     {% if upcoming %}
-      <ul class="plain-list">{% for m in upcoming %}<li><strong>{{ m.shift.day|date:"D j M" }}</strong> {{ m.shift.interval.label }}{% if m.with_me %} <span class="subtle">with {{ m.with_me|join:", " }}</span>{% endif %}</li>{% endfor %}</ul>
-    {% else %}<p>No published shifts in the next two weeks.</p>{% endif %}
+      <ul class="plain-list">{% for m in upcoming %}<li><strong>{{ m.shift.day|date:"D j M" }}</strong> {{ m.shift.interval.label }}{% if m.shift.role %} · {{ m.shift.role }}{% endif %}{% if m.with_me %} <span class="subtle">with {{ m.with_me|join:", " }}</span>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p>No published shifts coming up. You'll get a notification when your schedule is published.</p>{% endif %}
     <p><a href="{% url 'my_schedule' %}">My schedule</a> · <a href="{% url 'published_schedule' %}">Everyone's schedule</a></p>
   </section>
 {% endif %}

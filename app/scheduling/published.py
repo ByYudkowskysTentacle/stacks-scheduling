@@ -19,6 +19,8 @@ from app.scheduling.models import PublishedVersion, SchedulePeriod
 from domain import calendar as cal
 from domain.timeutil import Interval, format_minute
 
+NEUTRAL_CHIP = "#5b6472"
+
 
 @dataclass(frozen=True)
 class PublicShift:
@@ -30,6 +32,7 @@ class PublicShift:
     location: str
     note: str = ""  # shown only to the person the shift belongs to
     shift_id: int | None = None
+    role: str = ""  # pay role name: only on your own shifts and open shifts (D112)
 
 
 @dataclass
@@ -81,7 +84,7 @@ def published_week(
     """One week of the published schedule; `department_ids` limits it to those departments."""
     days = cal.week_days(week_start)
     names = dict(Employee.objects.filter(organization=org).values_list("pk", "preferred_name"))
-    colors = dict(PayRole.objects.filter(organization=org).values_list("pk", "color"))
+    roles = {r.pk: r for r in PayRole.objects.filter(organization=org)}
     by_day: dict[date, list[PublicShift]] = defaultdict(list)
     for period, version in _latest_versions(org, days[0], days[-1], department_ids):
         for row in version.shifts:
@@ -89,16 +92,20 @@ def published_week(
             if not days[0] <= day <= days[-1]:
                 continue
             own = viewer is not None and row["employee_id"] == viewer.pk
+            # A co-worker's pay role can reveal work-study status, so it shows (as colour and
+            # name) only on your own shifts and open shifts; others get a neutral bar (D112).
+            role = roles.get(row.get("pay_role_id")) if own or not row["employee_id"] else None
             by_day[day].append(
                 PublicShift(
                     day=day,
                     interval=Interval(row["start"], row["end"]),
                     name=names.get(row["employee_id"], "Open shift") if row["employee_id"] else "Open shift",
                     employee_id=row["employee_id"],
-                    color=colors.get(row.get("pay_role_id"), "#5b6472"),
+                    color=role.color if role else NEUTRAL_CHIP,
                     location=period.location.name,
                     note=row.get("note", "") if own else "",
                     shift_id=row.get("id"),
+                    role=role.name if role else "",
                 )
             )
     return [PublicDay(d, sorted(by_day.get(d, []), key=lambda s: (s.interval, s.name))) for d in days]
@@ -110,10 +117,36 @@ class MyShift:
     with_me: list[str]
 
 
-def my_upcoming(employee: Employee, from_day: date, weeks: int = 4) -> list[MyShift]:
-    """The employee's published shifts with who else is on duty at the same time."""
+def published_horizon(org, department_ids: frozenset[int] | None = None) -> date | None:
+    """The last day any published schedule covers, or None if nothing is published."""
+    periods = SchedulePeriod.objects.filter(organization=org, versions__isnull=False).distinct()
+    if department_ids is not None:
+        periods = periods.filter(department_id__in=department_ids)
+    return max((p.end_date for p in periods), default=None)
+
+
+def next_published_day(
+    org, after: date, viewer: Employee | None = None, department_ids: frozenset[int] | None = None
+) -> date | None:
+    """The first day on or after `after` with a published shift (the viewer's own, if given)."""
+    days = [
+        date.fromisoformat(row["date"])
+        for _period, version in _latest_versions(org, after, date.max, department_ids)
+        for row in version.shifts
+        if viewer is None or row["employee_id"] == viewer.pk
+    ]
+    return min((d for d in days if d >= after), default=None)
+
+
+def my_upcoming(employee: Employee, from_day: date, weeks: int | None = None) -> list[MyShift]:
+    """The employee's published shifts with who else is on duty at the same time. With no
+    `weeks`, it looks as far ahead as anything is published, so no published shift is hidden
+    by a fixed window."""
     out: list[MyShift] = []
     start = cal.week_start_for(from_day, employee.organization.week_start)
+    if weeks is None:
+        horizon = published_horizon(employee.organization)
+        weeks = 0 if horizon is None or horizon < from_day else (horizon - start).days // 7 + 1
     for w in range(weeks):
         for d in published_week(employee.organization, start + timedelta(days=7 * w), employee):
             if d.day < from_day:
