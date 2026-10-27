@@ -64,7 +64,8 @@ def hours_report(period: SchedulePeriod) -> list[HoursLine]:
                 target=_h(target),
                 desired=_h(desired.get(r.employee.pk)),
                 over_limit=r.over,
-                below_target=target is not None and any(m < target for m, _ in r.weeks),
+                below_target=target is not None
+                and any(m < ctx.weekly_goal(target, w) for w, (m, _) in enumerate(r.weeks)),
             )
         )
     return out
@@ -123,7 +124,16 @@ def to_json(lines: list, period: SchedulePeriod, kind: str) -> str:
     return json.dumps(
         {
             "report": kind,
-            "period": {"start": period.start_date.isoformat(), "end": period.end_date.isoformat()},
+            "period": {
+                "start": period.start_date.isoformat(),
+                "end": period.end_date.isoformat(),
+                "length": period.length_label,
+                # Per-week columns follow these calendar weeks; a part week has fewer days (D120).
+                "weeks": [
+                    {"first_day": days[0].isoformat(), "days": len(days)}
+                    for days in (period.domain().week_days(w) for w in range(period.week_count))
+                ],
+            },
             "source": "working copy (includes unpublished drafts)",
             "rows": [asdict(line) for line in lines],
         },

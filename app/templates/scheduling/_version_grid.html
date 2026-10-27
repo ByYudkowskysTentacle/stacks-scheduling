@@ -2,7 +2,7 @@
 {% for week in weeks %}
 <div class="grid-scroll grid-scroll--sticky">
 <table class="schedule-grid print-grid">
-  <caption>Week {{ forloop.counter }}: {{ week.days.0|date:"D j M" }} to {{ week.days|last|date:"D j M Y" }}</caption>
+  <caption>Week {{ forloop.counter }}: {{ week.days.0|date:"D j M" }} to {{ week.days|last|date:"D j M Y" }}{% if week.part %} (part week){% endif %}</caption>
   <colgroup><col class="col-person">{% for d in week.days %}<col>{% endfor %}{% if Perm.VIEW_HOURS in access.perms %}<col class="col-hours"><col class="col-hours">{% endif %}</colgroup>
   <thead>
     <tr>

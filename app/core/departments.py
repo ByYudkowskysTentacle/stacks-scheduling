@@ -43,13 +43,15 @@ def usage(department: Department) -> Usage:
 
 
 def clashes(department: Department, into: Department) -> list:
-    """Schedules of `department` that start the same week at the same location as one of `into`'s.
-    Two schedules for one department and week can't exist, so these block the merge."""
-    taken = set(into.periods.values_list("location_id", "start_date"))
+    """Schedules of `department` that share days at the same location with one of `into`'s.
+    One department's schedules can't overlap (D120), so these block the merge."""
+    taken = list(into.periods.values_list("location_id", "start_date", "end_date"))
     return [
         p
         for p in department.periods.select_related("location").order_by("start_date")
-        if (p.location_id, p.start_date) in taken
+        if any(
+            loc == p.location_id and start <= p.end_date and p.start_date <= end for loc, start, end in taken
+        )
     ]
 
 
@@ -73,7 +75,7 @@ def remove(department: Department, into: Department | None = None) -> list[str]:
             if clash:
                 weeks = ", ".join(f"{p.location} from {p.start_date:%-d %b %Y}" for p in clash)
                 raise DepartmentError(
-                    f"{into} already has a schedule for the same week and location as: {weeks}. "
+                    f"{into} already has a schedule on some of the same days and location as: {weeks}. "
                     "Move or remove those schedules first."
                 )
             department.periods.update(department=into)

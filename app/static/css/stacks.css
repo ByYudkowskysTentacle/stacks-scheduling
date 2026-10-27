@@ -394,3 +394,7 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .day-card--empty h2 { margin: 0; font-size: var(--fs-base); }
 .day-card--empty p { margin: 0; }
 .legend .chip { display: inline-block; margin: 0 var(--sp-1) 0 0; vertical-align: middle; }
+
+/* Week links on long periods (months, terms) carry each week's first day (D120). */
+.week-nav__date { color: var(--ink-soft); font-size: 0.875em; }
+.week-nav a[aria-current="page"] .week-nav__date { color: inherit; }

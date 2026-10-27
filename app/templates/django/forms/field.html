@@ -8,7 +8,7 @@ Django adds aria-describedby and aria-invalid to the widget itself.{% endcomment
 {% else %}
   {% if field.use_fieldset %}
     <fieldset{% if field.aria_describedby %} aria-describedby="{{ field.aria_describedby }}"{% endif %}>
-    {% if field.label %}<legend>{{ field.label }}{% if not field.field.required and field.widget_type != "checkboxselectmultiple" %} <span class="optional">(optional)</span>{% endif %}</legend>{% endif %}
+    {% if field.label %}<legend>{{ field.label }}{% if not field.field.required and field.widget_type != "checkboxselectmultiple" and not field.field.hide_optional %} <span class="optional">(optional)</span>{% endif %}</legend>{% endif %}
   {% elif field.label %}
     <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required and not field.field.hide_optional %} <span class="optional">(optional)</span>{% endif %}</label>
   {% endif %}

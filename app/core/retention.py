@@ -19,6 +19,7 @@ from django.utils import timezone
 from pghistory.models import Event
 
 from app.core.models import Organization, RetentionPolicy
+from app.core.timezones import local_today, org_time
 
 logger = logging.getLogger(__name__)
 
@@ -137,22 +138,23 @@ def policy_for(org: Organization) -> RetentionPolicy:
 def preview(org: Organization, today: date | None = None, policy: RetentionPolicy | None = None) -> list[Due]:
     """What a purge would remove today, without removing anything. Pass an unsaved `policy` to
     see what new periods would remove before saving them."""
-    today = today or timezone.localdate()
+    today = today or local_today(org)
     policy = policy or policy_for(org)
     out = []
-    for rule in RULES:
-        days = getattr(policy, rule.field)
-        count = rule.select(org, today - timedelta(days=days)).count() if days else 0
-        out.append(Due(rule.label, days, count))
-    days = policy.audit_days
-    out.append(Due(AUDIT_LABEL, days, _audit_due(org, today - timedelta(days=days)) if days else 0))
+    with org_time(org):  # cutoffs are whole days in the organization's zone (D119)
+        for rule in RULES:
+            days = getattr(policy, rule.field)
+            count = rule.select(org, today - timedelta(days=days)).count() if days else 0
+            out.append(Due(rule.label, days, count))
+        days = policy.audit_days
+        out.append(Due(AUDIT_LABEL, days, _audit_due(org, today - timedelta(days=days)) if days else 0))
     return out
 
 
 def purge(org: Organization, today: date | None = None) -> dict[str, int]:
-    today = today or timezone.localdate()
+    today = today or local_today(org)
     counts: dict[str, int] = {}
-    with transaction.atomic(), pghistory.context(action="retention_purge"):
+    with org_time(org), transaction.atomic(), pghistory.context(action="retention_purge"):
         policy = RetentionPolicy.objects.select_for_update().get(pk=policy_for(org).pk)
         for rule in RULES:
             days = getattr(policy, rule.field)

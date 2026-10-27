@@ -13,6 +13,7 @@ from django.db import models
 
 from app.core.audit import audited
 from app.core.fields import minute_field
+from app.core.timezones import default_time_zone, validate_time_zone
 from domain import calendar as cal
 from domain.timeutil import Interval, is_on_slot
 
@@ -22,14 +23,23 @@ WEEKDAY_CHOICES = [(i, name) for i, name in enumerate(cal.WEEKDAY_NAMES)]
 @audited()
 class Organization(models.Model):
     name = models.CharField(max_length=200)
-    time_zone = models.CharField(max_length=64, default="America/Chicago")
+    # Shift times are wall-clock times in this zone (D119).
+    time_zone = models.CharField(
+        max_length=64,
+        default=default_time_zone,
+        validators=[validate_time_zone],
+        help_text="Shift times, today's date, calendar feeds and the nightly jobs all use this zone.",
+    )
     week_start = models.PositiveSmallIntegerField(
         choices=WEEKDAY_CHOICES,
         default=cal.SAT,
         help_text="Weekly caps, planning periods and rotation weeks count from this day.",
     )
     planning_period_weeks = models.PositiveSmallIntegerField(
-        default=2, validators=[MinValueValidator(1), MaxValueValidator(4)]
+        "default planning period (weeks)",
+        default=2,
+        validators=[MinValueValidator(1), MaxValueValidator(4)],
+        help_text="New periods measured in weeks start with this many. Periods can also be months or a term.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

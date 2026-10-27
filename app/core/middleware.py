@@ -1,13 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+from django.utils import timezone
+
 from app.core.permissions import NO_ACCESS, resolve_access
+from app.core.timezones import zone
 
 SESSION_KEY = "organization_id"
 
 
 class OrganizationMiddleware:
-    """Attach the current organization and the user's `Access` to every request.
+    """Attach the current organization and the user's `Access` to every request, and run the
+    request in the organization's time zone (D119).
 
     Most installations have one organization. When a user belongs to several, the
     choice is kept in the session and only ever resolved from their own memberships.
@@ -32,4 +36,11 @@ class OrganizationMiddleware:
                 ).first()
                 request.access = resolve_access(chosen, employee)
                 request.organization = chosen.organization
-        return self.get_response(request)
+        if request.organization is not None:
+            timezone.activate(zone(request.organization))
+        else:
+            timezone.deactivate()  # the server default, before signing in
+        try:
+            return self.get_response(request)
+        finally:
+            timezone.deactivate()  # nothing carries over to the thread's next request

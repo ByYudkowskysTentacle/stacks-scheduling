@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 import pghistory
 from django.utils import timezone
 
+from app.core.timezones import local_today, zone
 from app.people.models import Employee
 from app.scheduling.models import CalendarFeed
 from app.scheduling.published import my_upcoming
@@ -74,8 +75,8 @@ def _utc(day: date, minute: int, tz: ZoneInfo) -> str:
 
 def build_ics(employee: Employee, today: date | None = None) -> str:
     org = employee.organization
-    tz = ZoneInfo(org.time_zone)
-    today = today or timezone.localdate()
+    tz = zone(org)  # shift times are wall-clock times in the organization's zone (D119)
+    today = today or local_today(org)
     stamp = timezone.now().astimezone(ZoneInfo("UTC")).strftime("%Y%m%dT%H%M%SZ")
     lines = [
         "BEGIN:VCALENDAR",

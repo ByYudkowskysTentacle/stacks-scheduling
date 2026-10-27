@@ -482,6 +482,48 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - Two first names from the original library's schedules, used as examples in CLAUDE.md, a help text, a docstring and the design audit, were replaced with synthetic ones (Jordan and Riley). They stay in older commits, which the maintainer accepted.
   - The author email on four early commits becomes public, which the maintainer accepted.
 
+## 2026-10-27 – Build session, organization time zone and period lengths
+
+D118 is taken by campus sign-in (PR 40).
+
+- **D119 (maintainer request, 2026-10-27).** The organization's time zone is a setting, chosen from the IANA list, and the app uses it everywhere.
+  *Built:*
+  - **The setting.** Settings, Organization offers the canonical IANA zones from Python's `zoneinfo` (for example `America/Chicago`), grouped by region, plus UTC. A legacy alias already stored (such as `US/Central`) stays selectable until it's changed. The model rejects any name `zoneinfo` doesn't know.
+  - **Where it applies.**
+    - Every signed-in request runs in the organization's zone (`OrganizationMiddleware`), so "today", the dates and times on every page, and date lookups follow it.
+    - Solver runs (the freeze window), the nightly retention purge, availability reminders and calendar feeds each switch to the organization's zone themselves.
+    - `STACKS_TIME_ZONE` is only the default for new organizations and for pages shown before signing in.
+  - **Existing organizations.** The migration sets every organization to the current `STACKS_TIME_ZONE`, because that is what pages and jobs used until now. (The old stored value only reached calendar feeds and the freeze window, and defaulted to `America/Chicago`.) After upgrading, an installation outside that zone should check Settings, Organization once.
+  - **Changing it needs a confirmation (CLAUDE.md §2.3).** Saving a new zone first shows the current time in both zones and how many upcoming shifts and published schedules are affected, and asks for a tick. The change is in the audit log like any settings write. Nobody is notified.
+  - **Reminders** now run hourly and go out once a person's organization has reached 9am local time, at most once a day each, instead of at a fixed 14:05 UTC.
+  *Interpretation:*
+  - **Shift times are wall-clock times in the organization's zone, and changing the zone keeps them.** A 9am shift stays 9am, now in the new zone. So its instant moves, and calendar apps show it moved. Nothing is retimed or re-published. The confirmation says so.
+  - **An organization has one zone at a time; periods don't carry their own.** A period that was planned before a zone change simply reads in the new zone afterwards. That includes the part already worked and any published version. There is no "zone at the time" history beyond the audit log.
+  - **Daylight-saving changes inside a period** are handled as wall-clock time. A shift's length and every hour count are end minus start on the clock. Calendar feeds give the correct instants for each date. A shift that spans the change itself (only possible overnight) still counts its clock length, so it is off by an hour. This is listed as an open item.
+- **D120 (maintainer request, 2026-10-27; extends SPEC §3.2).** A planning period can be a number of weeks, calendar months or one whole term.
+  *Built:*
+  - **Lengths.**
+    - **Weeks:** 1 to 4 weeks from a week start, as before. It's still the default, using the organization's default number of weeks.
+    - **Calendar months:** 1 to 3 months.
+    - **A whole term:** the dates of one `Term`.
+  - **Dates are stored on the period.** `SchedulePeriod` keeps its `end_date` along with how the length was chosen (`length`, and `weeks`, `months` or `term`). Existing periods are filled in by the migration.
+  - **Weeks inside a period** are calendar weeks counted from the organization's week start. A period that doesn't start on a week start, or doesn't end on the day before one, has part weeks at its edges.
+    - The period grid, the hours report, version pages and prints show one table per week, with only that week's days in the period. Part weeks are labelled "part week" in words.
+    - The week links show each week's first date.
+  - **Caps count the whole calendar week.** A weekly cap in a part week also counts the person's shifts on the other days of that calendar week, on any schedule: the neighbouring month's period, or another department's. The validation message says it counted the whole week. So two month periods can't give one person 20 hours each in the week they share.
+  - **Weekly goals are scaled in part weeks.** This covers hour targets, approved desired hours, weekly tag-hours rules and the hours expected in a lead week. In a part week each is scaled by that week's share of the calendar week's open hours, rounded down to 15 minutes. A 20-hour target in a part week holding half the week's opening hours asks for 10. Caps and the "most hours in other weeks" ceiling of a lead-week duty are never scaled.
+  - **Solves on long periods take a span.** Generate and rebalance on a period longer than 31 days (in practice a term) must name "Only change from" and "until", no more than 31 days apart. The form suggests the next four weeks. Shifts outside the span stay fixed but still count (D39). A whole month can be solved in one run.
+  - **Overlaps are refused.** A new period can't overlap another period of the same department at the same location, whatever their lengths. Before, only an identical start date was caught. The form names the period it overlaps. Removing a department (D110) likewise refuses a merge when the two departments have schedules sharing any day at one location, not only the same start.
+  - **The Draft | Published switch (D111)** opens the period that holds the published week's first day when a week is split between two months.
+  - **Published schedules over four weeks.** "My schedule" and the calendar feed look for periods by their end date, not a four-week window from the start, so shifts late in a term-length period still show.
+  - The domain `Period` is now a start and end date with the week start. `Period.of_weeks()` builds the old kind.
+  *Interpretation:*
+  - **A month period starts on the 1st.** A start date inside a month is moved back to the 1st, as a weeks period's start is moved back to its week start. A month period ends on the last day of its last month. Starting mid-month would make months and weeks the same thing with different labels.
+  - **A term period covers every day from the term's start to its end, breaks included.** Breaks and holidays aren't cut out of the period. They are handled as now, through operating hours and closures: a day with no open hours, or an all-day closure, has nothing to cover and nothing scheduled. The period keeps the dates it was created with, even if the term's dates are edited later, so existing shifts never fall outside their period. A period created after the edit picks up the new dates.
+  - **Availability for a period that runs past its term** (for example a month spanning the end of one term) still comes from the term containing the period's start, as for weeks. The period page now says so when it happens. Per-day availability across two terms is a later change.
+  - **Rotation groups and lead-week duties use the period's week numbers, as before.** Week 1 is the period's first week, even a part week. In month periods, a "week 1 and week 2" rotation therefore restarts each month. A supervisor who needs strict alternation across months should use weeks periods, or set groups by hand. This is an open item.
+  - **The weekly cap applies to the calendar week, whatever the period boundary.** This is the conservative reading of SPEC §6.4 ("per week"). Period caps count the days inside the period only.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -502,3 +544,5 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 16. ~~Decide what supervisors limited to some departments see of the audit log and the published schedule~~ Resolved: own departments (D107, D108).
 17. Decide whether settings (hours, rules, terms, tags, pay roles, departments) and CSV imports should stay organization-wide for every supervisor, or be limited by department (D95, part 4).
 18. ~~Add a way to remove a department~~ Done: merge into another department, then remove (D110).
+19. Confirm the period-length interpretations in D120: a month period starts on the 1st; a term period keeps breaks inside it; weekly caps count the whole calendar week across period boundaries; weekly goals are scaled in part weeks. Also decide whether rotation weeks should count across periods rather than restart in each month period.
+20. Decide whether a shift that spans a daylight-saving change (overnight only) should count its real elapsed length rather than its clock length (D119).

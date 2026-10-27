@@ -124,6 +124,21 @@ def test_draft_side_falls_back_to_the_list_when_no_single_period_covers_the_week
     assert switch(html)["Draft"] == (reverse("schedule_index"), False)
 
 
+def test_a_week_split_between_two_months_switches_to_the_month_holding_its_first_day(
+    as_user, supervisor, org, location
+):
+    """D120: Sat 30 Jan to Fri 5 Feb is in both the January and February periods."""
+    january = SchedulePeriod.objects.create(
+        organization=org, location=location, length="months", start_date=date(2027, 1, 1), months=1
+    )
+    SchedulePeriod.objects.create(
+        organization=org, location=location, length="months", start_date=date(2027, 2, 1), months=1
+    )
+    html = page(as_user(supervisor), "published_schedule", query="?week=2027-01-30")
+    # Fri 1 Jan is January's first (part) week, so Sat 30 Jan starts its sixth.
+    assert switch(html)["Draft"] == (reverse("period", args=[january.pk]) + "?week=5", False)
+
+
 def test_shift_leads_get_the_switch_too(as_user, lead_user, period):
     html = page(as_user(lead_user), "published_schedule", query="?week=2027-01-16")
     assert switch(html) is not None

@@ -36,9 +36,9 @@
     {% if o.hours %}
     <h3>Who gains and who loses hours</h3>
     <table class="data-table">
-      <thead><tr><th scope="col">Person</th>{% for w in weeks %}<th scope="col">Week {{ w|add:1 }}</th>{% endfor %}<th scope="col">Change</th></tr></thead>
+      <thead><tr><th scope="col">Person</th>{% for w in weeks %}<th scope="col">Week {{ w.index|add:1 }} <span class="subtle">{{ w.first|date:"j M" }}{% if w.part %}, part{% endif %}</span></th>{% endfor %}<th scope="col">Change</th></tr></thead>
       <tbody>{% for h in o.hours %}
-        <tr><th scope="row">{{ h.name }}</th>{% for w in weeks %}<td>{{ h.before|index:w|hours }} → {{ h.after|index:w|hours }}</td>{% endfor %}
+        <tr><th scope="row">{{ h.name }}</th>{% for w in weeks %}<td>{{ h.before|index:w.index|hours }} → {{ h.after|index:w.index|hours }}</td>{% endfor %}
           <td>{% if h.delta > 0 %}+{% endif %}{{ h.delta|hours }}h</td></tr>
       {% endfor %}</tbody>
     </table>

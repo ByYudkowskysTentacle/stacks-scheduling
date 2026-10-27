@@ -126,14 +126,15 @@ class RaiseHoursView(PeriodMixin, View):
             result = suggestions.opportunities_for(period, employee)
         except suggestions.SuggestionError as exc:
             raise Http404(str(exc)) from exc
+        dperiod = period.domain()
         weeks = [
             {
-                "label": f"Week {w + 1}",
+                "label": dperiod.week_label(w).capitalize(),
                 "minutes": result.week_minutes[w],
                 "low_threshold": result.low_threshold.get(w, 0),
                 "items": result.by_week.get(w, []),
             }
-            for w in range(period.weeks)
+            for w in range(dperiod.weeks)
         ]
         return render(
             request,

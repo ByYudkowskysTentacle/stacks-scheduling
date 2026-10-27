@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -32,6 +33,7 @@ from app.core.models import (
     Term,
 )
 from app.core.permissions import Perm
+from app.core.timezones import zone_named
 from app.core.views_base import OrgObjectMixin, OrgViewMixin
 from domain import calendar as cal
 from domain.timeutil import total_minutes
@@ -178,7 +180,7 @@ def setup_checklist(org) -> list[tuple[str, bool, str]]:
 class OrganizationSettingsView(OrgViewMixin, UpdateView):
     permission = Perm.CONFIGURE
     form_class = OrganizationForm
-    template_name = "core/form.html"
+    template_name = "core/organization_form.html"
     success_url = reverse_lazy("organization_settings")
     extra_context = {"title": "Organization settings"}
 
@@ -186,8 +188,45 @@ class OrganizationSettingsView(OrgViewMixin, UpdateView):
         return self.request.organization
 
     def form_valid(self, form):
+        # Shift times are wall-clock times, so a new zone moves every shift's instant: show
+        # what that means and ask for a tick first (D119, CLAUDE.md §2.3).
+        if "time_zone" in form.changed_data and self.request.POST.get("confirm_time_zone") != "yes":
+            change = zone_change(
+                self.request.organization, form.initial["time_zone"], form.cleaned_data["time_zone"]
+            )
+            return self.render_to_response(self.get_context_data(form=form, zone_change=change))
         messages.success(self.request, "Settings saved.")
         return super().form_valid(form)
+
+
+@dataclass(frozen=True)
+class ZoneChange:
+    old: str
+    new: str
+    old_now: datetime
+    new_now: datetime
+    upcoming_shifts: int
+    published_periods: int
+
+
+def zone_change(org, old: str, new: str) -> ZoneChange:
+    """What moving the organization from `old` to `new` touches, for the confirmation."""
+    from app.scheduling.models import SchedulePeriod, Shift
+
+    now = timezone.now()
+    today = now.astimezone(zone_named(old)).date()
+    return ZoneChange(
+        old=old,
+        new=new,
+        old_now=now.astimezone(zone_named(old)),
+        new_now=now.astimezone(zone_named(new)),
+        upcoming_shifts=Shift.objects.live().filter(organization=org, date__gte=today).count(),
+        published_periods=SchedulePeriod.objects.filter(
+            organization=org, end_date__gte=today, versions__isnull=False
+        )
+        .distinct()
+        .count(),
+    )
 
 
 class LocationListView(OrgViewMixin, ListView):

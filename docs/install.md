@@ -37,7 +37,7 @@ Edit `.env`:
 - `DJANGO_SECRET_KEY`: generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`.
 - `POSTGRES_PASSWORD`: a long random password.
 - `SMTP_*` and `DEFAULT_FROM_EMAIL`: your mail settings.
-- `STACKS_TIME_ZONE`: the library's time zone, for example `America/Chicago`.
+- `STACKS_TIME_ZONE`: the library's time zone, for example `America/Chicago`. It's the starting value for the organization's time zone; after that, an admin changes it under Settings, Organization.
 - `WORKER_CPUS`: the CPUs the solver may use (4 on the pilot server).
 
 Then start it and create the first admin:
@@ -112,6 +112,8 @@ docker compose logs migrate             # should end with the migrations applied
 To roll back, check out the previous version (`git checkout <tag>`), rebuild, and restore the backup taken before the upgrade. Database migrations only run forwards.
 
 Upgrading to the version with departments puts every existing schedule, employee and supervisor into one department called "General". Nothing else changes until you rename it or add more under Settings, Departments, then put people in departments from their records and give supervisors theirs under Settings, Roles.
+
+Upgrading to the version with an organization time zone (D119) sets every organization's zone to `STACKS_TIME_ZONE`, which is what the pages and jobs already used. If your library isn't in that zone, check Settings, Organization once after upgrading. The same upgrade adds periods of calendar months or a whole term (D120); existing schedules keep their dates as periods of weeks.
 
 ## Day to day
 

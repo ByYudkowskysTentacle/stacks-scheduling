@@ -133,7 +133,7 @@ def pilot_context(
     lead_tagged = {LEAD_X, LEAD_Z, *rng.sample(general, 5)}
     cataloguers = set(rng.sample(ids[3:], 5))
     processors = set(rng.sample(ids[3:], 3))
-    period = Period(PILOT_START, 2, SAT)
+    period = Period.of_weeks(PILOT_START, 2, SAT)
     people: dict[int, Person] = {}
     groups: dict[int, str] = {}
     for i, pid in enumerate(ids):

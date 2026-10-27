@@ -4,10 +4,12 @@ only to people who haven't entered or confirmed, once a day at most, minimal con
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 import pytest
+from django.conf import settings
 from django.core import mail
 from django.test import override_settings
 from django.urls import reverse
@@ -22,6 +24,11 @@ from tests.conftest import make_user
 
 pytestmark = pytest.mark.django_db
 DEADLINE = date(2027, 1, 8)
+
+
+def morning(day: date, hour: int = 10, zone: str = settings.TIME_ZONE) -> datetime:
+    """A moment on `day` in the organization's zone, after reminders start for the day (D119)."""
+    return datetime.combine(day, time(hour), tzinfo=ZoneInfo(zone))
 
 
 @pytest.fixture
@@ -64,7 +71,7 @@ def test_due_people_are_those_not_entered_or_not_confirmed(term):
 
 
 def test_nothing_is_sent_while_reminders_are_off(term):
-    assert reminders.send_due(DEADLINE) == 0
+    assert reminders.send_due(morning(DEADLINE)) == 0
     assert not AvailabilityReminder.objects.exists() and mail.outbox == []
 
 
@@ -72,9 +79,9 @@ def test_nothing_is_sent_while_reminders_are_off(term):
 def test_reminders_go_out_on_the_reminder_days_only_once(term, django_capture_on_commit_callbacks):
     term.availability_reminders = True
     term.save()
-    assert reminders.send_due(DEADLINE - timedelta(days=1)) == 0  # not a reminder day
+    assert reminders.send_due(morning(DEADLINE - timedelta(days=1))) == 0  # not a reminder day
     with django_capture_on_commit_callbacks(execute=True):
-        assert reminders.send_due(DEADLINE - timedelta(days=3)) == 2
+        assert reminders.send_due(morning(DEADLINE - timedelta(days=3))) == 2
     assert sorted(m.to[0] for m in mail.outbox) == ["avery@example.edu", "imported@example.edu"]
     avery = next(m for m in mail.outbox if m.to == ["avery@example.edu"])
     assert "please enter your availability for Spring 2027" in avery.subject
@@ -86,11 +93,11 @@ def test_reminders_go_out_on_the_reminder_days_only_once(term, django_capture_on
     assert "confirm" in imported.subject
     assert Notification.objects.count() == 2
     with django_capture_on_commit_callbacks(execute=True):
-        assert reminders.send_due(DEADLINE - timedelta(days=3)) == 0  # already sent today
+        assert reminders.send_due(morning(DEADLINE - timedelta(days=3))) == 0  # already sent today
     assert len(mail.outbox) == 2
     with django_capture_on_commit_callbacks(execute=True):
-        assert reminders.send_due(DEADLINE) == 2  # the deadline day itself
-    assert reminders.send_due(DEADLINE + timedelta(days=1)) == 0  # past the deadline
+        assert reminders.send_due(morning(DEADLINE)) == 2  # the deadline day itself
+    assert reminders.send_due(morning(DEADLINE + timedelta(days=1))) == 0  # past the deadline
 
 
 def test_supervisor_sends_by_hand_with_confirmation(as_user, supervisor, term):
@@ -148,8 +155,21 @@ def test_several_reminder_days_each_send_once(term, django_capture_on_commit_cal
     sent = {}
     for offset in (8, 7, 3, 1, 0):
         with django_capture_on_commit_callbacks(execute=True):
-            sent[offset] = reminders.send_due(DEADLINE - timedelta(days=offset))
+            sent[offset] = reminders.send_due(morning(DEADLINE - timedelta(days=offset)))
     assert sent == {8: 0, 7: 2, 3: 0, 1: 2, 0: 2}
+
+
+def test_scheduled_reminders_wait_for_9am_in_the_organizations_zone(term, django_capture_on_commit_callbacks):
+    term.availability_reminders = True
+    term.save()
+    term.organization.time_zone = "Asia/Tokyo"
+    term.organization.save()
+    reminder_day = DEADLINE - timedelta(days=3)
+    with django_capture_on_commit_callbacks(execute=True):
+        assert reminders.send_due(morning(reminder_day, hour=8, zone="Asia/Tokyo")) == 0  # too early there
+        # 9:30 in Tokyo is still the evening before in the Americas, but it's Tokyo's day that counts.
+        assert reminders.send_due(morning(reminder_day, hour=9, zone="Asia/Tokyo")) == 2
+    assert set(AvailabilityReminder.objects.values_list("sent_on", flat=True)) == {reminder_day}
 
 
 def test_students_see_the_deadline(as_user, student_user, term):
@@ -162,7 +182,7 @@ def test_reminder_task_is_scheduled():
     from procrastinate.contrib.django import app as procrastinate_app  # tasks are autodiscovered
 
     crons = {p.task.name: p.cron for p in procrastinate_app.periodic_registry.periodic_tasks.values()}
-    assert crons["availability.send_reminders"] == "5 14 * * *"
+    assert crons["availability.send_reminders"] == "5 * * * *"  # hourly; each org waits for 9am local (D119)
     assert crons["core.retention_purge"] == "17 3 * * *"
 
 

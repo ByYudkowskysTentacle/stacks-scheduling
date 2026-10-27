@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load tz %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% include "core/settings_nav.html" %}
+<h1>{{ title }}</h1>
+<form method="post" class="stacked-form" novalidate>
+  {% csrf_token %}
+  {{ form.as_div }}
+  {% if zone_change %}
+  <div class="card card--problem" role="alert">
+    <h2>Check before changing the time zone</h2>
+    {% localtime off %}<p>From <strong>{{ zone_change.old }}</strong> (now {{ zone_change.old_now|date:"D j M, g:i a" }}) to <strong>{{ zone_change.new }}</strong> (now {{ zone_change.new_now|date:"D j M, g:i a" }}).</p>{% endlocaltime %}
+    <ul>
+      <li>Shift times stay as written: a 9am shift stays 9am, now in {{ zone_change.new }}. This affects {{ zone_change.upcoming_shifts }} upcoming shift{{ zone_change.upcoming_shifts|pluralize }} and {{ zone_change.published_periods }} published schedule{{ zone_change.published_periods|pluralize }} that haven't ended.</li>
+      <li>Calendar feeds will show those shifts at the new zone's times. Today's date, the freeze window, reminders and the nightly purge switch to the new zone too.</li>
+      <li>Nothing is retimed or published, and nobody is notified. The change is recorded in the audit log.</li>
+    </ul>
+    <div class="field-check"><input type="checkbox" id="confirm_time_zone" name="confirm_time_zone" value="yes" required><label for="confirm_time_zone">Change the time zone to {{ zone_change.new }}.</label></div>
+  </div>
+  {% endif %}
+  <div class="form-actions">
+    <button type="submit" class="button button--primary">{% if zone_change %}Save and change the time zone{% else %}Save{% endif %}</button>
+    <a href="{% url 'organization_settings' %}" class="button">Cancel</a>
+  </div>
+</form>
+{% endblock %}

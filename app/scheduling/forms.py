@@ -6,14 +6,17 @@ from decimal import Decimal
 from django import forms
 
 from app.core.forms import DateInput, MinuteField
+from app.core.models import Term
 from app.people.models import Employee, PayRole, Tag
 from app.scheduling.models import (
+    MAX_MONTHS,
     CoverageOverride,
     DesiredHours,
     DutyAssignment,
     DutyKind,
     HourCapRule,
     HourTargetRule,
+    PeriodLength,
     RotationAssignment,
     SchedulePeriod,
     SchedulingRules,
@@ -50,19 +53,42 @@ def ordered_weekday_choices(week_start: int):
 
 
 class PeriodForm(forms.ModelForm):
+    """A new planning period: a number of weeks, calendar months or one whole term (D120)."""
+
     class Meta:
         model = SchedulePeriod
-        fields = ["department", "start_date", "weeks"]
-        widgets = {"start_date": DateInput()}
+        fields = ["department", "length", "start_date", "weeks", "months", "term"]
+        widgets = {"start_date": DateInput(), "length": forms.RadioSelect}
+        labels = {
+            "length": "Length",
+            "start_date": "Starts",
+            "weeks": "Number of weeks",
+            "months": "Number of months",
+            "term": "Term",
+        }
         help_texts = {
-            "start_date": "Moved back to the start of its week if needed.",
             "department": "Whose schedule this is. Each department plans its own.",
+            "start_date": "For weeks, moved back to the start of its week; for months, to the 1st. "
+            "A term period uses the term's dates.",
+            "weeks": "1 to 4, when the length is weeks.",
+            "months": f"1 to {MAX_MONTHS}, when the length is calendar months.",
+            "term": "When the length is a whole term: every day from its start to its end, breaks included.",
         }
 
     def __init__(self, *args, organization, departments=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
+        self.fields["length"].choices = PeriodLength.choices  # no blank choice
+        self.fields["length"].required = False  # weeks when left out, as before lengths existed
+        self.fields["length"].initial = PeriodLength.WEEKS
         self.fields["weeks"].initial = organization.planning_period_weeks
+        self.fields["months"].initial = 1
+        self.fields["start_date"].required = False
+        for name in ("length", "start_date", "weeks", "months", "term"):
+            self.fields[name].hide_optional = True  # each is required for the lengths that use it
+        term = self.fields["term"]
+        term.queryset = Term.objects.filter(organization=organization).order_by("-start_date")
+        term.empty_label = "Choose…"
         field = self.fields["department"]
         field.required = True
         field.empty_label = None
@@ -70,8 +96,41 @@ class PeriodForm(forms.ModelForm):
         if field.queryset.count() == 1:
             field.initial = field.queryset.first()
 
-    def clean_start_date(self):
-        return cal.week_start_for(self.cleaned_data["start_date"], self.organization.week_start)
+    def clean(self):
+        cleaned = super().clean()
+        length = cleaned["length"] = cleaned.get("length") or PeriodLength.WEEKS
+        start = cleaned.get("start_date")
+        if length == PeriodLength.TERM:
+            term = cleaned.get("term")
+            if term is None:
+                self.add_error("term", "Choose the term.")
+                return cleaned
+            cleaned["start_date"] = term.start_date
+        elif start is None:
+            self.add_error("start_date", "Choose the first day.")
+            return cleaned
+        elif length == PeriodLength.MONTHS:
+            if not cleaned.get("months"):
+                self.add_error("months", f"Enter 1 to {MAX_MONTHS} months.")
+            cleaned["start_date"] = cal.month_start(start)
+        elif length == PeriodLength.WEEKS:
+            if not cleaned.get("weeks"):
+                self.add_error("weeks", "Enter 1 to 4 weeks.")
+            cleaned["start_date"] = cal.week_start_for(start, self.organization.week_start)
+        # Only the chosen length's value is kept; save() clears the others too.
+        for name, kind in (
+            ("weeks", PeriodLength.WEEKS),
+            ("months", PeriodLength.MONTHS),
+            ("term", PeriodLength.TERM),
+        ):
+            if length != kind:
+                cleaned[name] = None
+        return cleaned
+
+    def _post_clean(self):
+        super()._post_clean()
+        if not self.errors:
+            self.instance.end_date = self.instance.planned_end()
 
 
 class ShiftForm(forms.ModelForm):
@@ -420,7 +479,7 @@ class TargetedMoveForm(forms.Form):
         self.fields["recipient"].label_from_instance = label
         self.fields["donors"].label_from_instance = label
         self.fields["week"].choices = [("", "Any week")] + [
-            (w, f"Week {w + 1} only") for w in range(period.weeks)
+            (w, f"Week {w + 1} only") for w in range(period.week_count)
         ]
 
     def clean(self):
