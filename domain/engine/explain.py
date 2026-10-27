@@ -93,7 +93,8 @@ def explain(
             if t.weeks is not None and week not in t.weeks:
                 continue
             got = per_week.get(t.employee_id, {}).get(week, 0)
-            if got >= t.minutes:
+            need = ctx.weekly_goal(t.minutes, week)
+            if got >= need:
                 continue
             days = ctx.period.week_days(week)
             avail = available_minutes(ctx, t.employee_id, days)
@@ -107,14 +108,16 @@ def explain(
             binding = [c for c in caps if c.minutes <= got]
             if binding:
                 reason = f"capped at {hours(binding[0].minutes)}h by the {binding[0].label or binding[0].scope.value + ' cap'}"
-            elif avail < t.minutes:
+            elif avail < need:
                 reason = f"available for only {hours(avail)}h of open hours that week"
             else:
                 reason = (
                     "every extra hour would have meant over-coverage or a gap, or taking hours from someone with a "
                     "higher-priority goal"
                 )
-            msg = f"{person.name}: {hours(got)}h of the {hours(t.minutes)}h target in {ctx.period.week_label(week)}"
+            msg = (
+                f"{person.name}: {hours(got)}h of the {hours(need)}h target in {ctx.period.week_label(week)}"
+            )
             out.unmet.append(Unmet(Category.CAP, msg, reason, ("relax_rule",)))
 
     # Forced trade-offs: over-coverage the shape rules made unavoidable (CLAUDE.md §4), and gaps,

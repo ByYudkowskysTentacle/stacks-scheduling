@@ -106,6 +106,48 @@ def test_settings_sub_nav_shows_on_edit_pages_and_marks_the_section(as_user, sup
     assert re.search(r'aria-current="page">Pay roles<', nav)
 
 
+def _settings_navs(page: str) -> tuple[str, str | None]:
+    top = re.search(r'<nav aria-label="Settings" class="sub-nav">.*?</nav>', page, re.S).group(0)
+    second = re.search(r'<nav aria-label="Organization settings".*?</nav>', page, re.S)
+    return top, second.group(0) if second else None
+
+
+def test_departments_and_hours_sit_under_the_organization_tab(as_user, admin_user, org, location):
+    """D121: the Organization tab is current on its own page, hours and closures, and departments,
+    including their add, edit and remove pages, with the page itself marked in a second row."""
+    from app.core.models import Closure, Department
+
+    dept = Department.objects.create(organization=org, name="Circulation")
+    closure = Closure.objects.get(location=location)
+    hours = location.hours_sets.get()
+    pages = {
+        reverse("organization_settings"): "General",
+        reverse("locations"): "Hours and closures",
+        reverse("location_add"): "Hours and closures",
+        reverse("location_edit", args=[location.pk]): "Hours and closures",
+        reverse("hours_add", args=[location.pk]): "Hours and closures",
+        reverse("hours_edit", args=[location.pk, hours.pk]): "Hours and closures",
+        reverse("closure_edit", args=[location.pk, closure.pk]): "Hours and closures",
+        reverse("closure_delete", args=[location.pk, closure.pk]): "Hours and closures",
+        reverse("departments"): "Departments",
+        reverse("department_add"): "Departments",
+        reverse("department_edit", args=[dept.pk]): "Departments",
+        reverse("department_remove", args=[dept.pk]): "Departments",
+    }
+    client = as_user(admin_user)
+    for url, item in pages.items():
+        top, second = _settings_navs(client.get(url).content.decode())
+        assert re.search(r'aria-current="true">Organization<', top), url
+        assert "Hours and closures" not in top and "Departments" not in top, url
+        assert second is not None and re.findall(r'aria-current="page">([^<]+)<', second) == [item], url
+
+
+def test_other_settings_pages_have_no_organization_row(as_user, supervisor):
+    top, second = _settings_navs(as_user(supervisor).get(reverse("terms")).content.decode())
+    assert second is None and 'aria-current="true"' not in top
+    assert re.search(r'aria-current="page">Terms<', top)
+
+
 def test_forms_have_no_label_colons_and_mark_optional_fields(as_user, supervisor):
     page = as_user(supervisor).get(reverse("schedule_index")).content.decode()
     form = page.split("Start a planning period")[1]

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 import pghistory
@@ -29,7 +29,7 @@ from app.scheduling.models import (
     TagCoverageRule,
 )
 from domain import rules as dom
-from domain.schedule import Period, Person, ScheduleContext
+from domain.schedule import Person, ScheduleContext
 from domain.schedule import Shift as DomShift
 from domain.timeutil import Interval
 from domain.validation import Report, day_label, validate
@@ -107,13 +107,34 @@ def domain_rules(org, term: Term | None = None, department=None) -> dom.Rules:
 
 
 def term_for(period: SchedulePeriod) -> Term | None:
-    """The term whose availability applies: the one containing the period's start, else the
-    one containing its end (a period that starts in a break)."""
+    """The term whose availability applies: a term period's own term, else the one containing
+    the period's start, else the one containing its end (a period that starts in a break)."""
+    if period.term_id is not None:
+        return period.term
     terms = Term.objects.filter(organization=period.organization)
     return (
         terms.filter(start_date__lte=period.start_date, end_date__gte=period.start_date).first()
         or terms.filter(start_date__lte=period.end_date, end_date__gte=period.end_date).first()
     )
+
+
+def term_note(period: SchedulePeriod) -> str:
+    """Said on the period page when availability can't follow the dates exactly: the period
+    runs past the end of the term whose availability it uses, or has no term (D120)."""
+    term = term_for(period)
+    if term is None:
+        return "No term covers this period, so everyone's availability shows as not entered."
+    if term.end_date < period.end_date:
+        return (
+            f"This period runs past the end of {term} ({term.end_date:%a %-d %b}). Availability after "
+            f"that still comes from {term}."
+        )
+    if term.start_date > period.start_date:
+        return (
+            f"This period starts before {term} ({term.start_date:%a %-d %b}). Availability before "
+            f"that comes from {term} too."
+        )
+    return ""
 
 
 def in_department(period: SchedulePeriod) -> Q:
@@ -172,20 +193,22 @@ def build_context(period: SchedulePeriod, shifts=None) -> ScheduleContext:
             outside[s.employee_id] = outside.get(s.employee_id, 0) + s.minutes
     latest = period.latest_version()
     people = people_for(period, shifts)
+    dperiod = period.domain()
     # The same people's shifts on other schedules in these weeks count toward caps and double
-    # booking here (D95).
+    # booking here (D95). Whole calendar weeks, so a part week's cap counts the days outside
+    # this period too, on the neighbouring period or anywhere else (D120).
     elsewhere = (
         Shift.objects.live()
         .filter(
             organization=org,
-            date__gte=period.start_date,
-            date__lte=period.end_date,
+            date__gte=dperiod.first_week_start,
+            date__lte=dperiod.calendar_week(dperiod.weeks - 1)[-1],
             employee_id__in=list(people),
         )
         .exclude(period=period)
     )
     return ScheduleContext(
-        period=Period(period.start_date, period.weeks, org.week_start),
+        period=dperiod,
         hours=period.location.domain_hours(),
         closures=period.location.domain_closures(),
         people=people,
@@ -387,7 +410,7 @@ def hours_rows(period: SchedulePeriod, employees, ctx: ScheduleContext | None = 
             continue
         weeks = [
             (per_week.get(e.pk, {}).get(w, 0), effective_weekly_cap(ctx, person, w))
-            for w in range(period.weeks)
+            for w in range(ctx.period.weeks)
         ]
         rows.append(HoursRow(e, weeks, sum(m for m, _ in weeks), effective_period_cap(ctx, person)))
     return rows
@@ -444,9 +467,7 @@ class PublishedShift:
 def published_shifts_for(employee: Employee, from_day: date) -> list[PublishedShift]:
     """An employee's shifts from each period's latest published version, from `from_day` on."""
     out = []
-    periods = SchedulePeriod.objects.filter(
-        organization=employee.organization, start_date__gte=from_day - timedelta(days=28)
-    )
+    periods = SchedulePeriod.objects.filter(organization=employee.organization, end_date__gte=from_day)
     for period in periods:
         latest = period.latest_version()
         if latest is None:

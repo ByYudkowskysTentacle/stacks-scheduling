@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from django import forms
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView
 
@@ -13,7 +16,18 @@ from app.core.permissions import Perm
 from app.people.models import Employee
 from app.scheduling import services, solver
 from app.scheduling.models import RunStatus, SchedulingRules
-from app.scheduling.views import PeriodMixin, flash_validation
+from app.scheduling.views import PeriodMixin, flash_validation, week_links
+
+# A solve covers at most this many days: a whole calendar month, but not a whole term in one
+# run (D120). The benchmarks cover two weeks (SPEC §7.3.2); the time limit and the "not proven
+# optimal" label cover the rest.
+MAX_SOLVE_DAYS = 31
+
+
+def suggested_span(period, today: date) -> tuple[date, date]:
+    """For a long period, the next four weeks (or its first four if it hasn't started)."""
+    first = min(max(today, period.start_date), period.end_date)
+    return first, min(period.end_date, first + timedelta(days=27))
 
 
 class SolveForm(forms.Form):
@@ -57,18 +71,25 @@ class SolveForm(forms.Form):
             min=period.start_date.isoformat(), max=period.end_date.isoformat()
         )
 
+        if period.length_in_days > MAX_SOLVE_DAYS:
+            for name in ("first_day", "last_day"):
+                self.fields[name].required = True
+            self.fields["first_day"].help_text = (
+                f"This period is longer than {MAX_SOLVE_DAYS} days, so choose up to {MAX_SOLVE_DAYS} days to "
+                "work on. Shifts outside them stay as they are but still count."
+            )
+
     def clean(self):
         cleaned = super().clean()
         for name in ("first_day", "last_day"):
             day = cleaned.get(name)
             if day and not self.period.contains(day):
                 self.add_error(name, "Pick a date in this period.")
-        if (
-            cleaned.get("first_day")
-            and cleaned.get("last_day")
-            and cleaned["last_day"] < cleaned["first_day"]
-        ):
+        first, last = cleaned.get("first_day"), cleaned.get("last_day")
+        if first and last and last < first:
             self.add_error("last_day", "Ends before it starts.")
+        elif first and last and (last - first).days + 1 > MAX_SOLVE_DAYS < self.period.length_in_days:
+            self.add_error("last_day", f"Choose at most {MAX_SOLVE_DAYS} days.")
         return cleaned
 
     def params(self) -> dict:
@@ -90,14 +111,14 @@ class SolveStartView(PeriodMixin, View):
         period = self.get_period()
         rules = SchedulingRules.for_org(period.organization)
         mode = "generate" if not period.shifts.live().exists() else "rebalance"
-        form = SolveForm(
-            period=period,
-            initial={
-                "mode": request.GET.get("mode", mode),
-                "change_limit_percent": rules.change_limit_percent,
-                "freeze_hours": rules.freeze_window_hours,
-            },
-        )
+        initial = {
+            "mode": request.GET.get("mode", mode),
+            "change_limit_percent": rules.change_limit_percent,
+            "freeze_hours": rules.freeze_window_hours,
+        }
+        if period.length_in_days > MAX_SOLVE_DAYS:
+            initial["first_day"], initial["last_day"] = suggested_span(period, timezone.localdate())
+        form = SolveForm(period=period, initial=initial)
         return render(
             request,
             "scheduling/solve_start.html",
@@ -156,7 +177,7 @@ class SolveRunView(PeriodMixin, TemplateView):
             Status=RunStatus,
             waiting=run.status in (RunStatus.QUEUED, RunStatus.RUNNING),
             options=run.result.get("options", []),
-            weeks=range(period.weeks),
+            weeks=week_links(period.domain()),
         )
         return ctx
 

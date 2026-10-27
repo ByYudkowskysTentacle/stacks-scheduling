@@ -11,6 +11,7 @@
   {% if latest %}Published version {{ latest.number }} on {{ latest.published_at|date:"j M Y H:i" }}.{% else %}Not published yet.{% endif %}
   {% if pending %}<strong>Draft changes affect {{ pending|length }} employee{{ pending|length|pluralize }}.</strong> Nobody is notified until you publish.{% else %}No unpublished changes.{% endif %}
 </p>
+<p class="status-line">{{ period.length_label|capfirst }}{% if period.term %}: every day of the term, breaks included{% endif %}.{% if term_note %} {{ term_note }}{% endif %}</p>
 <div class="action-bar no-print">
   {% if Perm.PUBLISH in access.perms or latest and pending and Perm.EDIT_SCHEDULE in access.perms %}
   <div class="action-group" role="group" aria-label="Publish">
@@ -35,8 +36,8 @@
 {% include "scheduling/_report.html" with show_messages=True %}
 
 {% if weeks|length > 1 %}
-<nav class="sub-nav no-print" aria-label="Weeks">
-  <ul>{% for w in weeks %}<li><a href="?week={{ w }}"{% if w == week %} aria-current="page"{% endif %}>Week {{ w|add:1 }}</a></li>{% endfor %}</ul>
+<nav class="sub-nav week-nav no-print" aria-label="Weeks">
+  <ul>{% for w in weeks %}<li><a href="?week={{ w.index }}"{% if w.index == week %} aria-current="page"{% endif %}>Week {{ w.index|add:1 }} <span class="week-nav__date">{{ w.first|date:"j M" }}{% if w.part %}, part{% endif %}</span></a></li>{% endfor %}</ul>
 </nav>
 {% endif %}
 
@@ -51,7 +52,7 @@
 
 <div class="grid-scroll grid-scroll--sticky">
 <table class="schedule-grid">
-  <caption class="visually-hidden">Week {{ week|add:1 }}: {{ days.0|date:"D j M" }} to {{ days|last|date:"D j M Y" }}</caption>
+  <caption class="visually-hidden">Week {{ week|add:1 }}: {{ days.0|date:"D j M" }} to {{ days|last|date:"D j M Y" }}{% if part_week %} (part week: only the days in this period){% endif %}</caption>
   <colgroup><col class="col-person">{% for d in days %}<col>{% endfor %}{% if Perm.VIEW_HOURS in access.perms %}<col class="col-hours"><col class="col-hours">{% endif %}</colgroup>
   <thead>
     <tr>

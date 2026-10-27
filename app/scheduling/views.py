@@ -142,15 +142,26 @@ class ScheduleIndexView(OrgViewMixin, TemplateView):
             messages.error(request, "Add a location first.")
             return redirect("schedule_index")
         if form.is_valid():
-            existing = SchedulePeriod.objects.filter(
-                location=location,
-                department=form.cleaned_data["department"],
-                start_date=form.cleaned_data["start_date"],
+            period = form.save(commit=False)
+            same_place = SchedulePeriod.objects.filter(location=location, department=period.department)
+            existing = same_place.filter(
+                start_date=period.start_date, end_date=period.end_date, length=period.length
             ).first()
             if existing:
                 messages.info(request, "That period already exists.")
                 return redirect("period", period_pk=existing.pk)
-            period = form.save(commit=False)
+            # Two periods of one department at one location would schedule the same days twice,
+            # whatever their lengths (D120).
+            overlap = same_place.filter(
+                start_date__lte=period.end_date, end_date__gte=period.start_date
+            ).first()
+            if overlap:
+                form.add_error(
+                    None,
+                    f"This would overlap the {overlap.length_label} period {overlap}. Choose dates after it ends "
+                    "or before it starts.",
+                )
+                return self.render_to_response(self.get_context_data(form=form))
             period.organization = request.organization
             period.location = location
             period.save()
@@ -169,11 +180,12 @@ class PeriodView(PeriodMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         period = self.get_period()
         access = self.request.access
+        dperiod = period.domain()
         try:
-            week = max(0, min(period.weeks - 1, int(self.request.GET.get("week", 0))))
+            week = max(0, min(dperiod.weeks - 1, int(self.request.GET.get("week", 0))))
         except ValueError:
             week = 0
-        days = period.days[week * 7 : (week + 1) * 7]
+        days = dperiod.week_days(week)  # fewer than seven in a part week (D120)
         shifts = list(period.shifts.live().select_related("employee", "pay_role"))
         dctx = services.build_context(period, shifts)
         report = services.validate(dctx)
@@ -223,7 +235,9 @@ class PeriodView(PeriodMixin, TemplateView):
             published_url=f"{reverse('published_schedule')}?week={days[0].isoformat()}",
             period=period,
             week=week,
-            weeks=range(period.weeks),
+            weeks=week_links(dperiod),
+            part_week=dperiod.is_part_week(week),
+            term_note=services.term_note(period),
             days=days,
             rows=rows,
             open_shifts=open_shifts,
@@ -236,6 +250,14 @@ class PeriodView(PeriodMixin, TemplateView):
             **report_context(report),
         )
         return ctx
+
+
+def week_links(period) -> list[dict]:
+    """The period's weeks for the week links: number, first day and whether it's a part week."""
+    return [
+        {"index": w, "first": period.week_days(w)[0], "part": period.is_part_week(w)}
+        for w in range(period.weeks)
+    ]
 
 
 class DayView(PeriodMixin, TemplateView):
@@ -848,15 +870,16 @@ class PublishedScheduleView(OrgViewMixin, TemplateView):
     def draft_url(self, week_start: date) -> str:
         """The Draft side of the switch (D111): the working copy of the same week when exactly one
         of my periods covers it, otherwise the list of schedules to choose from."""
-        periods = [
-            p
-            for p in self.org_queryset(SchedulePeriod).filter(start_date__lte=week_start)
-            if p.contains(week_start)
-        ]
+        week_end = week_start + timedelta(days=6)
+        periods = list(
+            self.org_queryset(SchedulePeriod).filter(start_date__lte=week_end, end_date__gte=week_start)
+        )
+        if len(periods) > 1:  # a week split between two months: the one holding its first day (D120)
+            periods = [p for p in periods if p.contains(week_start)] or periods
         if len(periods) != 1:
             return reverse("schedule_index")
         period = periods[0]
-        week = (week_start - period.start_date).days // 7
+        week = period.domain().week_of(max(week_start, period.start_date))
         return reverse("period", args=[period.pk]) + (f"?week={week}" if week else "")
 
 
@@ -997,7 +1020,7 @@ class ReportsView(PeriodMixin, TemplateView):
             period=period,
             hours=reports.hours_report(period),
             coverage=reports.coverage_report(period) if self.request.access.has(Perm.VIEW_DRAFTS) else [],
-            weeks=range(period.weeks),
+            weeks=week_links(period.domain()),
         )
         return ctx
 

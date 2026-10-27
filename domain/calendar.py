@@ -7,6 +7,7 @@ configuration; the pilot's weeks run Saturday to Friday (D27).
 
 from __future__ import annotations
 
+import calendar
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -26,6 +27,17 @@ def week_start_for(day: date, week_start: int) -> date:
 
 def week_days(start: date) -> list[date]:
     return [start + timedelta(days=i) for i in range(7)]
+
+
+def month_start(day: date) -> date:
+    return day.replace(day=1)
+
+
+def months_end(start: date, months: int) -> date:
+    """The last day of the `months`-th calendar month counted from the one containing `start`."""
+    index = start.year * 12 + start.month - 1 + months - 1
+    year, month = divmod(index, 12)
+    return date(year, month + 1, calendar.monthrange(year, month + 1)[1])
 
 
 def ordered_weekdays(week_start: int) -> list[int]:

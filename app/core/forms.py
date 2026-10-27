@@ -14,6 +14,7 @@ from app.core.models import (
     RetentionPolicy,
     Term,
 )
+from app.core.timezones import time_zone_choices
 from domain import calendar as cal
 from domain.timeutil import Interval, format_minute_12h, is_on_slot
 from domain.timeutil import parse_clock as parse_time_input
@@ -60,6 +61,15 @@ class OrganizationForm(forms.ModelForm):
     class Meta:
         model = Organization
         fields = ["name", "time_zone", "week_start", "planning_period_weeks"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        current = self.instance.time_zone if self.instance.pk else ""
+        self.fields["time_zone"] = forms.ChoiceField(
+            label="Time zone",
+            choices=time_zone_choices(current),
+            help_text=self.fields["time_zone"].help_text,
+        )
 
 
 class LocationForm(forms.ModelForm):

@@ -76,7 +76,8 @@ Use these terms exactly, in code and in the UI.
 ### 3.2 Terms and planning periods
 
 - Terms have dates. Availability, caps and funding are term-scoped.
-- The planning period length is configurable (1–4 weeks, default 2). Rotation patterns (§6.5) and period caps are defined against it.
+- The planning period length is configurable: 1–4 weeks (default 2), 1–3 calendar months, or one whole term (D120). Rotation patterns (§6.5) and period caps are defined against it. Weekly caps count whole calendar weeks, even where a week is split between two periods; weekly goals are scaled in a part week.
+- The organization has one time zone, chosen from the IANA list. Shift times are wall-clock times in it (D119).
 - Weeks start on a configurable weekday, defaulting to Saturday. The pilot's workweek always runs Saturday to Friday, and weekly caps, planning periods and rotation weeks all count from the week start.
 
 ### 3.3 Time granularity

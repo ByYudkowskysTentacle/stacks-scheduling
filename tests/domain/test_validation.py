@@ -29,7 +29,7 @@ from tests.domain.test_calendar import CHAPEL, PILOT
 START = date(2027, 1, 16)  # a Saturday
 MONDAY = date(2027, 1, 18)
 WEDNESDAY = date(2027, 1, 20)
-PERIOD = Period(START, 2, SAT)
+PERIOD = Period.of_weeks(START, 2, SAT)
 FREE = WeeklyAvailability(AvailabilityStatus.ENTERED)
 
 
@@ -45,7 +45,7 @@ def shift(pid, day, start, end, sid=None):
 def ctx(shifts, people=None, rules=None, published=None, weeks=1):
     """A one-week context by default, so single-day tests aren't swamped by the second week."""
     people = people or {p: person(p) for p in {s.employee_id for s in shifts if s.employee_id}}
-    period = Period(START, weeks, SAT)
+    period = Period.of_weeks(START, weeks, SAT)
     return ScheduleContext(period, [PILOT], [CHAPEL], people, rules or Rules(), shifts, published)
 
 

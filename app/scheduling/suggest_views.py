@@ -28,6 +28,11 @@ def _week_url(period, day: date) -> str:
     return reverse("period", args=[period.pk]) + f"?week={period.days.index(day) // 7}"
 
 
+def upper_first(text: str) -> str:
+    """ "week 1 (Sat 3 Oct)" as a heading: "Week 1 (Sat 3 Oct)". `capitalize()` would lower the rest."""
+    return text[:1].upper() + text[1:]
+
+
 class ShiftTakersView(PeriodMixin, View):
     """Who could take this shift?"""
 
@@ -126,14 +131,15 @@ class RaiseHoursView(PeriodMixin, View):
             result = suggestions.opportunities_for(period, employee)
         except suggestions.SuggestionError as exc:
             raise Http404(str(exc)) from exc
+        dperiod = period.domain()
         weeks = [
             {
-                "label": f"Week {w + 1}",
+                "label": upper_first(dperiod.week_label(w)),
                 "minutes": result.week_minutes[w],
                 "low_threshold": result.low_threshold.get(w, 0),
                 "items": result.by_week.get(w, []),
             }
-            for w in range(period.weeks)
+            for w in range(dperiod.weeks)
         ]
         return render(
             request,

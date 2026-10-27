@@ -18,9 +18,11 @@ from django.db import models
 
 from app.core.audit import audited
 from app.core.fields import minute_field
-from app.core.models import Department, Location, Organization
+from app.core.models import Department, Location, Organization, Term
 from app.people.models import Employee, PayRole, Tag
+from domain import calendar as cal
 from domain import rules as dom
+from domain.schedule import Period
 from domain.timeutil import Interval, is_on_slot
 
 
@@ -221,20 +223,44 @@ class TagCoverageRule(models.Model):
         )
 
 
+class PeriodLength(models.TextChoices):
+    """How a planning period's length is chosen (D120)."""
+
+    WEEKS = "weeks", "Weeks"
+    MONTHS = "months", "Calendar months"
+    TERM = "term", "A whole term"
+
+
+MAX_MONTHS = 3
+
+
 @audited()
 class SchedulePeriod(models.Model):
-    """A planning period (SPEC §3.2): one to four weeks from a week start, for one department at
-    one location (D95)."""
+    """A planning period (SPEC §3.2, D120) for one department at one location (D95): one to four
+    weeks from a week start, one to three calendar months from the 1st, or one whole term.
+
+    `end_date` is set from the length when the period is created and kept after that, so editing
+    a term's dates never moves an existing period or strands its shifts."""
 
     organization = models.ForeignKey(Organization, on_delete=models.PROTECT, related_name="periods")
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="periods")
     # Every period has one; the column allows NULL only so that audit snapshots taken before
     # departments existed stay as they were (D95, D100).
     department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="periods", null=True)
+    length = models.CharField(max_length=10, choices=PeriodLength.choices, default=PeriodLength.WEEKS)
     start_date = models.DateField()
-    weeks = models.PositiveSmallIntegerField(
-        default=2, validators=[MinValueValidator(1), MaxValueValidator(4)]
+    # Always set (period_dates_order); the column allows NULL so audit snapshots taken before
+    # it existed stay as they were, as for `department` (D120).
+    end_date = models.DateField(
+        null=True, help_text="Inclusive. Set from the length when the period is created."
     )
+    weeks = models.PositiveSmallIntegerField(
+        null=True, blank=True, default=2, validators=[MinValueValidator(1), MaxValueValidator(4)]
+    )
+    months = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(MAX_MONTHS)]
+    )
+    term = models.ForeignKey(Term, on_delete=models.PROTECT, null=True, blank=True, related_name="periods")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -242,19 +268,64 @@ class SchedulePeriod(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["department", "location", "start_date"], name="period_unique_start"
-            )
+            ),
+            models.CheckConstraint(
+                condition=models.Q(end_date__isnull=False, end_date__gte=models.F("start_date")),
+                name="period_dates_order",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(length=PeriodLength.WEEKS, weeks__isnull=False)
+                | models.Q(length=PeriodLength.MONTHS, months__isnull=False)
+                | models.Q(length=PeriodLength.TERM, term__isnull=False),
+                name="period_length_given",
+            ),
         ]
 
     def __str__(self) -> str:
         return f"{self.start_date:%-d %b} to {self.end_date:%-d %b %Y}"
 
+    def save(self, *args, **kwargs):
+        if self.length != PeriodLength.WEEKS:
+            self.weeks = None
+        if self.length != PeriodLength.MONTHS:
+            self.months = None
+        if self.length != PeriodLength.TERM:
+            self.term = None
+        if self.end_date is None:
+            self.end_date = self.planned_end()
+        super().save(*args, **kwargs)
+
+    def planned_end(self) -> date:
+        """The last day the length gives from `start_date`."""
+        if self.length == PeriodLength.MONTHS:
+            return cal.months_end(self.start_date, self.months or 1)
+        if self.length == PeriodLength.TERM and self.term is not None:
+            return self.term.end_date
+        return self.start_date + timedelta(days=(self.weeks or 1) * 7 - 1)
+
     @property
-    def end_date(self) -> date:
-        return self.start_date + timedelta(days=self.weeks * 7 - 1)
+    def length_label(self) -> str:
+        if self.length == PeriodLength.MONTHS:
+            return f"{self.months} month{'s' if self.months != 1 else ''}"
+        if self.length == PeriodLength.TERM:
+            return f"{self.term} term" if self.term else "term"
+        return f"{self.weeks} week{'s' if self.weeks != 1 else ''}"
+
+    def domain(self) -> Period:
+        return Period(self.start_date, self.end_date, self.organization.week_start)
 
     @property
     def days(self) -> list[date]:
-        return [self.start_date + timedelta(days=i) for i in range(self.weeks * 7)]
+        return self.domain().days
+
+    @property
+    def week_count(self) -> int:
+        """Calendar weeks the period touches, part weeks included (D120)."""
+        return self.domain().weeks
+
+    @property
+    def length_in_days(self) -> int:
+        return (self.end_date - self.start_date).days + 1
 
     def contains(self, day: date) -> bool:
         return self.start_date <= day <= self.end_date

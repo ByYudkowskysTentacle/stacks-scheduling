@@ -197,10 +197,15 @@ def build_model(
 
     # Caps (SPEC §6.4): hard, counting hours on other schedules (D95).
     people = ctx.people
+    # A part week's cap counts the whole calendar week, days outside this period included; a
+    # period cap counts the period's own days (D120).
     away_by_week: dict[tuple[int, int], list[int]] = defaultdict(list)
+    away_in_period: dict[int, int] = defaultdict(int)
     for s in ctx.elsewhere:
-        if s.employee_id is not None and period.start <= s.day <= period.end:
+        if s.employee_id is not None and period.in_weeks(s.day):
             away_by_week[(s.employee_id, period.week_of(s.day))].append(s.minutes)
+        if s.employee_id is not None and period.contains(s.day):
+            away_in_period[s.employee_id] += s.minutes
     for pid, person in people.items():
         for cap in rules.caps:
             applies_to = cap.employee_id if cap.employee_id is not None else None
@@ -219,16 +224,16 @@ def build_model(
                 if cap.scope == CapScope.TERM:  # already counts every other schedule in the term
                     outside = ctx.term_minutes_outside_period.get(pid, 0)
                 else:
-                    outside = sum(sum(mins) for (p, _), mins in away_by_week.items() if p == pid)
+                    outside = away_in_period[pid]
                 capped(idxs, max(0, (cap.minutes - outside) // SLOT_MINUTES))
 
     # Week-hours duties (scenario 4): the lead week's hours as a high-priority target, and a
-    # hard ceiling on the other weeks.
+    # hard ceiling on the other weeks. Weekly goals are scaled in part weeks (D120).
     for duty in rules.week_duties:
         for week in range(period.weeks):
             idxs = by_person_week.get((duty.employee_id, week), [])
             if week in duty.weeks:
-                need = slots(duty.minutes)
+                need = slots(ctx.weekly_goal(duty.minutes, week))
                 d = m.new_int_var(0, need, f"duty_{duty.employee_id}_{week}")
                 add(sum(length(i) * x[i] for i in idxs) + d >= need)
                 capped(idxs, need)
@@ -274,7 +279,7 @@ def build_model(
             for week in range(period.weeks):
                 days = set(period.week_days(week))
                 idxs = [i for i, c in enumerate(cands) if c.day in days and tagged(i, rule.tag)]
-                need = slots(rule.minutes)
+                need = slots(ctx.weekly_goal(rule.minutes, week))
                 d = m.new_int_var(0, need, f"tagh{r_i}_{week}")
                 add(sum(length(i) * x[i] for i in idxs) + d >= need)
                 terms["hard_tag" if rule.hard else "tag"].append((max(1, weight // 4), d))
@@ -306,7 +311,7 @@ def build_model(
         for week in range(period.weeks):
             if t.weeks is not None and week not in t.weeks:
                 continue
-            need = slots(t.minutes)
+            need = slots(ctx.weekly_goal(t.minutes, week))
             d = m.new_int_var(0, need, f"tgt_{t.employee_id}_{week}")
             add(sum(length(i) * x[i] for i in by_person_week.get((t.employee_id, week), [])) + d >= need)
             terms["target"].append((W_TARGET * max(1, t.priority), d))
@@ -316,7 +321,7 @@ def build_model(
     for want in rules.desired:
         w = W_DESIRED_FWS if want.work_study else W_DESIRED
         for week in range(period.weeks):
-            need = slots(want.minutes)
+            need = slots(ctx.weekly_goal(want.minutes, week))
             half = need // 2
             d1 = m.new_int_var(0, need - half, f"des1_{want.employee_id}_{week}")
             d2 = m.new_int_var(0, half, f"des2_{want.employee_id}_{week}")

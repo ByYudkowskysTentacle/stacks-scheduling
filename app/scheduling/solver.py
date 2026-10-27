@@ -9,13 +9,13 @@ import json
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pghistory
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from app.core.timezones import local_now, org_time
 from app.people.models import Employee
 from app.scheduling import services
 from app.scheduling.models import RunStatus, SchedulePeriod, SchedulingRules, Shift, SolveRun
@@ -58,7 +58,7 @@ def start_solve(period: SchedulePeriod, user, mode: str, params: dict[str, Any])
 def _freeze_until(org, hours: int) -> tuple[date, int] | None:
     if hours <= 0:
         return None
-    now = timezone.now().astimezone(ZoneInfo(org.time_zone)) + timedelta(hours=hours)
+    now = local_now(org) + timedelta(hours=hours)
     return (now.date(), now.hour * 60 + now.minute)
 
 
@@ -104,8 +104,14 @@ def build_request(run: SolveRun) -> tuple[ScheduleContext, SolveRequest]:
 
 
 def execute_run(run_id: int) -> None:
-    """Run in the worker. Records progress, then the options or the failure."""
+    """Run in the worker, in the organization's time zone (D119). Records progress, then the
+    options or the failure."""
     run = SolveRun.objects.select_related("period__organization", "period__location").get(pk=run_id)
+    with org_time(run.period.organization):
+        _execute(run)
+
+
+def _execute(run: SolveRun) -> None:
     if run.status != RunStatus.QUEUED:
         return
     run.status = RunStatus.RUNNING

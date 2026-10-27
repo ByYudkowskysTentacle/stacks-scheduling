@@ -249,16 +249,22 @@ class WeekRow:
 
 
 def version_weeks(version: PublishedVersion) -> list[dict]:
-    """The version grid one week at a time, leaving out people with no shifts that week (audit 2.13)."""
-    days, rows = version_grid(version)
+    """The version grid one calendar week at a time, leaving out people with no shifts that week
+    (audit 2.13). A part week at a period's edge has only its days in the period (D120)."""
+    _days, rows = version_grid(version)
+    period = version.period.domain()
     weeks = []
-    for start in range(0, len(days), 7):
+    start = 0
+    for w in range(period.weeks):
+        week_days = period.week_days(w)
+        end = start + len(week_days)
         week_rows = []
         for r in rows:
-            cells = r.cells[start : start + 7]
+            cells = r.cells[start:end]
             if any(cells):
                 week_rows.append(
                     WeekRow(r.name, cells, sum(iv.minutes for ivs in cells for iv in ivs), r.minutes)
                 )
-        weeks.append({"days": days[start : start + 7], "rows": week_rows})
+        weeks.append({"days": week_days, "rows": week_rows, "part": len(week_days) < 7})
+        start = end
     return weeks

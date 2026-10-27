@@ -197,8 +197,9 @@ def holder_effects(ctx: ScheduleContext, shift: Shift) -> tuple[str, ...]:
         if t.employee_id != shift.employee_id or (t.weeks is not None and week not in t.weeks):
             continue
         after = _week_minutes(ctx, without, t.employee_id, shift.day)
-        if after < t.minutes:
-            out.append(f"{who} would drop to {hours(after)}, below their target of {hours(t.minutes)}")
+        need = ctx.weekly_goal(t.minutes, week)  # scaled in a part week (D120)
+        if after < need:
+            out.append(f"{who} would drop to {hours(after)}, below their target of {hours(need)}")
     return tuple(dict.fromkeys(out))
 
 
@@ -317,7 +318,7 @@ def opportunities(ctx: ScheduleContext, employee_id: int) -> OpportunityResult:
         holder_week = per.get(holder, {}).get(week, 0)
         # Low: at or below the median that week already, or giving this up would take them
         # below their own target or approved desired hours.
-        own_floor = max(targets.get(holder, 0), desired.get(holder, 0))
+        own_floor = ctx.weekly_goal(max(targets.get(holder, 0), desired.get(holder, 0)), week)
         result.by_week.setdefault(week, []).append(
             Opportunity(
                 shift=s,

@@ -45,7 +45,9 @@ def preferring(weekday, start, end):
 
 
 def context(shifts, people, rules=None, weeks=1):
-    return ScheduleContext(Period(START, weeks, SAT), [PILOT], [CHAPEL], people, rules or Rules(), shifts)
+    return ScheduleContext(
+        Period.of_weeks(START, weeks, SAT), [PILOT], [CHAPEL], people, rules or Rules(), shifts
+    )
 
 
 def ids(takers):

@@ -5,7 +5,7 @@ by an admin. All data is synthetic."""
 from __future__ import annotations
 
 import importlib
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.apps import apps
@@ -285,8 +285,50 @@ def test_removal_is_refused_when_both_have_a_schedule_for_the_same_week(
     resp = as_user(admin_user).post(
         reverse("department_remove", args=[special.pk]), {"confirm": "on", "into": circ.pk}
     )
-    assert "already has a schedule for the same week" in resp.content.decode()
+    assert "already has a schedule on some of the same days" in resp.content.decode()
     assert Department.objects.count() == 2 and SchedulePeriod.objects.filter(department=special).exists()
+
+
+def test_removal_is_refused_when_a_month_overlaps_the_other_departments_weeks(
+    as_user, org, location, admin_user, depts
+):
+    """Different start dates, shared days (D120)."""
+    circ, special = depts
+    SchedulePeriod.objects.create(
+        organization=org, location=location, department=circ, start_date=START, weeks=2
+    )
+    SchedulePeriod.objects.create(
+        organization=org,
+        location=location,
+        department=special,
+        length="months",
+        start_date=START.replace(day=1),
+        months=1,
+    )
+    resp = as_user(admin_user).post(
+        reverse("department_remove", args=[special.pk]), {"confirm": "on", "into": circ.pk}
+    )
+    assert "already has a schedule on some of the same days" in resp.content.decode()
+    assert Department.objects.count() == 2
+
+
+def test_removal_merges_periods_that_dont_share_days(as_user, org, location, admin_user, depts):
+    circ, special = depts
+    SchedulePeriod.objects.create(
+        organization=org, location=location, department=circ, start_date=START, weeks=2
+    )
+    later = SchedulePeriod.objects.create(
+        organization=org,
+        location=location,
+        department=special,
+        start_date=START + timedelta(days=14),
+        weeks=2,
+    )
+    as_user(admin_user).post(
+        reverse("department_remove", args=[special.pk]), {"confirm": "on", "into": circ.pk}
+    )
+    later.refresh_from_db()
+    assert later.department == circ and not Department.objects.filter(pk=special.pk).exists()
 
 
 def test_the_only_department_cannot_be_removed(as_user, org, admin_user):

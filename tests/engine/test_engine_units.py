@@ -43,7 +43,7 @@ FREE = WeeklyAvailability(AvailabilityStatus.ENTERED)
 
 
 def person(pid, availability=FREE, auto=True, tags=()):
-    period = Period(START, 1, SAT)
+    period = Period.of_weeks(START, 1, SAT)
     return Person(
         pid, f"P{pid}", availability, {d: frozenset(tags) for d in period.days}, auto_schedulable=auto
     )
@@ -51,7 +51,7 @@ def person(pid, availability=FREE, auto=True, tags=()):
 
 def context(people, rules=None, weeks=1, closures=(), shifts=()):
     return ScheduleContext(
-        Period(START, weeks, SAT),
+        Period.of_weeks(START, weeks, SAT),
         HOURS,
         list(closures),
         {p.id: p for p in people},

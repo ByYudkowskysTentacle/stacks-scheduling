@@ -1,11 +1,12 @@
 {% comment %}Settings sub-navigation, on every settings page including add and edit pages (audit 2.18).
-The current section is matched by URL prefix, so an edit page marks its list.{% endcomment %}
-{% with p=request.path %}
+The current section is matched by URL prefix, so an edit page marks its list. Organization holds
+the organization's own settings, its locations with hours and closures, and its departments, with
+a second row of links for those three (D121); their URLs are unchanged.{% endcomment %}
+{% load stacks %}
+{% with p=request.path %}{% with org=p|organization_section %}
 <nav aria-label="Settings" class="sub-nav">
   <ul>
-    <li><a href="{% url 'organization_settings' %}"{% if p == '/settings/' %} aria-current="page"{% endif %}>Organization</a></li>
-    <li><a href="{% url 'locations' %}"{% if p|slice:':20' == '/settings/locations/' %} aria-current="page"{% endif %}>Hours and closures</a></li>
-    <li><a href="{% url 'departments' %}"{% if p|slice:':22' == '/settings/departments/' %} aria-current="page"{% endif %}>Departments</a></li>
+    <li><a href="{% url 'organization_settings' %}"{% if org %} aria-current="true"{% endif %}>Organization</a></li>
     <li><a href="{% url 'terms' %}"{% if p|slice:':16' == '/settings/terms/' %} aria-current="page"{% endif %}>Terms</a></li>
     <li><a href="{% url 'pay_roles' %}"{% if p|slice:':20' == '/settings/pay-roles/' %} aria-current="page"{% endif %}>Pay roles</a></li>
     <li><a href="{% url 'tags' %}"{% if p|slice:':15' == '/settings/tags/' %} aria-current="page"{% endif %}>Tags</a></li>
@@ -15,4 +16,13 @@ The current section is matched by URL prefix, so an edit page marks its list.{% 
     {% if Perm.VIEW_AUDIT in access.perms %}<li><a href="{% url 'audit_log' %}"{% if p|slice:':16' == '/settings/audit/' %} aria-current="page"{% endif %}>Audit log</a></li>{% endif %}
   </ul>
 </nav>
-{% endwith %}
+{% if org %}
+<nav aria-label="Organization settings" class="sub-nav sub-nav--second">
+  <ul>
+    <li><a href="{% url 'organization_settings' %}"{% if org == "general" %} aria-current="page"{% endif %}>General</a></li>
+    <li><a href="{% url 'locations' %}"{% if org == "hours" %} aria-current="page"{% endif %}>Hours and closures</a></li>
+    <li><a href="{% url 'departments' %}"{% if org == "departments" %} aria-current="page"{% endif %}>Departments</a></li>
+  </ul>
+</nav>
+{% endif %}
+{% endwith %}{% endwith %}

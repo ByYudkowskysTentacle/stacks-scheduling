@@ -9,9 +9,9 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from domain.availability import WeeklyAvailability
-from domain.calendar import Closure, OperatingHours, open_intervals, week_start_for
+from domain.calendar import Closure, OperatingHours, open_intervals, week_days, week_start_for
 from domain.rules import Rules
-from domain.timeutil import SLOT_MINUTES, Interval, merge
+from domain.timeutil import SLOT_MINUTES, Interval, merge, total_minutes
 
 
 @dataclass(frozen=True)
@@ -73,30 +73,69 @@ class Person:
 
 @dataclass(frozen=True)
 class Period:
+    """A planning period: every day from `start` to `end`, inclusive. That can be whole weeks,
+    calendar months or a whole term (D120).
+
+    Weeks are calendar weeks counted from the week start, and week 0 is the one containing
+    `start`. A period that doesn't start on a week start, or doesn't end the day before one, has
+    part weeks at its edges: `week_days` gives the days inside the period, `calendar_week` all
+    seven.
+    """
+
     start: date
-    weeks: int
+    end: date
     week_start: int
 
     def __post_init__(self) -> None:
-        if self.start.weekday() != self.week_start:
-            raise ValueError("a planning period starts on the week start day")
+        if self.end < self.start:
+            raise ValueError("a planning period can't end before it starts")
+
+    @classmethod
+    def of_weeks(cls, start: date, weeks: int, week_start: int) -> Period:
+        """Whole weeks from a week start (SPEC §3.2)."""
+        if start.weekday() != week_start:
+            raise ValueError("a period of whole weeks starts on the week start day")
+        return cls(start, start + timedelta(days=weeks * 7 - 1), week_start)
 
     @property
     def days(self) -> list[date]:
-        return [self.start + timedelta(days=i) for i in range(self.weeks * 7)]
+        return [self.start + timedelta(days=i) for i in range((self.end - self.start).days + 1)]
 
     @property
-    def end(self) -> date:
-        return self.start + timedelta(days=self.weeks * 7 - 1)
+    def first_week_start(self) -> date:
+        return week_start_for(self.start, self.week_start)
+
+    @property
+    def weeks(self) -> int:
+        """The calendar weeks the period touches, part weeks included."""
+        return self.week_of(self.end) + 1
+
+    def contains(self, day: date) -> bool:
+        return self.start <= day <= self.end
 
     def week_of(self, day: date) -> int:
-        return (day - self.start).days // 7
+        return (week_start_for(day, self.week_start) - self.first_week_start).days // 7
+
+    def calendar_week(self, week: int) -> list[date]:
+        """All seven days of week `week`, including any outside the period."""
+        return week_days(self.first_week_start + timedelta(days=7 * week))
 
     def week_days(self, week: int) -> list[date]:
-        return self.days[week * 7 : (week + 1) * 7]
+        """The days of week `week` inside the period."""
+        return [d for d in self.calendar_week(week) if self.contains(d)]
+
+    def is_part_week(self, week: int) -> bool:
+        return len(self.week_days(week)) < 7
+
+    def in_weeks(self, day: date) -> bool:
+        """Whether `day` is in one of the period's calendar weeks, inside the period or not."""
+        return self.first_week_start <= day <= self.calendar_week(self.weeks - 1)[-1]
 
     def week_label(self, week: int) -> str:
-        return f"week {week + 1} ({self.week_days(week)[0]:%a %-d %b})"
+        days = self.week_days(week)
+        if len(days) == 7:
+            return f"week {week + 1} ({days[0]:%a %-d %b})"
+        return f"week {week + 1} ({days[0]:%a %-d %b} to {days[-1]:%a %-d %b}, part week)"
 
 
 @dataclass(frozen=True)
@@ -120,6 +159,19 @@ class ScheduleContext:
     def elsewhere_on(self, employee_id: int, day: date) -> list[Shift]:
         return [s for s in self.elsewhere if s.employee_id == employee_id and s.day == day]
 
+    def weekly_goal(self, minutes: int, week: int) -> int:
+        """A weekly goal (an hour target, desired hours, weekly tag hours or a lead week's hours)
+        for week `week`. In a part week it's scaled by the week's share of the calendar week's
+        open hours, rounded down to a slot, so a period's edge never asks for a whole week's
+        hours in a few days (D120). Caps are never scaled: they count the whole calendar week."""
+        if not self.period.is_part_week(week):
+            return minutes
+        whole = sum(total_minutes(self.open_on(d)) for d in self.period.calendar_week(week))
+        part = sum(total_minutes(self.open_on(d)) for d in self.period.week_days(week))
+        if part == whole:  # the rest of the week is closed, so this part is the whole week
+            return minutes
+        return minutes * part // whole // SLOT_MINUTES * SLOT_MINUTES
+
     def assigned(self) -> list[Shift]:
         return [s for s in self.shifts if s.employee_id is not None]
 
@@ -140,10 +192,21 @@ def on_duty_by_slot(shifts: Iterable[Shift]) -> dict[date, dict[int, list[int]]]
 
 
 def minutes_by_person_week(shifts: Iterable[Shift], period: Period) -> dict[int, dict[int, int]]:
+    """Minutes per person and period week. Shifts on the days of a part week outside the period
+    (on another schedule) count toward that week, as weekly caps need (D120)."""
     out: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
     for s in shifts:
-        if s.employee_id is not None and period.start <= s.day <= period.end:
+        if s.employee_id is not None and period.in_weeks(s.day):
             out[s.employee_id][period.week_of(s.day)] += s.minutes
+    return out
+
+
+def minutes_in_period(shifts: Iterable[Shift], period: Period) -> dict[int, int]:
+    """Minutes per person on the period's own days, for period caps."""
+    out: dict[int, int] = defaultdict(int)
+    for s in shifts:
+        if s.employee_id is not None and period.contains(s.day):
+            out[s.employee_id] += s.minutes
     return out
 
 

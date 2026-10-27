@@ -6,15 +6,17 @@ availability, at most once a day each, and carry only the term, the deadline and
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils import timezone
 
 from app.availability.models import Availability, AvailabilityReminder, Status
 from app.core.models import Term
+from app.core.timezones import org_time, zone
 from app.people.models import Employee
 
 
@@ -89,6 +91,22 @@ def send(term: Term, today: date, *, by_hand: bool = False) -> int:
     return sent
 
 
-def send_due(today: date) -> int:
-    terms = Term.objects.filter(availability_reminders=True, availability_deadline__gte=today)
-    return sum(send(t, today) for t in terms)
+# Scheduled reminders go out from this hour of the organization's day (D119).
+SEND_FROM_HOUR = 9
+
+
+def send_due(now: datetime | None = None) -> int:
+    """Send today's scheduled reminders for every organization that has reached
+    `SEND_FROM_HOUR` in its own time zone. Runs hourly; `send` sends each person at most once a
+    day, so later runs the same day only reach people who became due since."""
+    now = now or timezone.now()
+    terms = Term.objects.filter(availability_reminders=True).select_related("organization")
+    sent = 0
+    for term in terms:
+        local = now.astimezone(zone(term.organization))
+        if local.hour < SEND_FROM_HOUR or term.availability_deadline is None:
+            continue
+        if term.availability_deadline >= local.date():
+            with org_time(term.organization):
+                sent += send(term, local.date())
+    return sent

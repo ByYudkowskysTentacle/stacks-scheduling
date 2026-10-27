@@ -23,6 +23,7 @@ from domain.schedule import (
     ScheduleContext,
     Shift,
     minutes_by_person_week,
+    minutes_in_period,
     on_duty_by_slot,
     runs,
     slots_of,
@@ -398,8 +399,11 @@ def check_caps(ctx: ScheduleContext) -> list[Issue]:
     issues: list[Issue] = []
     own_weeks = minutes_by_person_week(ctx.shifts, ctx.period)
     # Weekly and period caps count hours on other schedules too (D95); term caps already do,
-    # through term_minutes_outside_period.
-    per_week = minutes_by_person_week([*ctx.shifts, *ctx.elsewhere], ctx.period)
+    # through term_minutes_outside_period. A part week's cap counts the whole calendar week,
+    # including the days outside this period (D120); a period cap counts the period's days.
+    everything = [*ctx.shifts, *ctx.elsewhere]
+    per_week = minutes_by_person_week(everything, ctx.period)
+    per_period = minutes_in_period(everything, ctx.period)
     for emp, own in sorted(own_weeks.items()):
         person = ctx.people.get(emp)
         if person is None:
@@ -410,18 +414,23 @@ def check_caps(ctx: ScheduleContext) -> list[Issue]:
                 for week, used in sorted(weeks.items()):
                     days = ctx.period.week_days(week)
                     if _cap_applies(cap, person, days) and used > cap.minutes:
+                        where = (
+                            f"the week of {ctx.period.calendar_week(week)[0]:%a %-d %b} (the whole week, "
+                            "including days outside this period)"
+                            if ctx.period.is_part_week(week)
+                            else ctx.period.week_label(week)
+                        )
                         issues.append(
                             Issue(
                                 Category.CAP,
                                 Severity.ERROR,
-                                f"{person.name}: {hours(used)} in {ctx.period.week_label(week)}, over "
-                                f"the {_cap_label(cap)}",
+                                f"{person.name}: {hours(used)} in {where}, over the {_cap_label(cap)}",
                                 employee_id=emp,
                                 minutes=used - cap.minutes,
                             )
                         )
             elif cap.scope == CapScope.PERIOD:
-                used = sum(per_week[emp].values())
+                used = per_period[emp]
                 if _cap_applies(cap, person, ctx.period.days) and used > cap.minutes:
                     issues.append(
                         Issue(
@@ -507,18 +516,20 @@ def check_tag_rules(ctx: ScheduleContext) -> list[Issue]:
         elif rule.kind == TagRuleKind.MIN_WEEKLY_HOURS:
             for week in range(ctx.period.weeks):
                 days = set(ctx.period.week_days(week))
+                need = ctx.weekly_goal(rule.minutes, week)  # scaled in a part week (D120)
                 total = sum(
                     s.minutes
                     for s in ctx.assigned()
                     if s.day in days and (p := ctx.people.get(s.employee_id)) and p.has_tag(rule.tag, s.day)  # type: ignore[arg-type]
                 )
-                if total < rule.minutes:
+                if total < need:
+                    part = f", {hours(need)} for this part week" if need != rule.minutes else ""
                     issues.append(
                         Issue(
                             Category.TAG_RULE,
                             severity,
-                            f"{rule.describe()}: {hours(total)} in {ctx.period.week_label(week)}",
-                            minutes=rule.minutes - total,
+                            f"{rule.describe()}: {hours(total)} in {ctx.period.week_label(week)}{part}",
+                            minutes=need - total,
                         )
                     )
         elif rule.kind == TagRuleKind.NOT_ALONE:
@@ -591,15 +602,16 @@ def check_duties(ctx: ScheduleContext) -> list[Issue]:
         who = name(ctx, d.employee_id)
         for week in range(ctx.period.weeks):
             used = per_week.get(d.employee_id, {}).get(week, 0)
-            if week in d.weeks and used < d.minutes:
+            need = ctx.weekly_goal(d.minutes, week)  # scaled in a part week (D120)
+            if week in d.weeks and used < need:
                 issues.append(
                     Issue(
                         Category.DUTY,
                         Severity.WARNING,
                         f"{who}: {hours(used)} in their {d.label} ({ctx.period.week_label(week)}), "
-                        f"{hours(d.minutes)} expected",
+                        f"{hours(need)} expected",
                         employee_id=d.employee_id,
-                        minutes=d.minutes - used,
+                        minutes=need - used,
                     )
                 )
             elif week not in d.weeks and used > d.off_week_max:

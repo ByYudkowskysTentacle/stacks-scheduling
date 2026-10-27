@@ -20,12 +20,12 @@
   <h2 id="hours-h">Scheduled hours against limits</h2>
   <div class="grid-scroll">
   <table class="data-table report-table">
-    <thead><tr><th scope="col">Person</th>{% for w in weeks %}<th scope="col">Week {{ w|add:1 }}</th>{% endfor %}<th scope="col">Period</th>{% if Perm.EDIT_SCHEDULE in access.perms %}<th scope="col">Target</th><th scope="col">Desired</th>{% endif %}<th scope="col">Status</th></tr></thead>
+    <thead><tr><th scope="col">Person</th>{% for w in weeks %}<th scope="col">Week {{ w.index|add:1 }} <span class="subtle">{{ w.first|date:"j M" }}{% if w.part %}, part{% endif %}</span></th>{% endfor %}<th scope="col">Period</th>{% if Perm.EDIT_SCHEDULE in access.perms %}<th scope="col">Target</th><th scope="col">Desired</th>{% endif %}<th scope="col">Status</th></tr></thead>
     <tbody>
     {% for r in hours %}
       <tr{% if r.over_limit %} class="is-over"{% endif %}>
         <th scope="row">{{ r.name }}</th>
-        {% for w in weeks %}{% with h=r.weeks|index:w cap=r.weekly_caps|index:w %}
+        {% for w in weeks %}{% with h=r.weeks|index:w.index cap=r.weekly_caps|index:w.index %}
           <td>{{ h|floatformat:"-2" }}{% if cap is not None %} / {{ cap|floatformat:"-2" }}{% endif %}
             {% if cap %}<span class="meter" aria-hidden="true"><span style="width: {% widthratio h cap 100 %}%"></span></span>{% endif %}</td>
         {% endwith %}{% endfor %}
