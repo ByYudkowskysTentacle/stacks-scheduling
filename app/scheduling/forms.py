@@ -386,7 +386,7 @@ def minutes_by_person(period: SchedulePeriod) -> dict[int, int]:
 
 
 def label_with_hours(minutes: dict[int, int]):
-    """Choice labels such as "Palmer (18h this period)", so a supervisor picking donors can see
+    """Choice labels such as "Riley (18h this period)", so a supervisor picking donors can see
     who has hours to spare without leaving the page (audit 2.10)."""
 
     def label(e: Employee) -> str:

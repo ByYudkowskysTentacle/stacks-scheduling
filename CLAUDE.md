@@ -31,7 +31,7 @@ After the stack is approved, fill in section 8 of this file (commands) and keep 
 3. **No silent destructive actions.** Deleting shifts, archiving employees or overwriting a published schedule needs an explicit confirmation step and leaves an audit record. Prefer reassigning or retiming an existing shift over delete-and-recreate, so history and IDs survive.
 4. **Every change is verified.** After any schedule mutation (manual edit, solver run, bulk import), run the full validation suite from SPEC §8 and show the result: coverage gaps, over-coverage, availability conflicts, cap breaches, and missing required roles. A change that passes quietly still reports "0 issues".
 5. **Explain, don't just decide.** When the solver or a suggestion engine proposes changes, show who gains and who loses hours, why someone ended up with few hours (limited availability or balancing), and which rule forced a trade-off.
-6. **Minimal churn.** Re-optimizing an existing schedule should keep as many current shifts as possible. Supervisors ask for small moves ("give Joshua a couple of Palmer's hours"), and the system should honour that scale.
+6. **Minimal churn.** Re-optimizing an existing schedule should keep as many current shifts as possible. Supervisors ask for small moves ("give Jordan a couple of Riley's hours"), and the system should honour that scale.
 7. **Accessible and printable.** Aim for WCAG 2.2 AA (D113): that includes 24px minimum tap targets and a focus indicator with 3:1 contrast on every background. Every main view needs a usable print stylesheet (landscape, repeated table headers, no clipped cells). Don't rely on colour alone to show state.
 
 ## 3. How to work

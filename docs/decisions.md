@@ -475,6 +475,13 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - **Contrast:** every text pair is at least 5.7:1 (WCAG 2.2 AA asks for 4.5:1). The focus ring keeps 3:1 on both the header and the page.
   - **Corners:** 8px.
 
+## 2026-10-27 – Repository goes public
+
+- **D117 (maintainer decision, 2026-10-27; revises D22).** The repository goes public now, before the pilot, so GitHub Actions can run while the account's paid Actions minutes are blocked by billing (public repositories run on standard runners at no cost).
+  - Before publishing, the history was checked: the full gitleaks scan, `check_sensitive.py --all`, and searches for server addresses, host names and non-example email addresses found nothing to remove.
+  - Two first names from the original library's schedules, used as examples in CLAUDE.md, a help text, a docstring and the design audit, were replaced with synthetic ones (Jordan and Riley). They stay in older commits, which the maintainer accepted.
+  - The author email on four early commits becomes public, which the maintainer accepted.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

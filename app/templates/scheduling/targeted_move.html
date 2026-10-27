@@ -4,7 +4,7 @@
 {% block content %}
 <p class="no-print"><a href="{% url 'period' period.pk %}">← Schedule {{ period }}</a></p>
 <h1>Move hours</h1>
-<p class="help">For requests like "give Joshua a couple of Palmer's hours". Whole shifts are reassigned first; when no set of whole shifts comes close, splitting one shift is offered too, and the giver keeps the rest of it. Every option is checked against the validation suite. Planning changes nothing; applying saves drafts, and nobody is notified until you publish.</p>
+<p class="help">For requests like "give Jordan a couple of Riley's hours". Whole shifts are reassigned first; when no set of whole shifts comes close, splitting one shift is offered too, and the giver keeps the rest of it. Every option is checked against the validation suite. Planning changes nothing; applying saves drafts, and nobody is notified until you publish.</p>
 <form method="get" class="stacked-form">
   {{ form.as_div }}
   <div class="form-actions"><button type="submit" class="button button--primary">Plan the move</button></div>
