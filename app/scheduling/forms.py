@@ -4,6 +4,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django import forms
+from django.urls import reverse
+from django.utils.html import format_html
 
 from app.core.forms import DateInput, MinuteField
 from app.core.models import Term
@@ -78,17 +80,27 @@ class PeriodForm(forms.ModelForm):
     def __init__(self, *args, organization, departments=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
-        self.fields["length"].choices = PeriodLength.choices  # no blank choice
+        terms = Term.objects.filter(organization=organization).order_by("-start_date")
+        length = self.fields["length"]
+        length.choices = PeriodLength.choices  # no blank choice
+        if not terms.exists():  # nothing to pick from: say where terms come from instead
+            length.choices = [c for c in PeriodLength.choices if c[0] != PeriodLength.TERM]
+            length.help_text = format_html(
+                'To plan a whole term, <a href="{}">add a term under Settings, Terms</a> first.',
+                reverse("terms"),
+            )
+            del self.fields["term"]
         self.fields["length"].required = False  # weeks when left out, as before lengths existed
         self.fields["length"].initial = PeriodLength.WEEKS
         self.fields["weeks"].initial = organization.planning_period_weeks
         self.fields["months"].initial = 1
         self.fields["start_date"].required = False
         for name in ("length", "start_date", "weeks", "months", "term"):
-            self.fields[name].hide_optional = True  # each is required for the lengths that use it
-        term = self.fields["term"]
-        term.queryset = Term.objects.filter(organization=organization).order_by("-start_date")
-        term.empty_label = "Choose…"
+            if name in self.fields:
+                self.fields[name].hide_optional = True  # each is required for the lengths that use it
+        if "term" in self.fields:
+            self.fields["term"].queryset = terms
+            self.fields["term"].empty_label = "Choose…"
         field = self.fields["department"]
         field.required = True
         field.empty_label = None

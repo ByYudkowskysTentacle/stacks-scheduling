@@ -122,7 +122,7 @@ def test_changing_the_zone_asks_for_confirmation_first(as_user, admin_user, org,
 
 def test_a_confirmed_zone_change_is_saved_and_audited(as_user, admin_user, org):
     in_zone(org, "America/Chicago")
-    data = _settings_post(org, time_zone="Asia/Tokyo", confirm_time_zone="yes")
+    data = _settings_post(org, time_zone="Asia/Tokyo", confirmed_zone="Asia/Tokyo", confirm_time_zone="yes")
     response = as_user(admin_user).post(reverse("organization_settings"), data)
     assert response.status_code == 302
     org.refresh_from_db()
@@ -130,6 +130,30 @@ def test_a_confirmed_zone_change_is_saved_and_audited(as_user, admin_user, org):
     event = Organization.pgh_event_model.objects.filter(pgh_obj=org).order_by("-pgh_id").first()
     assert event.pgh_label == "update" and event.time_zone == "Asia/Tokyo"
     assert event.pgh_context is not None and event.pgh_context.metadata.get("user") == admin_user.pk
+
+
+def test_saving_the_check_without_the_tick_says_what_is_missing(as_user, admin_user, org):
+    in_zone(org, "America/Chicago")
+    data = _settings_post(org, time_zone="Asia/Tokyo", confirmed_zone="Asia/Tokyo")
+    page = as_user(admin_user).post(reverse("organization_settings"), data).content.decode()
+    assert "Tick the box to change the time zone." in page
+    assert 'aria-invalid="true" aria-describedby="confirm_time_zone_error"' in page
+    org.refresh_from_db()
+    assert org.time_zone == "America/Chicago"
+
+
+def test_a_tick_only_confirms_the_zone_that_was_checked(as_user, admin_user, org):
+    """Check Denver, then switch the select to Honolulu and tick: Honolulu gets its own check."""
+    in_zone(org, "America/Chicago")
+    data = _settings_post(
+        org, time_zone="Pacific/Honolulu", confirmed_zone="America/Denver", confirm_time_zone="yes"
+    )
+    page = as_user(admin_user).post(reverse("organization_settings"), data).content.decode()
+    assert "You chose a different zone after the check, so check Pacific/Honolulu" in page
+    assert 'name="confirmed_zone" value="Pacific/Honolulu"' in page
+    assert "Tick the box" not in page
+    org.refresh_from_db()
+    assert org.time_zone == "America/Chicago"
 
 
 def test_other_settings_save_without_the_zone_confirmation(as_user, admin_user, org):

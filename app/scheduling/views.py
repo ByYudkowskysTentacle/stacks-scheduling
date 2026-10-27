@@ -144,7 +144,9 @@ class ScheduleIndexView(OrgViewMixin, TemplateView):
         if form.is_valid():
             period = form.save(commit=False)
             same_place = SchedulePeriod.objects.filter(location=location, department=period.department)
-            existing = same_place.filter(start_date=period.start_date).first()
+            existing = same_place.filter(
+                start_date=period.start_date, end_date=period.end_date, length=period.length
+            ).first()
             if existing:
                 messages.info(request, "That period already exists.")
                 return redirect("period", period_pk=existing.pk)

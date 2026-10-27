@@ -63,6 +63,9 @@ def _february(org, location, supervisor):
 
 def test_the_period_form_shows_only_the_fields_a_length_uses(browser, live_server, org, location, supervisor):
     Department.objects.create(organization=org, name="Circulation")
+    Term.objects.create(
+        organization=org, name="Spring 2027", start_date=date(2027, 1, 12), end_date=date(2027, 5, 7)
+    )
     context, pg = _signed_in(browser, live_server, supervisor, 1024)
     pg.goto(live_server.url + "/schedule/")
 

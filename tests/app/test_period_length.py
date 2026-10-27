@@ -114,6 +114,48 @@ def test_a_period_right_after_another_is_allowed(as_user, supervisor, org, locat
     assert SchedulePeriod.objects.count() == 2
 
 
+def test_a_longer_period_with_the_same_start_is_an_overlap_not_the_same_period(
+    as_user, supervisor, org, location, dept, term
+):
+    weeks = SchedulePeriod.objects.create(
+        organization=org, location=location, department=dept, start_date=date(2027, 1, 30), weeks=2
+    )
+    # A term starting that Saturday: same start, different period.
+    spring = Term.objects.create(
+        organization=org, name="Late Spring", start_date=date(2027, 1, 30), end_date=date(2027, 4, 30)
+    )
+    response = create(as_user(supervisor), department=dept.pk, length="term", term=spring.pk)
+    assert response.status_code == 200 and SchedulePeriod.objects.get() == weeks
+    assert "This would overlap the 2 weeks period" in response.content.decode()
+
+
+def test_the_same_period_again_opens_the_one_already_there(as_user, supervisor, org, location, dept):
+    feb = month(org, location, dept)
+    response = create(
+        as_user(supervisor), department=dept.pk, length="months", start_date="2027-02-01", months=1
+    )
+    assert response.status_code == 302 and response["Location"] == reverse("period", args=[feb.pk])
+
+
+def test_without_terms_the_form_says_where_to_add_one(as_user, supervisor, location, dept):
+    client = as_user(supervisor)
+    page = client.get(reverse("schedule_index")).content.decode()
+    assert "A whole term" not in page and 'name="term"' not in page
+    assert f'<a href="{reverse("terms")}">add a term under Settings, Terms</a> first' in page
+    response = create(client, department=dept.pk, length="term")
+    assert "Select a valid choice" in response.content.decode() and not SchedulePeriod.objects.exists()
+
+
+def test_raise_hours_headings_keep_their_dates_capitalised(
+    as_user, supervisor, org, location, dept, term, employee
+):
+    employee.departments.add(dept)
+    period = month(org, location, dept)
+    page = as_user(supervisor).get(reverse("raise_hours", args=[period.pk, employee.pk])).content.decode()
+    assert "Week 1 (Mon 1 Feb to Fri 5 Feb, part week): Avery has" in page
+    assert "Week 2 (Sat 6 Feb): Avery has" in page
+
+
 def test_editing_the_term_later_never_moves_the_period(as_user, supervisor, location, dept, term):
     create(as_user(supervisor), department=dept.pk, length="term", term=term.pk)
     term.end_date = date(2027, 5, 14)

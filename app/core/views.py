@@ -190,11 +190,22 @@ class OrganizationSettingsView(OrgViewMixin, UpdateView):
     def form_valid(self, form):
         # Shift times are wall-clock times, so a new zone moves every shift's instant: show
         # what that means and ask for a tick first (D119, CLAUDE.md §2.3).
-        if "time_zone" in form.changed_data and self.request.POST.get("confirm_time_zone") != "yes":
-            change = zone_change(
-                self.request.organization, form.initial["time_zone"], form.cleaned_data["time_zone"]
-            )
-            return self.render_to_response(self.get_context_data(form=form, zone_change=change))
+        # The tick confirms the zone that was previewed (`confirmed_zone`); choosing another zone
+        # while the check is showing shows the check again for that one.
+        if "time_zone" in form.changed_data:
+            new = form.cleaned_data["time_zone"]
+            previewed = self.request.POST.get("confirmed_zone")
+            ticked = self.request.POST.get("confirm_time_zone") == "yes"
+            if previewed != new or not ticked:
+                change = zone_change(self.request.organization, form.initial["time_zone"], new)
+                return self.render_to_response(
+                    self.get_context_data(
+                        form=form,
+                        zone_change=change,
+                        zone_switched=bool(previewed) and previewed != new,
+                        zone_error="Tick the box to change the time zone." if previewed == new else "",
+                    )
+                )
         messages.success(self.request, "Settings saved.")
         return super().form_valid(form)
 

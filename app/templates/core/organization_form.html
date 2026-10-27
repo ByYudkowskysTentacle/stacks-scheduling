@@ -16,7 +16,10 @@
       <li>Calendar feeds will show those shifts at the new zone's times. Today's date, the freeze window, reminders and the nightly purge switch to the new zone too.</li>
       <li>Nothing is retimed or published, and nobody is notified. The change is recorded in the audit log.</li>
     </ul>
-    <div class="field-check"><input type="checkbox" id="confirm_time_zone" name="confirm_time_zone" value="yes" required><label for="confirm_time_zone">Change the time zone to {{ zone_change.new }}.</label></div>
+    {% if zone_switched %}<p><strong>You chose a different zone after the check, so check {{ zone_change.new }} before saving.</strong></p>{% endif %}
+    <input type="hidden" name="confirmed_zone" value="{{ zone_change.new }}">
+    {% if zone_error %}<ul class="errorlist" id="confirm_time_zone_error"><li>{{ zone_error }}</li></ul>{% endif %}
+    <div class="field-check"><input type="checkbox" id="confirm_time_zone" name="confirm_time_zone" value="yes"{% if zone_error %} aria-invalid="true" aria-describedby="confirm_time_zone_error"{% endif %}><label for="confirm_time_zone">Change the time zone to {{ zone_change.new }}.</label></div>
   </div>
   {% endif %}
   <div class="form-actions">
