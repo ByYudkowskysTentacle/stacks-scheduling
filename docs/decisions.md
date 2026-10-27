@@ -523,6 +523,16 @@ D118 is taken by campus sign-in (PR 40).
   - **Availability for a period that runs past its term** (for example a month spanning the end of one term) still comes from the term containing the period's start, as for weeks. The period page now says so when it happens. Per-day availability across two terms is a later change.
   - **Rotation groups and lead-week duties use the period's week numbers, as before.** Week 1 is the period's first week, even a part week. In month periods, a "week 1 and week 2" rotation therefore restarts each month. A supervisor who needs strict alternation across months should use weeks periods, or set groups by hand. This is an open item.
   - **The weekly cap applies to the calendar week, whatever the period boundary.** This is the conservative reading of SPEC §6.4 ("per week"). Period caps count the days inside the period only.
+- **D119 follow-up (maintainer, 2026-10-27).** The migration's reset of every organization's stored zone to `STACKS_TIME_ZONE` is approved: "Since we're currently just using the pilot as a demo the reset is fine." Wherever the two differed, calendar feeds and the freeze window shift to the installation's zone.
+- **D121 (maintainer request, 2026-10-27).** Settings groups the organization's own settings, its departments, and its locations with opening hours and closures under the Organization tab.
+  *Built:*
+  - **Navigation.** The Settings row loses its Hours and closures and Departments tabs. On the Organization pages a second row shows:
+    - **General:** name, time zone, week start and default period length.
+    - **Hours and closures:** locations with their operating hours and closures.
+    - **Departments.**
+  - **Current page.** The Organization tab is marked as the current section (`aria-current="true"`) on all of these pages, including their add, edit and remove pages. The page itself is marked in the second row (`aria-current="page"`). Both are shown by weight and an underline, not colour alone.
+  - **Nothing else moves.** URLs and URL names stay the same (`/settings/locations/…`, `/settings/departments/…`), so bookmarks, links and the setup checklist keep working. Each page keeps its own permission check.
+  *Interpretation:* a second row of links rather than one long page, because each area keeps its own lists, add and edit pages. On a phone the row wraps like the one above it; in print both rows are hidden, as before.
 
 ## Open items for the maintainer
 

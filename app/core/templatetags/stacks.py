@@ -88,3 +88,16 @@ def strip_prefix(text, prefix):
     """ "Stacks: your schedule…" -> "your schedule…" (then capfirst in the template)."""
     text = str(text)
     return text[len(prefix) :].lstrip() if text.startswith(str(prefix)) else text
+
+
+# The settings pages grouped under Organization (D121): the organization's own settings, its
+# locations with hours and closures, and its departments. Their URLs are unchanged.
+ORGANIZATION_SETTINGS = {"/settings/locations/": "hours", "/settings/departments/": "departments"}
+
+
+@register.filter
+def organization_section(path):
+    """`general`, `hours` or `departments` for a page under Organization in settings, else ''."""
+    if path == "/settings/":
+        return "general"
+    return next((key for prefix, key in ORGANIZATION_SETTINGS.items() if path.startswith(prefix)), "")

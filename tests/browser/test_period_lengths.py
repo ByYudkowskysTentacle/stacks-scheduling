@@ -86,6 +86,8 @@ def test_month_pages_fit_a_phone(browser, live_server, org, location, supervisor
         f"/schedule/{period.pk}/reports/",
         "/schedule/",
         "/settings/",
+        "/settings/locations/",  # under Organization since D121
+        "/settings/departments/",
     ):
         pg.goto(live_server.url + path)
         width = pg.evaluate("() => document.documentElement.scrollWidth")
