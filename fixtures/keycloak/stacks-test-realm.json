@@ -1,0 +1,64 @@
+{
+  "realm": "stacks-test",
+  "enabled": true,
+  "sslRequired": "none",
+  "clients": [
+    {
+      "clientId": "stacks",
+      "name": "Stacks (tests only)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "test-only-client-secret",
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": {"pkce.code.challenge.method": "S256"},
+      "protocolMappers": [
+        {
+          "name": "hd",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-hardcoded-claim-mapper",
+          "config": {
+            "claim.name": "hd",
+            "claim.value": "example.edu",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "avery",
+      "email": "avery@example.edu",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Avery",
+      "lastName": "Example",
+      "credentials": [{"type": "password", "value": "a-long-test-password", "temporary": false}]
+    },
+    {
+      "username": "casey",
+      "email": "casey@example.edu",
+      "emailVerified": false,
+      "enabled": true,
+      "firstName": "Casey",
+      "lastName": "Example",
+      "credentials": [{"type": "password", "value": "a-long-test-password", "temporary": false}]
+    },
+    {
+      "username": "stranger",
+      "email": "stranger@example.edu",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Sam",
+      "lastName": "Example",
+      "credentials": [{"type": "password", "value": "a-long-test-password", "temporary": false}]
+    }
+  ]
+}

@@ -109,6 +109,9 @@ uv run ruff format --check . && uv run ruff check .
 uv run pyright                           # strict, domain/ only (D53)
 uv run pytest -q -m "not slow"           # fast suite; uses app.config.test_settings and Postgres
 uv run pytest -q -m slow                 # engine acceptance scenarios (real solves)
+# campus sign-in end to end (D118): Keycloak with the synthetic realm, then the test with KEYCLOAK_URL
+docker run -d --rm --name keycloak --network stacks_default -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin -v "$PWD/fixtures/keycloak:/opt/keycloak/data/import:ro" quay.io/keycloak/keycloak:26.0.7 start-dev --import-realm
+docker compose -f compose.yaml -f compose.dev.yaml run --rm --no-deps -T -e KEYCLOAK_URL=http://keycloak:8080 web pytest -q tests/browser/test_sso_keycloak.py
 DJANGO_DEBUG=1 uv run python manage.py procrastinate worker   # runs solves queued from the web app
 uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
 
@@ -137,7 +140,8 @@ domain/engine/        the CP-SAT engine: candidates, model (tier weights documen
                       top), solve, diff, explain; run() is the entry point
 adapters/             Paycom, ICS/calendar, CSV import/export
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
-app/accounts/         sign-in accounts (email login, allauth, TOTP)
+app/accounts/         sign-in accounts (email login, allauth, TOTP); adapter.py has the campus
+                      sign-in (OIDC) checks (D118)
 app/core/             organization, locations, hours, closures, terms, roles, the permission
                       layer (permissions.py), audit log helpers, management commands;
                       departments.py removes a department, merging it into another (D110)
@@ -157,7 +161,8 @@ app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
 deploy/               Caddyfile and backup.sh; compose.yaml and compose.dev.yaml sit at the root
 docs/install.md       install, backup, restore and upgrade guide
-fixtures/             synthetic rosters (fixtures/synthetic.py), sample import/export files
+fixtures/             synthetic rosters (fixtures/synthetic.py), sample import/export files,
+                      a Keycloak test realm (fixtures/keycloak/)
 tests/domain/         unit and property tests for domain/
 tests/adapters/       parser and adapter contract tests
 tests/app/            view, permission and integration tests against PostgreSQL

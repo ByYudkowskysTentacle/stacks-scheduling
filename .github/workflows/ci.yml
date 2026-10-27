@@ -30,6 +30,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Start Keycloak for the campus sign-in tests (D118)
+        # Started early so it boots while dependencies install. Synthetic realm, tests only.
+        run: |
+          docker run -d --name keycloak -p 8080:8080 \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+            -v "$PWD/fixtures/keycloak:/opt/keycloak/data/import:ro" \
+            quay.io/keycloak/keycloak:26.0.7 start-dev --import-realm
       - name: Install uv and dependencies
         run: |
           python -m pip install "uv==0.11.32"
@@ -44,9 +51,15 @@ jobs:
         run: uv run pyright
       - name: Migrations are up to date
         run: uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
+      - name: Wait for Keycloak
+        run: |
+          timeout 180 sh -c 'until curl -fsS http://localhost:8080/realms/stacks-test/.well-known/openid-configuration >/dev/null; do sleep 3; done' \
+            || { docker logs keycloak | tail -50; exit 1; }
       - name: Tests
         env:
           REQUIRE_BROWSER: "1"
+          KEYCLOAK_URL: http://localhost:8080
+          REQUIRE_KEYCLOAK: "1"
         run: uv run pytest -q -m "not slow"
 
   engine:
