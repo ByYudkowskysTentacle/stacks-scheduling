@@ -395,6 +395,6 @@ Answers and their interpretations are logged in `docs/decisions.md` (D-numbers b
 3. Paycom: **open**. API access requested through university HR/payroll (D17); the actuals report layout is still needed (D9).
 4. Work-study awards: a financial aid CSV each term (D10). Sample layout requested.
 5. Locations: one location first (D1).
-6. SSO: Google Workspace via OIDC, with generic OIDC and SAML to follow (D5).
+6. SSO: Google Workspace and any other provider via generic OIDC, built (D5, D118). SAML to follow.
 7. Co-worker visibility: preferred names on the published schedule (D6).
 8. Spring 2027 term dates: **open**.

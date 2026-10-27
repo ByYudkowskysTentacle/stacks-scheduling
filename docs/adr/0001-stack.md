@@ -96,12 +96,13 @@ See **Benchmark results** below.
 
 | License | Dependencies |
 |---|---|
-| BSD | Django, django-pghistory, django-pgtrigger |
-| Apache-2.0 | OR-Tools, Caddy |
-| MIT | django-allauth, Procrastinate, Gunicorn, WhiteNoise, python3-saml, xmlsec |
+| BSD | Django, django-pghistory, django-pgtrigger, oauthlib, idna |
+| Apache-2.0 | OR-Tools, Caddy, requests |
+| MIT | django-allauth, Procrastinate, Gunicorn, WhiteNoise, python3-saml, xmlsec, PyJWT, urllib3, charset-normalizer |
 | LGPL-3.0 | psycopg |
 | PostgreSQL License | PostgreSQL |
 | Permissive (BSD family) | HTMX |
+| MPL-2.0 | certifi (CA certificates, used unmodified) |
 
 Dev-only tools (Hypothesis, MPL-2.0; Playwright, Apache-2.0) don't affect distribution. Each dependency's license gets rechecked when it's added.
 

@@ -48,6 +48,8 @@ def _plain(value: Any) -> Any:
 
 def export_employee(employee: Employee) -> dict[str, Any]:
     """Everything Stacks holds about one person, as JSON-ready data."""
+    from allauth.socialaccount.models import SocialAccount
+
     from app.availability.models import Availability, TimeOff
     from app.scheduling.models import (
         CallOut,
@@ -169,6 +171,17 @@ def export_employee(employee: Employee) -> dict[str, Any]:
             "email": user.email,
             "date_joined": _plain(user.date_joined),
             "last_login": _plain(user.last_login),
+            # Campus sign-in links (D118): the provider, its id for the person, and the claims kept.
+            "single_sign_on": [
+                {
+                    "provider": a.provider,
+                    "subject": a.uid,
+                    "linked_at": _plain(a.date_joined),
+                    "last_used": _plain(a.last_login),
+                    "claims": a.extra_data,
+                }
+                for a in SocialAccount.objects.filter(user=user)
+            ],
             "notifications": [
                 {"created_at": _plain(n.created_at), "subject": n.subject, "body": n.body}
                 for n in Notification.objects.filter(user=user, organization=employee.organization)
@@ -189,6 +202,7 @@ def erase_employee(employee: Employee) -> None:
     what happened (D100, D101). Notes about this person on their shifts and call-outs,
     including in published versions, are cleared."""
     from allauth.account.models import EmailAddress
+    from allauth.socialaccount.models import SocialAccount
 
     from app.availability.models import Availability, TimeOff
     from app.core.models import Membership
@@ -248,6 +262,7 @@ def erase_employee(employee: Employee) -> None:
             Membership.objects.filter(user=user, organization=org).delete()
             if not Membership.objects.filter(user=user).exists():
                 EmailAddress.objects.filter(user=user).delete()
+                SocialAccount.objects.filter(user=user).delete()
                 user.email = f"erased-{user.pk}@invalid"
                 user.is_active = False
                 user.set_unusable_password()
