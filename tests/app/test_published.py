@@ -130,6 +130,27 @@ def test_printable_version_grid(as_user, supervisor, setup):
     assert "Week 1" in page and "Blake" in page and "10am–1pm" in page
 
 
+def row_cells(page, name):
+    """The text of each cell in the grid row headed by `name`."""
+    row = re.search(rf'<th scope="row" class="schedule-grid__person">{name}</th>(.*?)</tr>', page, re.S)
+    assert row, f"no row for {name}"
+    return [re.sub(r"<br>", " / ", c).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", row.group(1), re.S)]
+
+
+def test_version_detail_shows_people_by_days(as_user, supervisor, setup):
+    """Audit 2.13: one row per person and a column per day, instead of a flat shift list."""
+    period, _, _ = setup
+    page = as_user(supervisor).get(reverse("version_detail", args=[period.pk, 1])).content.decode()
+    assert "Week 1: Sat 16 Jan to Fri 22 Jan 2027" in page
+    assert "Week 2: Sat 23 Jan to Fri 29 Jan 2027" in page and "No shifts this week." in page
+    # Sat, Sun, Mon ... Fri, then week hours and period hours.
+    assert row_cells(page, "Avery") == ["", "", "9am–12pm", "", "", "", "", "3", "3"]
+    assert row_cells(page, "Blake") == ["", "", "10am–1pm", "", "", "", "", "3", "3"]
+    assert row_cells(page, "Open shifts")[2] == "1pm–3pm"
+    assert '<details class="print-open" open>' in page  # a short change list starts open
+    assert '<th scope="col">Time</th>' not in page  # the old flat list is gone
+
+
 def test_home_shows_next_shifts(as_user, student_user, setup):
     with mock.patch("django.utils.timezone.localdate", return_value=START):
         page = as_user(student_user).get(reverse("home")).content.decode()

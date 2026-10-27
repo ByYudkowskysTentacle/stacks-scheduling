@@ -39,7 +39,7 @@ a { color: #000; text-decoration: none; }
   clip: auto !important; white-space: normal !important; text-align: left; font-weight: 700; padding-bottom: 4pt;
 }
 .schedule-grid .col-person { width: 14%; }
-.schedule-grid .col-hours { width: 6%; }
+.schedule-grid .col-hours { width: 7.5%; }
 
 .print-only { display: block !important; margin: 0 0 4pt; }
 .avail-grid th.avail-grid__name { position: static !important; }

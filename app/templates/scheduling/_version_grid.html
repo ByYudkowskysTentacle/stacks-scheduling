@@ -1,0 +1,27 @@
+{% load stacks %}{# A published version as people by days, one table per week (audit 2.13). #}
+{% for week in weeks %}
+<div class="grid-scroll grid-scroll--sticky">
+<table class="schedule-grid print-grid">
+  <caption>Week {{ forloop.counter }}: {{ week.days.0|date:"D j M" }} to {{ week.days|last|date:"D j M Y" }}</caption>
+  <colgroup><col class="col-person">{% for d in week.days %}<col>{% endfor %}{% if Perm.VIEW_HOURS in access.perms %}<col class="col-hours"><col class="col-hours">{% endif %}</colgroup>
+  <thead>
+    <tr>
+      <th scope="col">Person</th>
+      {% for d in week.days %}<th scope="col">{{ d|date:"D j M" }}</th>{% endfor %}
+      {% if Perm.VIEW_HOURS in access.perms %}<th scope="col">Week hours</th><th scope="col">Period hours</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in week.rows %}
+    <tr>
+      <th scope="row" class="schedule-grid__person">{{ r.name }}</th>
+      {% for cell in r.cells %}<td>{% for iv in cell %}{{ iv.label }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>{% endfor %}
+      {% if Perm.VIEW_HOURS in access.perms %}<td class="hours-cell">{{ r.week_minutes|hours }}</td><td class="hours-cell">{{ r.period_minutes|hours }}</td>{% endif %}
+    </tr>
+  {% empty %}
+    <tr><td colspan="{% if Perm.VIEW_HOURS in access.perms %}{{ week.days|length|add:3 }}{% else %}{{ week.days|length|add:1 }}{% endif %}">No shifts this week.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endfor %}
