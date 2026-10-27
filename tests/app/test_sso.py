@@ -123,6 +123,45 @@ def test_google_accounts_must_belong_to_the_workspace(sso, rf, student_user):
     assert sign_in(rf, claims(hd="example.edu")).user == student_user
 
 
+FULL = {"name": "Avery Example", "given_name": "Avery", "picture": "https://idp.example.edu/a.png"}
+
+
+def stored_claims(user) -> dict:
+    return SocialAccount.objects.get(user=user).extra_data["id_token"]
+
+
+@pytest.mark.parametrize(
+    "refused_with, settings_change",
+    [
+        ({"email_verified": False}, {}),
+        ({}, {"OIDC_ALLOWED_DOMAINS": ["example.org"]}),  # the campus narrowed its domains
+        ({}, {"OIDC_REQUIRE_HD": True}),  # hd turned on; this account has none
+    ],
+)
+def test_a_linked_person_who_is_refused_keeps_only_the_minimal_claims(
+    sso, rf, student_user, refused_with, settings_change
+):
+    """allauth saves the provider's whole response on a linked account before the checks run,
+    and a refusal still commits: the adapter trims it first (SPEC §11, D118)."""
+    sign_in(rf, claims())
+    with override_settings(**settings_change):
+        assert sign_in(rf, claims(**FULL, **refused_with)).status_code == 403
+    assert not set(stored_claims(student_user)) & set(FULL)
+
+
+def test_reconnecting_a_linked_account_keeps_only_the_minimal_claims(sso, rf, student_user):
+    sign_in(rf, claims())
+    sign_in(rf, claims(**FULL), process="connect", user=student_user)
+    assert not set(stored_claims(student_user)) & set(FULL)
+
+
+@override_settings(OIDC_REQUIRE_HD=True)
+def test_a_missing_hd_claim_points_at_the_administrator(sso, rf, student_user, caplog):
+    page = page_text(sign_in(rf, claims()))
+    assert "isn't part of your campus's Google Workspace" in page and "Stacks administrator" in page
+    assert "no hd claim" in caplog.text and "avery" not in caplog.text.lower()  # no personal data
+
+
 def test_nobody_gets_an_account_by_signing_in(sso, rf, org):
     response = sign_in(rf, claims(email="stranger@example.edu"))
     assert response.status_code == 403

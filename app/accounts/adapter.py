@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import logging
+
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
@@ -9,6 +11,8 @@ from django.conf import settings
 from django.shortcuts import render
 
 from app.accounts.models import User
+
+logger = logging.getLogger(__name__)
 
 # The only claims kept from the identity provider (SPEC §11: collect the minimum).
 KEPT_CLAIMS = ("iss", "sub", "email", "email_verified", "hd")
@@ -54,22 +58,38 @@ class CampusSSOAdapter(DefaultSocialAccountAdapter):
 
     def pre_social_login(self, request, sociallogin) -> None:
         claims = _claims(sociallogin)
+        # For an account that's already linked, allauth has just saved the provider's whole
+        # response on it (its lookup runs first). Trim and save before any check below can turn
+        # the person away, because a refusal still commits the request.
+        _minimise(sociallogin)
+        if sociallogin.is_existing:
+            sociallogin.account.save(update_fields=["extra_data"])
+
         email = str(claims.get("email") or "").strip().lower()
         name = sociallogin.provider.name
         if not email or not _is_true(claims.get("email_verified")):
-            self._refuse(request, name, f"{name} didn't confirm an email address for this account.")
-        domain = email.rpartition("@")[2]
+            self._refuse(
+                request, name, "Your campus sign-in didn't confirm an email address for this account."
+            )
         allowed = settings.OIDC_ALLOWED_DOMAINS
-        if domain not in allowed or (settings.OIDC_REQUIRE_HD and claims.get("hd") not in allowed):
+        if email.rpartition("@")[2] not in allowed:
             self._refuse(request, name, "Use your campus account. This one isn't from your campus.")
+        if settings.OIDC_REQUIRE_HD and claims.get("hd") not in allowed:
+            if not claims.get("hd"):
+                # Usually a non-Google provider with OIDC_REQUIRE_HD left on. No personal data here.
+                logger.warning("Campus sign-in refused: no hd claim, and OIDC_REQUIRE_HD is on")
+            self._refuse(
+                request,
+                name,
+                "This account isn't part of your campus's Google Workspace. If you used your campus "
+                "account, tell your Stacks administrator.",
+            )
 
-        _minimise(sociallogin)
         if sociallogin.state.get("process") == AuthProcess.CONNECT:
             if not request.user.is_authenticated or request.user.email.lower() != email:
                 self._refuse(request, name, "That account's email address doesn't match your Stacks account.")
             return
         if sociallogin.is_existing:
-            sociallogin.account.save(update_fields=["extra_data"])
             return
         user = User.objects.filter(email__iexact=email, is_active=True).first()
         if user is None:

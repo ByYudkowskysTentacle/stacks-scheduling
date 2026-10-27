@@ -160,7 +160,7 @@ if OIDC_CLIENT_ID:
         "APPS": [
             {
                 "provider_id": env("OIDC_PROVIDER_ID", "campus"),
-                "name": env("OIDC_PROVIDER_NAME", "campus sign-in"),
+                "name": env("OIDC_PROVIDER_NAME", "") or "your campus account",
                 "client_id": OIDC_CLIENT_ID,
                 "secret": env("OIDC_CLIENT_SECRET"),
                 "settings": {"server_url": env("OIDC_SERVER_URL"), "auth_params": _oidc_params},
