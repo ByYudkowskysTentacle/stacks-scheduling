@@ -238,3 +238,27 @@ def version_grid(version: PublishedVersion) -> tuple[list[date], list[GridRow]]:
         )
     rows.sort(key=lambda r: (r.name == "Open shifts", r.name.lower()))
     return days, rows
+
+
+@dataclass
+class WeekRow:
+    name: str
+    cells: list[list[Interval]]
+    week_minutes: int
+    period_minutes: int
+
+
+def version_weeks(version: PublishedVersion) -> list[dict]:
+    """The version grid one week at a time, leaving out people with no shifts that week (audit 2.13)."""
+    days, rows = version_grid(version)
+    weeks = []
+    for start in range(0, len(days), 7):
+        week_rows = []
+        for r in rows:
+            cells = r.cells[start : start + 7]
+            if any(cells):
+                week_rows.append(
+                    WeekRow(r.name, cells, sum(iv.minutes for ivs in cells for iv in ivs), r.minutes)
+                )
+        weeks.append({"days": days[start : start + 7], "rows": week_rows})
+    return weeks

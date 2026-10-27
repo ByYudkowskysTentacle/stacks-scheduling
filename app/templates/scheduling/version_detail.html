@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ version }}{% endblock %}
+{% block main_class %}main--wide{% endblock %}
 {% block content %}
 <p class="no-print"><a href="{% url 'versions' period.pk %}">← Versions</a></p>
 <h1>{{ version }}</h1>
@@ -11,11 +12,12 @@
 <p>Published {{ version.published_at|date:"j M Y H:i" }}{% if version.published_by %} by {{ version.published_by.email }}{% endif %}. Validation at the time: {{ version.validation_summary }}.</p>
 {% if changes %}
 <h2>Changes in this version</h2>
+{# A first version lists every shift as added, so long lists start closed (audit 2.13). #}
+<details class="print-open"{% if changes|length <= 5 %} open{% endif %}>
+<summary>Changes for {{ changes|length }} {% if changes|length == 1 %}person{% else %}people{% endif %}</summary>
 <ul>{% for name, c in changes %}<li><strong>{{ name }}</strong>: {% if c.added %}added {{ c.added|join:"; " }}{% endif %}{% if c.added and c.removed %}; {% endif %}{% if c.removed %}removed {{ c.removed|join:"; " }}{% endif %}</li>{% endfor %}</ul>
+</details>
 {% endif %}
 <h2>Shifts</h2>
-<table class="data-table">
-  <thead><tr><th scope="col">Day</th><th scope="col">Time</th><th scope="col">Who</th></tr></thead>
-  <tbody>{% for s, name in shifts %}<tr><td>{{ s.day|date:"D j M" }}</td><td>{{ s.interval.label }}</td><th scope="row">{{ name }}</th></tr>{% endfor %}</tbody>
-</table>
+{% include "scheduling/_version_grid.html" %}
 {% endblock %}

@@ -618,21 +618,19 @@ class VersionDetailView(PeriodMixin, TemplateView):
     template_name = "scheduling/version_detail.html"
 
     def get_context_data(self, **kwargs):
+        from app.scheduling.published import version_weeks
+
         ctx = super().get_context_data(**kwargs)
         period = self.get_period()
         version = get_object_or_404(period.versions, number=self.kwargs["number"])
         names = dict(
             Employee.objects.filter(organization=period.organization).values_list("pk", "preferred_name")
         )
-        shifts = sorted(
-            (services.snapshot_to_domain(r) for r in version.shifts),
-            key=lambda s: (s.day, s.interval, names.get(s.employee_id, "")),
-        )
         change_names = {int(k): v for k, v in version.changes.items()}
         ctx.update(
             period=period,
             version=version,
-            shifts=[(s, names.get(s.employee_id, "Open shift")) for s in shifts],
+            weeks=version_weeks(version),
             changes=[(names.get(k, "?"), v) for k, v in change_names.items()],
         )
         return ctx
@@ -888,19 +886,12 @@ class VersionPrintView(PeriodMixin, TemplateView):
     template_name = "scheduling/version_print.html"
 
     def get_context_data(self, **kwargs):
-        from app.scheduling.published import version_grid
+        from app.scheduling.published import version_weeks
 
         ctx = super().get_context_data(**kwargs)
         period = self.get_period()
         version = get_object_or_404(period.versions, number=self.kwargs["number"])
-        days, rows = version_grid(version)
-        weeks = []
-        for start in range(0, len(days), 7):
-            week_rows = [
-                (r.name, r.cells[start : start + 7]) for r in rows if any(r.cells[start : start + 7])
-            ]
-            weeks.append({"days": days[start : start + 7], "rows": week_rows})
-        ctx.update(period=period, version=version, weeks=weeks)
+        ctx.update(period=period, version=version, weeks=version_weeks(version))
         return ctx
 
 
