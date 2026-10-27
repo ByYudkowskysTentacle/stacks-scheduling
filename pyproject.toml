@@ -8,7 +8,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "django>=5.2,<5.3",               # BSD; current LTS (ADR 0001)
     "psycopg[binary]>=3.2,<4",         # LGPL-3.0
-    "django-allauth[mfa]>=65.0,<66",   # MIT; local accounts, later OIDC and SAML
+    "django-allauth[mfa,socialaccount]>=65.0,<66",   # MIT; local accounts, OIDC (D118), later SAML
     "django-pghistory>=3.9,<4",        # BSD; trigger-based audit log
     "procrastinate[django]>=3.10,<4",  # MIT; PostgreSQL task queue for solves
     "ortools>=9.14,<10",               # Apache-2.0; CP-SAT

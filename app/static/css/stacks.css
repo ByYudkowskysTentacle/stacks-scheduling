@@ -157,6 +157,10 @@ code { background: var(--paper-alt); padding: 0 0.25em; border-radius: 3px; }
 .subtle { color: var(--ink-soft); font-weight: normal; }
 .small-link { font-size: var(--fs-sm); font-weight: normal; margin-left: 0.5rem; }
 .help, .helptext { color: var(--ink-soft); font-size: var(--fs-sm); }
+/* Campus sign-in below the password form (D118). */
+.sso { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+.sso__or { color: var(--ink-soft); margin: 0 0 var(--sp-2); }
+.sso form { margin: 0 0 var(--sp-2); }
 .plain-list { list-style: none; padding: 0; margin: 0 0 1rem; }
 .plain-list li { padding: 0.2rem 0; }
 

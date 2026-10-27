@@ -1,0 +1,11 @@
+{% load socialaccount %}{# Campus sign-in on the sign-in page (D5, D118). It posts straight to the provider, so there is no extra "Continue" page. #}
+{% get_providers as socialaccount_providers %}
+{% if socialaccount_providers %}
+<div class="sso">
+  <p class="sso__or">Or</p>
+  {% for provider in socialaccount_providers %}
+    {% provider_login_url provider process="login" as href %}
+    <form method="post" action="{{ href }}">{% csrf_token %}<button type="submit" class="button">Sign in with {{ provider.name }}</button></form>
+  {% endfor %}
+</div>
+{% endif %}

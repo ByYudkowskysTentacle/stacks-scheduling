@@ -482,6 +482,18 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - Two first names from the original library's schedules, used as examples in CLAUDE.md, a help text, a docstring and the design audit, were replaced with synthetic ones (Jordan and Riley). They stay in older commits, which the maintainer accepted.
   - The author email on four early commits becomes public, which the maintainer accepted.
 
+## 2026-10-27 – Campus sign-in (OIDC)
+
+- **D118 (build, D5; SPEC §11).** Campus sign-in over OpenID Connect, through allauth's generic OIDC provider. Google Workspace is one configuration of it, and Entra, Okta or Keycloak are others. It's off unless `OIDC_CLIENT_ID` is set, and all its settings come from the environment (`docs/install.md`).
+  - **Never creates accounts.** It signs in people who already have an active Stacks account, matched by email address (any case). Others see "No Stacks account uses … Ask your supervisor to invite you". This keeps D52: accounts come only from a supervisor's invitation.
+  - **Checked on every sign-in, before linking:** the provider must say the email is verified (`email_verified`), the address must be in `OIDC_ALLOWED_DOMAINS` (exact domain, so no subdomains), and with `OIDC_REQUIRE_HD` the Google `hd` claim must be one of those domains too. That turns away personal Google accounts that carry a campus address. The `hd` request parameter is only a hint to Google's account picker. Setting `OIDC_CLIENT_ID` without `OIDC_ALLOWED_DOMAINS` stops the app from starting.
+  - *Interpretation:* Stacks links the account itself rather than through allauth's "email authentication". allauth would wipe the local password of any account whose email wasn't verified in allauth's own table, to stop someone who registered a victim's address from sharing the account. That can't happen here, because supervisors create every account, and wiping would lock invited people out of their password. So passwords keep working alongside SSO.
+  - *Interpretation:* once linked, the provider's subject ID is what signs the person in. If their email changes at the provider or in Stacks, the link holds, and the domain and verification checks still run on every sign-in. Linking from a signed-in session (allauth's "connect") needs the same email as the Stacks account.
+  - **Data kept (SPEC §11):** only `iss`, `sub`, `email`, `email_verified` and `hd`. Tokens are not stored. The single-person export lists the links, and erasure deletes them.
+  - **Authenticator apps:** someone who turned on TOTP is still asked for the code after campus sign-in.
+  - **Tests:** unit tests of the checks, and end-to-end tests against Keycloak 26.0.7 with a synthetic realm (`fixtures/keycloak/`). CI runs Keycloak in the test job and requires those tests, so they can't pass by being skipped.
+  - *Open:* whether people with campus sign-in should be stopped from also using a password, and SAML 2.0 (still in scope, after OIDC).
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
@@ -494,7 +506,7 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
 8. Consider mirroring these items and the SPEC §13 milestones as GitHub issues and milestones (D46).
 9. Confirm you're comfortable keeping wage rates on the off-campus VPS, or leave the wage fields blank until the hosting question (item 4) is settled (D48, D50).
 10. ~~Review the build-session interpretations marked for a look~~ Done 2026-10-19 (D95–D106).
-11. Decide whether Google sign-in (D5, generic OIDC restricted to the campus domain) is needed for go-live, or whether invited local accounts are enough for spring. It needs an OAuth client from campus Google Workspace admins.
+11. Decide whether Google sign-in is needed for go-live, or whether invited local accounts are enough for spring. It's built (D118) and needs only an OAuth client from campus Google Workspace admins (`docs/install.md`, Campus sign-in).
 12. Before go-live, run one real generate on the provisioned VPS with your actual roster and rules, and compare it with the current Homebase schedule. Note the default generate time limit is 5 minutes (`STACKS_GENERATE_SECONDS`).
 13. ~~Decide whether a time-off decision should email the student~~ Resolved: in-app notification, email per user preference (D103).
 14. ~~Decide on two-way trades and non-regular claims~~ Resolved: add swaps; non-regular staff may claim (D104).

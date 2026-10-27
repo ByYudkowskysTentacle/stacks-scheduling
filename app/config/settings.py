@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.mfa",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.openid_connect",
     "procrastinate.contrib.django",
     "app.accounts",
     "app.core",
@@ -137,6 +139,35 @@ ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = False
 ACCOUNT_RATE_LIMITS = {"login_failed": "10/m/ip,5/5m/key"}
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
 MFA_TOTP_ISSUER = env("STACKS_SITE_NAME", "Stacks")
+# Campus single sign-on over OpenID Connect (SPEC §11, D5, D118). Off unless OIDC_CLIENT_ID is
+# set. Google Workspace and any other OIDC provider (Entra, Okta, Keycloak) are configuration.
+# Only people who already have a Stacks account can sign in this way: it never creates one.
+OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", "")
+OIDC_ALLOWED_DOMAINS = [d.lower() for d in env_list("OIDC_ALLOWED_DOMAINS")]
+OIDC_REQUIRE_HD = env_bool("OIDC_REQUIRE_HD")  # Google: the account must belong to the Workspace
+SOCIALACCOUNT_ADAPTER = "app.accounts.adapter.CampusSSOAdapter"
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = False  # the adapter links accounts itself, after its checks
+SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_PROVIDERS: dict = {}
+if OIDC_CLIENT_ID:
+    if not OIDC_ALLOWED_DOMAINS:
+        raise ImproperlyConfigured("Set OIDC_ALLOWED_DOMAINS when OIDC_CLIENT_ID is set (see .env.example).")
+    _oidc_params = {"prompt": "select_account"}
+    if OIDC_REQUIRE_HD and len(OIDC_ALLOWED_DOMAINS) == 1:
+        _oidc_params["hd"] = OIDC_ALLOWED_DOMAINS[0]  # Google's account picker hint; checked again on return
+    SOCIALACCOUNT_PROVIDERS["openid_connect"] = {
+        "OAUTH_PKCE_ENABLED": True,
+        "APPS": [
+            {
+                "provider_id": env("OIDC_PROVIDER_ID", "campus"),
+                "name": env("OIDC_PROVIDER_NAME", "campus sign-in"),
+                "client_id": OIDC_CLIENT_ID,
+                "secret": env("OIDC_CLIENT_SECRET"),
+                "settings": {"server_url": env("OIDC_SERVER_URL"), "auth_params": _oidc_params},
+            }
+        ],
+    }
+
 LOGIN_URL = "account_login"
 LOGIN_REDIRECT_URL = "home"
 ACCOUNT_LOGOUT_REDIRECT_URL = "account_login"

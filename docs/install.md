@@ -60,6 +60,33 @@ What's running (`docker compose ps`):
 | `db` | PostgreSQL. Not reachable from outside the server. |
 | `migrate` | Runs database migrations at start-up, then exits. |
 
+## Campus sign-in (optional)
+
+Stacks can let people sign in with their campus account over OpenID Connect (D5, D118). It only
+signs in people who already have a Stacks account, matched by email address: invite them first
+(People → Invite to sign in). Their Stacks password keeps working, and anyone who turned on an
+authenticator app is still asked for its code.
+
+**Google Workspace:**
+
+1. Ask your Workspace admins for an OAuth client in Google Cloud Console: *APIs & Services →
+   Credentials → Create credentials → OAuth client ID*, type *Web application*. On the consent
+   screen, choose *Internal* so only your Workspace can use it.
+2. Add the authorised redirect URI `https://your-dns-name/accounts/oidc/campus/login/callback/`
+   (`campus` is `OIDC_PROVIDER_ID`).
+3. Put the client ID and secret in `.env`, with `OIDC_SERVER_URL=https://accounts.google.com`,
+   `OIDC_PROVIDER_NAME=Google`, `OIDC_ALLOWED_DOMAINS=your-campus.edu` and `OIDC_REQUIRE_HD=1`.
+   The secret can instead go in a file named by `OIDC_CLIENT_SECRET_FILE`.
+4. `docker compose up -d`. The sign-in page gains a "Sign in with Google" button.
+
+**Other providers** (Entra ID, Okta, Keycloak): register a web application with the same
+redirect URI and the scopes `openid email profile`, set `OIDC_SERVER_URL` to its issuer URL, and
+leave `OIDC_REQUIRE_HD=0`. The provider must send `email_verified`; Stacks turns away addresses
+it doesn't vouch for.
+
+Stacks keeps only the provider's ID for the person, their email address and whether it's
+verified (plus `hd` for Google); the single-person export lists them and erasure removes them.
+
 ## Backups
 
 Back up the database every day, encrypted, to somewhere off the server. `deploy/backup.sh` writes an [age](https://age-encryption.org/)-encrypted dump; the decryption key never lives on the server.
