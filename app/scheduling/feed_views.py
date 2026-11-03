@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
@@ -48,4 +50,13 @@ class CalendarFeedManageView(OrgViewMixin, View):
             return redirect("calendar_feed_manage")
         token = feeds.new_token(employee)
         url = request.build_absolute_uri(reverse("calendar_feed", args=[token]))
-        return render(request, "scheduling/calendar_feed.html", {"has_feed": True, "url": url})
+        # webcal:// opens the phone's calendar app ready to subscribe (D124); Google Calendar
+        # takes the same address as `cid`.
+        webcal = "webcal://" + url.split("://", 1)[1]
+        context = {
+            "has_feed": True,
+            "url": url,
+            "webcal_url": webcal,
+            "google_url": "https://calendar.google.com/calendar/r?" + urlencode({"cid": webcal}),
+        }
+        return render(request, "scheduling/calendar_feed.html", context)

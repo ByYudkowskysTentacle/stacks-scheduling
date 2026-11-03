@@ -8,6 +8,11 @@
   <div class="card card--notice">
     <p><label for="feed-url"><strong>Your link.</strong> Copy it now: for your security it isn't shown again.</label></p>
     <input type="text" id="feed-url" value="{{ url }}" readonly size="60" onfocus="this.select()">
+    <div class="calendar-apps">
+      <a class="button button--primary" href="{{ webcal_url }}">Add to Apple Calendar</a>
+      <a class="button" href="{{ google_url }}" target="_blank" rel="noopener noreferrer">Add to Google Calendar<span class="visually-hidden"> (opens Google Calendar)</span></a>
+    </div>
+    <p class="help"><strong>Apple Calendar</strong> (iPhone, iPad, Mac): the button opens Calendar ready to subscribe; tap <strong>Subscribe</strong>. <strong>Google Calendar</strong> (Android): the button opens Google Calendar in the browser; tap <strong>Add</strong>, and the shifts appear on your phone after its next sync. Google can take up to a day to show changes. <strong>Outlook</strong>: copy the link and choose <strong>Add calendar</strong>, <strong>Subscribe from web</strong>.</p>
     <p class="help">Anyone with this link can see your shift times and who you work with. Don't share it. If it leaks, make a new one below and the old one stops working.</p>
   </div>
 {% endif %}

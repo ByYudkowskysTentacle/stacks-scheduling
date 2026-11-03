@@ -1,9 +1,15 @@
-{% load static %}<!DOCTYPE html>
+{% load static stacks %}<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{% block head_title %}{{ title|default:"" }}{% endblock head_title %}{% endblock title %} · {{ site_name }}</title>
+  {# Installable on phones (D124): app/core/pwa.py #}
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <link rel="icon" href="{% static 'icons/icon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
+  <meta name="apple-mobile-web-app-title" content="{{ site_name }}">
+  <meta name="theme-color" content="#12434f">
   <link rel="stylesheet" href="{% static 'css/stacks.css' %}">
   <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
   {% block extra_head %}{% endblock extra_head %}
@@ -32,6 +38,9 @@
     </div>
   </header>
   <main id="main" tabindex="-1" class="{% block main_class %}{% endblock %}">
+    {# Revealed by the service worker when it shows a saved copy (D124). #}
+    {% now "D j M" as saved_day %}
+    <p class="offline-note" role="status" data-offline-note hidden><strong>You're offline.</strong> This copy was saved {{ saved_day }} at {% now_clock %}, so it may be out of date.</p>
     {% block messages %}{% include "_messages.html" %}{% endblock messages %}
     {% block content %}{% endblock content %}
   </main>
@@ -49,6 +58,7 @@
             {% for item in nav.more %}
               <li><a href="{{ item.url }}"{% if item.current %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-{{ item.icon }}"/></svg>{{ item.label }}{% if item.count %} <span class="count">({{ item.count }} new)</span>{% endif %}</a></li>
             {% endfor %}
+            <li><a href="{% url 'install_help' %}"{% if request.resolver_match.url_name == "install_help" %} aria-current="page"{% endif %}><svg class="icon" aria-hidden="true"><use href="#i-phone"/></svg>Put on your phone</a></li>
             <li>
               <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}
                 <button type="submit" class="link-button"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>Sign out</button>
@@ -60,6 +70,7 @@
     </ul>
   </nav>
   {% endif %}
+  <script src="{% static 'js/install.js' %}" defer></script>
   <script src="{% static 'js/scroll-regions.js' %}" defer></script>
   <script src="{% static 'js/print-details.js' %}" defer></script>
   {% block scripts %}{% endblock scripts %}

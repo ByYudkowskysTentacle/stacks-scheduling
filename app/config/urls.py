@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from app.availability import views as availability
+from app.core import pwa
 from app.core import views as core
 from app.imports import views as imports
 from app.people import views as people
@@ -12,6 +13,10 @@ from app.scheduling import views as scheduling
 urlpatterns = [
     path("", core.HomeView.as_view(), name="home"),
     path("accounts/", include("allauth.urls")),
+    path("manifest.webmanifest", pwa.ManifestView.as_view(), name="manifest"),
+    path("sw.js", pwa.ServiceWorkerView.as_view(), name="service_worker"),
+    path("offline/", pwa.OfflineView.as_view(), name="offline"),
+    path("install/", pwa.InstallHelpView.as_view(), name="install_help"),
     path("django-admin/", admin.site.urls),
     # Organization configuration
     path("settings/", core.OrganizationSettingsView.as_view(), name="organization_settings"),

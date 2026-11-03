@@ -2,6 +2,7 @@
 import re
 
 from django import template
+from django.utils import timezone
 
 from domain.calendar import WEEKDAY_SHORT
 from domain.timeutil import format_minute_12h
@@ -15,6 +16,13 @@ def clock(minute):
     if minute is None or minute == "":
         return ""
     return format_minute_12h(int(minute))
+
+
+@register.simple_tag
+def now_clock():
+    """The current time in the organization's zone as `7:30am`."""
+    now = timezone.localtime()
+    return format_minute_12h(now.hour * 60 + now.minute)
 
 
 @register.filter

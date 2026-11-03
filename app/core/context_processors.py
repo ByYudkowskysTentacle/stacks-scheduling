@@ -20,5 +20,6 @@ def organization(request):
         "access": getattr(request, "access", None),
         "Perm": PERM_NAMES,
         "site_name": settings.STACKS_SITE_NAME,
+        "remember_days": settings.STACKS_REMEMBER_DAYS,
         "nav": navigation.build(request, unread),
     }

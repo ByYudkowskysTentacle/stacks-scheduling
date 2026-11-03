@@ -35,6 +35,17 @@
   {% endif %}
 {% endif %}
 
+{# Shown by js/install.js on a phone that hasn't installed Stacks yet (D124). #}
+<section aria-labelledby="install-heading" class="card install-card no-print" data-install-card hidden>
+  <h2 id="install-heading">Put {{ site_name }} on your phone</h2>
+  <p>It opens like an app, keeps you signed in, and shows your shifts even without signal.</p>
+  <div class="form-actions">
+    <a class="button button--primary" href="{% url 'install_help' %}" data-install-for="apple">Show me how</a>
+    <button type="button" class="button button--primary" data-install-for="prompt" data-install-button>Install</button>
+    <button type="button" class="button" data-install-dismiss>Not now</button>
+  </div>
+</section>
+
 {% if attention is not None %}
   <section aria-labelledby="attention-heading" class="card{% if attention %} card--notice{% endif %}">
     <h2 id="attention-heading">Needs your attention</h2>

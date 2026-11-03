@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Offline{% endblock %}
+{% block messages %}{% endblock %}
+{% block content %}
+<h1>You're offline</h1>
+<p>{{ site_name }} can't reach the library's server right now, and this page hasn't been saved on this device.</p>
+<p>Pages you've opened before while signed in, like your home page, your shifts and the published schedule, open without signal. Check your connection and try again.</p>
+<p><a class="button button--primary" href="{% url 'home' %}">Try again</a></p>
+{% endblock %}
