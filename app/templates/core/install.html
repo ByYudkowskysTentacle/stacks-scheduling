@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Put {{ site_name }} on your phone{% endblock %}
+{% block content %}
+<h1>Put {{ site_name }} on your phone</h1>
+<p>Add {{ site_name }} to your Home Screen and it opens like an app: full screen, with its own icon. You don't need an app store, and it updates itself.</p>
+
+<section aria-labelledby="iphone-heading" class="card">
+  <h2 id="iphone-heading">iPhone or iPad</h2>
+  <ol class="steps">
+    <li>Open this site in Safari. Chrome, Edge and Firefox work too on iOS 16.4 or later.</li>
+    <li>Tap the <strong>Share</strong> button: a square with an arrow pointing up. In recent versions of Safari it's in the <strong>⋯</strong> menu at the bottom right.</li>
+    <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+    <li>Leave <strong>Open as Web App</strong> switched on if you see it, then tap <strong>Add</strong>.</li>
+    <li>Open {{ site_name }} from the new icon and sign in. Your phone keeps this sign-in separate from Safari, so you sign in once more here.</li>
+  </ol>
+</section>
+
+<section aria-labelledby="android-heading" class="card">
+  <h2 id="android-heading">Android</h2>
+  <ol class="steps">
+    <li>Open this site in Chrome.</li>
+    <li>Tap the <strong>⋮</strong> menu at the top right.</li>
+    <li>Tap <strong>Add to Home screen</strong> or <strong>Install app</strong>, then <strong>Install</strong>.</li>
+  </ol>
+  <p class="help">If {{ site_name }} offers an <strong>Install</strong> button on your home page, that does the same thing.</p>
+</section>
+
+<section aria-labelledby="after-heading" class="card">
+  <h2 id="after-heading">Once it's on your phone</h2>
+  <ul>
+    {% if remember_days %}<li><strong>Stay signed in.</strong> Tick "Stay signed in" when you sign in, and you won't be asked again on this phone unless you go {{ remember_days }} days without opening {{ site_name }}. Your phone's passcode protects it. Sign out from <strong>More</strong> if you share the phone.</li>{% endif %}
+    <li><strong>No signal?</strong> Your home page, your shifts and the published schedule open from the copy saved the last time you viewed them, with a note saying when that was.</li>
+    <li><strong>Your calendar.</strong> To see your shifts in Apple Calendar or Google Calendar as well, {% if access.employee %}<a href="{% url 'calendar_feed_manage' %}">make a calendar link</a>{% else %}make a calendar link from My schedule{% endif %}.</li>
+  </ul>
+</section>
+{% if not user.is_authenticated %}<p><a class="button button--primary" href="{% url 'account_login' %}">Sign in</a></p>{% endif %}
+{% endblock %}

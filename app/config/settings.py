@@ -74,6 +74,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "app.accounts.sessions.StaySignedInMiddleware",
     "app.core.middleware.OrganizationMiddleware",
     "pghistory.middleware.HistoryMiddleware",
 ]
@@ -137,6 +138,11 @@ ACCOUNT_LOGIN_ON_PASSWORD_RESET = False
 ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = False
 ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = False
 ACCOUNT_RATE_LIMITS = {"login_failed": "10/m/ip,5/5m/key"}
+ACCOUNT_FORMS = {"login": "app.accounts.forms.LoginForm"}
+# "Stay signed in" (D123): a ticked sign-in lasts this many days after the person's last visit.
+# 0 removes the option. Other sign-ins end when the browser closes, or after SESSION_COOKIE_AGE.
+STACKS_REMEMBER_DAYS = int(env("STACKS_REMEMBER_DAYS", "90"))
+ACCOUNT_SESSION_REMEMBER = None if STACKS_REMEMBER_DAYS else False  # None: show the box
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
 MFA_TOTP_ISSUER = env("STACKS_SITE_NAME", "Stacks")
 # Campus single sign-on over OpenID Connect (SPEC §11, D5, D118). Off unless OIDC_CLIENT_ID is

@@ -52,6 +52,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* even on .button and other display rules */
 body { margin: 0; background: var(--paper); }
 main { max-width: var(--container); margin: 0 auto; padding: var(--space); }
 main:focus { outline: none; }
@@ -406,3 +407,11 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 /* The second row under Settings, Organization (D121): smaller, and joined to the row above. */
 .sub-nav--second { margin-top: -0.75rem; font-size: 0.9375rem; }
 .sub-nav--second a { min-height: 24px; }
+
+/* Installable on phones (D124). The offline note shows on a saved copy served without signal. */
+.offline-note { border: 1px solid var(--warn); border-left-width: 5px; border-radius: var(--radius); padding: var(--sp-2) var(--sp-3); background: var(--surface); }
+.install-card { border-left: 5px solid var(--accent); }
+.steps { padding-left: 1.5rem; }
+.steps li { margin-bottom: var(--sp-2); }
+.sso__remember { margin-bottom: var(--sp-2); }
+.calendar-apps { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-3) 0; }

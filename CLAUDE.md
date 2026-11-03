@@ -26,7 +26,7 @@ After the stack is approved, fill in section 8 of this file (commands) and keep 
 
 ## 2. Non-negotiable principles
 
-1. **Student data is sensitive.** Class schedules, pay rates, work-study awards and hours are student records. Collect the minimum, never log personal data, never commit real student data, and keep all fixtures synthetic. See SPEC §11.
+1. **Student data is sensitive.** Class schedules, pay rates, work-study awards and hours are student records. Collect the minimum, never log personal data, never commit real student data, and keep all fixtures synthetic. See SPEC §11. Student employees are employees first, though: scheduling, availability and hours are handled the way a normal workforce-scheduling app handles them, with no extra rules because the employees are students (D122). For example, a person's own pages may be saved on their own phone for offline use.
 2. **Drafts before publishing.** Every schedule change is a draft until a supervisor publishes it. Notifications go out only on publish. Nothing in this system should message a student as a side effect of editing.
 3. **No silent destructive actions.** Deleting shifts, archiving employees or overwriting a published schedule needs an explicit confirmation step and leaves an audit record. Prefer reassigning or retiming an existing shift over delete-and-recreate, so history and IDs survive.
 4. **Every change is verified.** After any schedule mutation (manual edit, solver run, bulk import), run the full validation suite from SPEC §8 and show the result: coverage gaps, over-coverage, availability conflicts, cap breaches, and missing required roles. A change that passes quietly still reports "0 issues".
@@ -123,6 +123,9 @@ docker compose run --rm web python manage.py bootstrap --organization "Your Libr
 docker build -t stacks-bench spikes/cpsat-benchmark
 docker run --rm --cpus=4 -v "$PWD/spikes/cpsat-benchmark/results:/bench/results" stacks-bench --solver cpsat --seeds 1 2 3 --workers 4 --out runs.jsonl
 python spikes/cpsat-benchmark/summarize.py   # writes results/SUMMARY.md
+
+# redraw the app icons in app/static/icons/ (standard library only)
+python tools/make_icons.py
 ```
 
 On Windows Git Bash, prefix `docker run` with `MSYS_NO_PATHCONV=1` so the volume path isn't rewritten.
@@ -141,10 +144,12 @@ domain/engine/        the CP-SAT engine: candidates, model (tier weights documen
 adapters/             Paycom, ICS/calendar, CSV import/export
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
 app/accounts/         sign-in accounts (email login, allauth, TOTP); adapter.py has the campus
-                      sign-in (OIDC) checks (D118)
+                      sign-in (OIDC) checks (D118); sessions.py and forms.py "Stay signed in" (D123)
 app/core/             organization, locations, hours, closures, terms, roles, the permission
                       layer (permissions.py), audit log helpers, management commands;
-                      departments.py removes a department, merging it into another (D110)
+                      departments.py removes a department, merging it into another (D110);
+                      pwa.py the installable phone app: manifest, service worker, offline and
+                      install pages (D124; the worker itself is app/templates/sw.js)
 app/people/           employees, pay roles and wages, tags, invitations; records.py is the
                       single-person export and erasure
 app/availability/     term availability, entry form and paint grid, the availability grid,
