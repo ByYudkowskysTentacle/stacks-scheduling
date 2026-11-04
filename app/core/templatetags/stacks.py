@@ -80,7 +80,7 @@ LINK_LABELS = {
     "/shifts/exchange/": "Open shifts and swaps",
     "/time-off/": "See my time off",
     "/availability/": "Enter my availability",
-    "/notifications/email/": "Email settings",
+    "/notifications/email/": "Notification settings",
 }
 
 

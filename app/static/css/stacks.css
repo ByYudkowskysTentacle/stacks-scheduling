@@ -415,3 +415,10 @@ pre.sample { background: var(--paper-alt); padding: 0.75rem; overflow-x: auto; f
 .steps li { margin-bottom: var(--sp-2); }
 .sso__remember { margin-bottom: var(--sp-2); }
 .calendar-apps { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-3) 0; }
+
+/* Phone notifications on Notification settings (D125) */
+.push-devices h3 { margin-top: var(--sp-4); }
+.push-devices__message:empty { margin: 0; }
+.device-list { list-style: none; padding: 0; margin: 0 0 var(--sp-3); }
+.device-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+.device-list li > span { display: flex; flex-direction: column; }
