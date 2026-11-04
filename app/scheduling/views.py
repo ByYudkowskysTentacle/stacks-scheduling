@@ -20,7 +20,7 @@ from app.core.models import Department, Location
 from app.core.permissions import Perm
 from app.core.views_base import OrgViewMixin
 from app.people.models import Employee
-from app.scheduling import exchanges, notify, services
+from app.scheduling import exchanges, notify, push, services
 from app.scheduling.forms import (
     CallOutForm,
     CoverageOverrideForm,
@@ -44,6 +44,8 @@ from app.scheduling.models import (
     HourTargetRule,
     Notification,
     NotificationCategory,
+    PushPreference,
+    PushSubscription,
     RotationAssignment,
     SchedulePeriod,
     SchedulingRules,
@@ -793,6 +795,7 @@ class NotificationsView(OrgViewMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        ctx["push_enabled"] = push.enabled()
         items = list(
             Notification.objects.filter(user=self.request.user, organization=self.request.organization)[:50]
         )
@@ -1025,23 +1028,45 @@ class ReportsView(PeriodMixin, TemplateView):
         return ctx
 
 
-class EmailSettingsView(OrgViewMixin, TemplateView):
-    """Each person chooses which notifications also come by email (D103). In-app
-    notifications always appear."""
+class NotificationSettingsView(OrgViewMixin, TemplateView):
+    """Each person chooses which notifications also come by email (D103) and to their phones
+    (D125), and turns phone notifications on or off per device. In-app notifications always
+    appear."""
 
-    template_name = "scheduling/email_settings.html"
+    template_name = "scheduling/notification_settings.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        current = notify.email_settings(self.request.user, self.request.organization)
-        ctx["rows"] = [(c.value, c.label, current[c.value]) for c in NotificationCategory]
+        user, org = self.request.user, self.request.organization
+        email = notify.email_settings(user, org)
+        ctx["rows"] = [(c.value, c.label, email[c.value]) for c in NotificationCategory]
+        ctx["push_enabled"] = push.enabled()
+        if ctx["push_enabled"]:
+            phone = push.push_settings(user, org)
+            ctx["push_rows"] = [(c.value, c.label, phone[c.value]) for c in NotificationCategory]
+            ctx["push_public_key"] = push.public_key()
+            ctx["devices"] = PushSubscription.objects.filter(user=user)
         return ctx
 
     def post(self, request, *args, **kwargs):
         org = request.organization
-        for c in NotificationCategory:
-            EmailPreference.objects.update_or_create(
-                user=request.user, organization=org, category=c, defaults={"email": c.value in request.POST}
-            )
-        messages.success(request, "Email settings saved.")
+        # Only a form that showed the phone choices may change them: one loaded before IT
+        # turned push on would otherwise switch every kind off.
+        phone_choices = "push-form" in request.POST
+        with transaction.atomic():
+            for c in NotificationCategory:
+                EmailPreference.objects.update_or_create(
+                    user=request.user,
+                    organization=org,
+                    category=c,
+                    defaults={"email": c.value in request.POST},
+                )
+                if phone_choices:
+                    PushPreference.objects.update_or_create(
+                        user=request.user,
+                        organization=org,
+                        category=c,
+                        defaults={"push": f"push-{c.value}" in request.POST},
+                    )
+        messages.success(request, "Notification settings saved.")
         return redirect("email_settings")

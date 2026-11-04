@@ -37,6 +37,23 @@ def inside_rounded(x: float, y: float, left, top, right, bottom, r) -> bool:
     return (x - cx) ** 2 + (y - cy) ** 2 <= r * r
 
 
+WHITE = (0xFF, 0xFF, 0xFF)
+BADGE_ZOOM = 0.62  # the badge shows the books alone, filling most of the square
+
+
+def badge_at(x: float, y: float):
+    """The notification badge (D125): the books in white on transparent, bands cut out.
+    Android draws it as a one-colour mask in the status bar."""
+    x, y = 0.5 + (x - 0.5) * BADGE_ZOOM, 0.5 + (y - 0.5) * BADGE_ZOOM
+    for left, top, right, bottom, r, _ in BOOKS:
+        if inside_rounded(x, y, left, top, right, bottom, r):
+            for band_left in (left + BAND_INSET, right - BAND_INSET - BAND):
+                if band_left <= x <= band_left + BAND:
+                    return None
+            return WHITE
+    return None
+
+
 def colour_at(x: float, y: float, background_radius: float | None):
     """The colour at (x, y), or None outside the background (transparent)."""
     if background_radius is not None and not inside_rounded(x, y, 0, 0, 1, 1, background_radius):
@@ -50,8 +67,9 @@ def colour_at(x: float, y: float, background_radius: float | None):
     return TEAL
 
 
-def render(size: int, background_radius: float | None) -> bytes:
-    """RGBA rows for a PNG: full-bleed when background_radius is None, else a rounded square."""
+def render(size: int, background_radius: float | None, badge: bool = False) -> bytes:
+    """RGBA rows for a PNG: full-bleed when background_radius is None, else a rounded square;
+    or the white badge."""
     rows = bytearray()
     step = 1 / (size * SAMPLES)
     for py in range(size):
@@ -60,9 +78,8 @@ def render(size: int, background_radius: float | None) -> bytes:
             r = g = b = a = 0
             for sy in range(SAMPLES):
                 for sx in range(SAMPLES):
-                    c = colour_at(
-                        (px * SAMPLES + sx + 0.5) * step, (py * SAMPLES + sy + 0.5) * step, background_radius
-                    )
+                    x, y = (px * SAMPLES + sx + 0.5) * step, (py * SAMPLES + sy + 0.5) * step
+                    c = badge_at(x, y) if badge else colour_at(x, y, background_radius)
                     if c is not None:
                         r, g, b, a = r + c[0], g + c[1], b + c[2], a + 1
             n = SAMPLES * SAMPLES
@@ -70,7 +87,7 @@ def render(size: int, background_radius: float | None) -> bytes:
     return bytes(rows)
 
 
-def png(size: int, background_radius: float | None) -> bytes:
+def png(size: int, background_radius: float | None, badge: bool = False) -> bytes:
     def chunk(kind: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
 
@@ -78,7 +95,7 @@ def png(size: int, background_radius: float | None) -> bytes:
     return (
         b"\x89PNG\r\n\x1a\n"
         + chunk(b"IHDR", header)
-        + chunk(b"IDAT", zlib.compress(render(size, background_radius), 9))
+        + chunk(b"IDAT", zlib.compress(render(size, background_radius, badge), 9))
         + chunk(b"IEND", b"")
     )
 
@@ -110,6 +127,7 @@ def main() -> None:
         "icon-512.png": png(512, 0.22),
         "icon-maskable-512.png": png(512, None),
         "apple-touch-icon.png": png(180, None),
+        "icon-badge-96.png": png(96, None, badge=True),  # notifications' status-bar badge (D125)
     }
     for name, data in files.items():
         (OUT / name).write_bytes(data)

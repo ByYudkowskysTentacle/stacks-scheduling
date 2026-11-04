@@ -81,7 +81,7 @@ def test_email_settings_page_saves_each_choice(as_user, org, student_user):
     url = reverse("email_settings")
     assert 'name="published" value="on" checked' in client.get(url).content.decode()
     resp = client.post(url, {"time_off": "on", "exchange": "on"}, follow=True)
-    assert "Email settings saved." in resp.content.decode()
+    assert "Notification settings saved." in resp.content.decode()
     assert email_settings(student_user, org) == {
         "published": False,
         "time_off": True,

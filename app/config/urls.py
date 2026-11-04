@@ -7,7 +7,7 @@ from app.core import pwa
 from app.core import views as core
 from app.imports import views as imports
 from app.people import views as people
-from app.scheduling import exchange_views, feed_views, solve_views, suggest_views
+from app.scheduling import exchange_views, feed_views, push_views, solve_views, suggest_views
 from app.scheduling import views as scheduling
 
 urlpatterns = [
@@ -163,7 +163,17 @@ urlpatterns = [
     path("availability/desired/", scheduling.DesiredHoursSubmitView.as_view(), name="desired_submit"),
     path("schedule/desired-hours/", scheduling.DesiredHoursReviewView.as_view(), name="desired_hours"),
     path("notifications/", scheduling.NotificationsView.as_view(), name="notifications"),
-    path("notifications/email/", scheduling.EmailSettingsView.as_view(), name="email_settings"),
+    path("notifications/email/", scheduling.NotificationSettingsView.as_view(), name="email_settings"),
+    path("notifications/push/subscribe/", push_views.PushSubscribeView.as_view(), name="push_subscribe"),
+    path("notifications/push/check/", push_views.PushCheckView.as_view(), name="push_check"),
+    path("notifications/push/drop/", push_views.PushDropView.as_view(), name="push_drop"),
+    path("notifications/push/renew/", push_views.PushRenewView.as_view(), name="push_renew"),
+    path("notifications/push/test/", push_views.PushTestView.as_view(), name="push_test"),
+    path(
+        "notifications/push/devices/<int:pk>/remove/",
+        push_views.PushDeviceRemoveView.as_view(),
+        name="push_device_remove",
+    ),
     path("my-schedule/", scheduling.MyScheduleView.as_view(), name="my_schedule"),
     path("published/", scheduling.PublishedScheduleView.as_view(), name="published_schedule"),
     path(
