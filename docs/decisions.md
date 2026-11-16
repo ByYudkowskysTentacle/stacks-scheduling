@@ -577,6 +577,28 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - The worker runs one task at a time. Pushes go ahead of any schedule solves still waiting, but wait for the one already running: up to its time limit (5 minutes by default for a generate, 30 seconds for a rebalance). The other way round, a solve queued during a publish waits for its pushes: normally a few seconds, but if a push service hangs, up to about 15 seconds per device, and again when the retries run 1 and 4 minutes later. Emails are unaffected. A separate worker for notifications would remove both waits at the cost of another container; not done.
   - Supervisors get no new notifications: push carries only the notifications that already exist.
 
+## 2026-11-16 – Audit log reads the page, not the history
+
+- **D128 (performance fix; D107, audit 2.24).** The audit log page picks its 50 entries before it reads them, so its cost follows the page rather than the length of the history. What the page shows is unchanged.
+  *Was:* `events_for()` asked pghistory's `Events` for the whole log. That is one query over every event table that works out each entry's data and before-and-after diff as JSON for every entry ever recorded, and only then filters (on keys inside that JSON, which no index can serve), sorts, counts and takes the page. With about 7,200 shift events (roughly a year for one 30-person department) the page took about 1 s; with about 70,600 it took 26–35 s, past gunicorn's 30-second timeout. On a copy of the 70,600 on the test machine an admin's first page took 41 s and a supervisor's 48 s; `EXPLAIN ANALYZE` gave 17 ms planning and 41.6 s execution, 19.9 s of it JIT compiling 2,040 functions.
+  *Built:*
+  - **Choose, then read.** Who may see an entry, the filters, the order and the count use plain columns of each event table: the organization; the employee, period, department, shift or user a record belongs to; the time; and the context's user. One query counts, one picks the page's entries (table, id and record), and only those are read through `Events`, one query per event table on the page, limited to those records and ids. The What list is one query that stops at the first entry in each table.
+  - **Same rules (D107),** written per column in `audit_log._visible()`. An event table without a column a rule names shows nothing, as a missing JSON key did, and a model without an organization (a supervisor's department link) is still never listed.
+  - **Same diffs.** pghistory still works them out: each entry against the previous entry for the same record, nothing before an insert.
+  - **Same count.** "Page 3 of N" stays exact. Counting takes 4–80 ms at 70,600 shift events and 25–125 ms at 387,000, so it isn't worth trading away.
+  - **No migration and no new index.** The largest statement is 12 KB instead of 92 KB and runs in about 20 ms at 70,600 shift events, too little for JIT to start.
+  - **Tests** keep the old query as the reference: an admin and supervisors with one, two and no departments get the same entries, in the same order, described the same way, with each filter and without. On a two-department copy of the 70,600 the old and new logs also matched: the same entries and count for the admin (71,680) and for a supervisor of one department (47,746), the same first 150 in order, and the same pages 1 and 3 word for word. A cost test fails if a page's query count grows with the history, or if diffs are worked out for more than the page.
+  *After* (median page time on the same machine, admin / supervisor limited to one department; at 70,600 shift events, then grown to 150,000 and 387,000 with rounds of edits to every shift):
+  - First page: 0.10 / 0.15 s, then 0.15 / 0.20 s and 0.20 / 0.28 s. Before: 41 / 48 s at 70,600 and 141 / 169 s at 387,000 (one request each).
+  - Page 3: 0.11 / 0.17 s, then 0.16 / 0.19 s and 0.22 / 0.30 s. Before: 39 / 51 s.
+  - What is "Shift": 0.09 / 0.12 s, then 0.15 / 0.19 s and 0.18 / 0.26 s. Before: 30 / 36 s.
+  - Who is a person: 0.07–0.08 / 0.09–0.12 s at every size, where they made one change (before: 2.4 / 4.9 s); with 7,000 contexts and a third of the entries theirs, 0.14 / 0.20 s. Who is "System": 0.16 / 0.20 s, then 0.25 / 0.22 s and 0.23 / 0.34 s. Before: 31 / 34 s.
+  - From and to the same day, matching every entry: 0.19 / 0.26 s, then 0.25 / 0.26 s and 0.31 / 0.34 s. Before: 30 / 32 s.
+  *Interpretations:*
+  - Entries in two tables with the same time and the same id used to come in whatever order PostgreSQL chose, so one could show on two pages and another on none. They now follow the event table's name. Otherwise the order is as before: newest first, then the higher id.
+  - Counting and choosing the page still read the time and id of every visible entry, so the page grows with the history, by about 0.03–0.04 s per 100,000 shift events here. A date range is the slowest view, because each entry's time is turned into a local date first.
+  - An index on each event table's time would let a single-table view stop at the page (picking a page of shifts at 387,000 went from 68 ms to 1.5 ms in a trial) but would not help the count, and in the trial PostgreSQL still sorted the union of tables rather than merging indexes. It needs a migration on 37 tables to save tens of milliseconds, so it isn't proposed.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
