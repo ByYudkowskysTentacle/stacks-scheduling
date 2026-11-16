@@ -341,7 +341,18 @@ def _notify(
                 "link": site_url + link,
             },
         )
-        notify(e.user, period.organization, NotificationCategory.PUBLISHED, subject, body, link)
+        notify(e.user, period.organization, NotificationCategory.PUBLISHED, subject, body, link, _counted(c))
+
+
+def _counted(c: PersonChanges) -> str:
+    """ "2 shifts added, 1 removed." for the lock screen (D125): counts only."""
+    parts = []
+    if c.added:
+        parts.append(f"{len(c.added)} shift{'s' if len(c.added) != 1 else ''} added")
+    if c.removed:
+        noun = "" if parts else f" shift{'s' if len(c.removed) != 1 else ''}"
+        parts.append(f"{len(c.removed)}{noun} removed")
+    return (", ".join(parts) + ".") if parts else "Your schedule was published."
 
 
 def discard_drafts(period: SchedulePeriod) -> int:

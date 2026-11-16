@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Notification settings{% endblock %}
+{% block content %}
+<p><a href="{% url 'notifications' %}">← Notifications</a></p>
+<h1>Notification settings</h1>
+<p class="help">Every notification appears here in Stacks. Choose which ones also come by email{% if push_enabled %} and to your phone{% endif %}. They carry only your own news and a link, never anyone else's details.</p>
+<form method="post" class="stacked-form">{% csrf_token %}
+  <fieldset>
+    <legend>Also email me about</legend>
+    {% for value, label, on in rows %}
+      <div><label><input type="checkbox" name="{{ value }}" value="on"{% if on %} checked{% endif %}> {{ label }}</label></div>
+    {% endfor %}
+  </fieldset>
+  {% if push_enabled %}
+  <fieldset>
+    <legend>Also send to my phone</legend>
+    <input type="hidden" name="push-form" value="1">
+    <p class="help">On each device where you've turned notifications on, below.</p>
+    {% for value, label, on in push_rows %}
+      <div><label><input type="checkbox" name="push-{{ value }}" value="on"{% if on %} checked{% endif %}> {{ label }}</label></div>
+    {% endfor %}
+  </fieldset>
+  {% endif %}
+  <div class="form-actions"><button type="submit" class="button button--primary">Save</button></div>
+</form>
+
+{% if push_enabled %}
+<section class="card push-devices no-print" id="phone" aria-labelledby="phone-heading"
+         data-push data-public-key="{{ push_public_key }}"
+         data-subscribe-url="{% url 'push_subscribe' %}" data-drop-url="{% url 'push_drop' %}">
+  <h2 id="phone-heading">Phone notifications</h2>
+  <div data-push-state="off" hidden>
+    <p>Notifications aren't on for this device.</p>
+    <button type="button" class="button button--primary" data-push-on>Turn on notifications on this device</button>
+  </div>
+  <div data-push-state="on" hidden>
+    <p><strong>On for this device.</strong> Signing out turns them off here.</p>
+    <button type="button" class="button" data-push-off>Turn off on this device</button>
+  </div>
+  <p data-push-state="install" hidden>On an iPhone or iPad, notifications work in the Home Screen app. <a href="{% url 'install_help' %}">Add {{ site_name }} to your Home Screen</a>, open it from there, and turn them on on this page.</p>
+  <p data-push-state="blocked" tabindex="-1" hidden>Notifications are blocked for {{ site_name }} in this browser's settings. Allow them there, then come back to this page.</p>
+  <p data-push-state="unsupported" hidden>This browser can't show notifications from {{ site_name }}.</p>
+  <p data-push-state="stuck" hidden>Notifications couldn't start on this device. Reload the page to try again.</p>
+  <noscript><p>Turning notifications on needs JavaScript.</p></noscript>
+  <p class="push-devices__message" role="status" data-push-message></p>
+
+  <h3>Devices getting notifications</h3>
+  {% if devices %}
+    <ul class="device-list">
+      {% for d in devices %}
+        <li>
+          <span><strong>{{ d.device|default:"A browser" }}</strong>
+            <span class="subtle">{% if not d.confirmed_at %}Renewed by the browser: waiting for you to open {{ site_name }} on it{% else %}added {{ d.created_at|date:"j M Y" }}{% if d.last_sent_at %}, last notified {{ d.last_sent_at|date:"j M" }}{% endif %}{% endif %}</span></span>
+          <form method="post" action="{% url 'push_device_remove' d.pk %}">{% csrf_token %}
+            <button type="submit" class="button button--small button--danger-outline">Remove<span class="visually-hidden"> {{ d.device|default:"this browser" }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="{% url 'push_test' %}">{% csrf_token %}
+      <button type="submit" class="button">Send a test notification</button>
+    </form>
+  {% else %}
+    <p>None yet.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

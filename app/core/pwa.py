@@ -16,6 +16,8 @@ from django.templatetags.static import static
 from django.urls import reverse
 from django.views import View
 
+from app.scheduling import push
+
 THEME_COLOUR = "#12434f"  # --header in stacks.css
 BACKGROUND_COLOUR = "#fbfaf7"  # --paper
 
@@ -80,6 +82,17 @@ class ServiceWorkerView(View):
             "savedPages": [reverse(name) for name in SAVED_PAGES],
             "loginPath": reverse("account_login"),
             "logoutPath": reverse("account_logout"),
+            "siteName": settings.STACKS_SITE_NAME,
+            "icon": static("icons/icon-192.png"),
+            "badge": static("icons/icon-badge-96.png"),
+            # Phone notifications (D125), or None when the site has no VAPID key.
+            "push": {
+                "publicKey": push.public_key(),
+                "dropUrl": reverse("push_drop"),
+                "renewUrl": reverse("push_renew"),
+            }
+            if push.enabled()
+            else None,
         }
         response = render(
             request, "sw.js", {"config": json.dumps(config)}, content_type="text/javascript; charset=utf-8"

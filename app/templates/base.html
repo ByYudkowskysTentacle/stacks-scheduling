@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
   {% block extra_head %}{% endblock extra_head %}
 </head>
-<body>
+<body{% if push_check_url %} data-push-check="{{ push_check_url }}" data-push-user="{{ user.pk }}" data-csrf="{{ csrf_token }}"{% if push_pending %} data-push-pending{% endif %}{% endif %}>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="site-header__inner">
@@ -71,6 +71,7 @@
   </nav>
   {% endif %}
   <script src="{% static 'js/install.js' %}" defer></script>
+  {% if push_check_url %}<script src="{% static 'js/push.js' %}" defer></script>{% endif %}
   <script src="{% static 'js/scroll-regions.js' %}" defer></script>
   <script src="{% static 'js/print-details.js' %}" defer></script>
   {% block scripts %}{% endblock scripts %}

@@ -50,6 +50,7 @@ BY_EMPLOYEE = {
 }
 BY_PERIOD = {"scheduling.Shift", "scheduling.PublishedVersion", "scheduling.SolveRun"}
 BY_DEPARTMENT = {"scheduling.CoverageOverride", "scheduling.TagCoverageRule"}  # blank: every department
+BY_USER = {"scheduling.EmailPreference", "scheduling.PushPreference"}  # a person's notification settings
 
 
 def events_for(org, access=None) -> QuerySet:
@@ -100,7 +101,7 @@ def _visible(org, department_ids) -> Q:
         | model("scheduling.ShiftExchange")
         & (Q(pgh_data__shift_id__in=shifts) | Q(pgh_data__other_shift_id__in=shifts))
         | model(*BY_DEPARTMENT) & (Q(pgh_data__department_id=None) | Q(pgh_data__department_id__in=depts))
-        | model("scheduling.EmailPreference") & Q(pgh_data__user_id__in=users)
+        | model(*BY_USER) & Q(pgh_data__user_id__in=users)
     )
 
 

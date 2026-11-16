@@ -470,7 +470,7 @@ class NotificationCategory(models.TextChoices):
 
 
 # Email on by default for these; the others are in-app only until the person turns email on
-# under Notifications, Email settings (D103).
+# under Notifications, Notification settings (D103).
 EMAIL_BY_DEFAULT = {NotificationCategory.PUBLISHED, NotificationCategory.REMINDER}
 
 
@@ -486,6 +486,8 @@ class Notification(models.Model):
     subject = models.CharField(max_length=200)
     body = models.TextField()
     link = models.CharField(max_length=200, blank=True)
+    # One line for the phone's lock screen (D125); blank means the body's first paragraph.
+    summary = models.CharField(max_length=200, blank=True)
     read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -736,3 +738,53 @@ class EmailPreference(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_category_display()}: {'email' if self.email else 'in-app only'}"
+
+
+@audited()
+class PushPreference(models.Model):
+    """Whether a person's phones get one kind of notification (D125). No row means yes: turning
+    notifications on for a device is already the person's choice."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_preferences"
+    )
+    category = models.CharField(max_length=20, choices=NotificationCategory.choices)
+    push = models.BooleanField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "organization", "category"], name="push_preference_once")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_category_display()}: {'phone' if self.push else 'not to phones'}"
+
+
+class PushSubscription(models.Model):
+    """One device (a browser or installed app) that gets a person's notifications by web push
+    (D125). The endpoint and keys come from the browser; they are a per-device secret, so they
+    are not audited, exported or logged. A device belongs to a person, not an organization:
+    whoever turns it on, or signs in on it, last."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_subscriptions"
+    )
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=100)
+    auth = models.CharField(max_length=50)
+    device = models.CharField(max_length=60, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+    # Set when the person turns it on, or opens Stacks on it signed in. A subscription the
+    # browser renewed on its own waits for that before it gets anything (D125).
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Refusals in a row; the device is dropped at `push.GIVE_UP_AFTER`.
+    failures = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return self.device or "Device"

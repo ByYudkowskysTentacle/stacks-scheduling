@@ -248,6 +248,7 @@ def test_every_audited_model_is_classified_for_the_audit_log():
         | audit_log.BY_EMPLOYEE
         | audit_log.BY_PERIOD
         | audit_log.BY_DEPARTMENT
+        | audit_log.BY_USER
         | {
             "people.Employee",
             "scheduling.HourCapRule",
@@ -255,7 +256,6 @@ def test_every_audited_model_is_classified_for_the_audit_log():
             "scheduling.SchedulePeriod",
             "scheduling.CallOut",
             "scheduling.ShiftExchange",
-            "scheduling.EmailPreference",
         }
     )
     tracked = {m.pgh_tracked_model._meta.label for m in registry.get_models() if issubclass(m, Event)}

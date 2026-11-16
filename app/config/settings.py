@@ -245,6 +245,14 @@ STACKS_SITE_URL = env(
     "STACKS_SITE_URL", f"https://{os.environ['SITE_ADDRESS']}" if os.environ.get("SITE_ADDRESS") else ""
 )
 
+# Phone notifications by web push (D125). Off until STACKS_VAPID_PRIVATE_KEY is set
+# (`manage.py vapid_keys` makes one). The contact must be a mailto: or https: address.
+STACKS_VAPID_PRIVATE_KEY = env("STACKS_VAPID_PRIVATE_KEY", "")
+STACKS_VAPID_SUBJECT = env("STACKS_VAPID_SUBJECT", STACKS_SITE_URL)
+STACKS_PUSH_EXTRA_HOSTS = env_list("STACKS_PUSH_EXTRA_HOSTS")  # beyond Apple, Google, Mozilla, Microsoft
+STACKS_PUSH_TTL = int(env("STACKS_PUSH_TTL", str(3 * 24 * 60 * 60)))  # how long a push service holds one
+STACKS_PUSH_INLINE = env_bool("STACKS_PUSH_INLINE")  # send in the request, not the worker (tests only)
+
 # Solver (ADR 0001, SPEC §7.3.2). Workers default to the CPUs given to the worker container.
 STACKS_SOLVER_WORKERS = int(env("STACKS_SOLVER_WORKERS", env("WORKER_CPUS", "4")))
 STACKS_GENERATE_SECONDS = int(env("STACKS_GENERATE_SECONDS", "300"))

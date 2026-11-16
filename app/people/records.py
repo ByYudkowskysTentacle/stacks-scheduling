@@ -60,6 +60,8 @@ def export_employee(employee: Employee) -> dict[str, Any]:
         HourTargetRule,
         Notification,
         PublishedVersion,
+        PushPreference,
+        PushSubscription,
         RotationAssignment,
         Shift,
         ShiftExchange,
@@ -183,13 +185,33 @@ def export_employee(employee: Employee) -> dict[str, Any]:
                 for a in SocialAccount.objects.filter(user=user)
             ],
             "notifications": [
-                {"created_at": _plain(n.created_at), "subject": n.subject, "body": n.body}
+                {
+                    "created_at": _plain(n.created_at),
+                    "subject": n.subject,
+                    "summary": n.summary,
+                    "body": n.body,
+                }
                 for n in Notification.objects.filter(user=user, organization=employee.organization)
             ],
             "email_settings": {
                 p.category: p.email
                 for p in EmailPreference.objects.filter(user=user, organization=employee.organization)
             },
+            "push_settings": {
+                p.category: p.push
+                for p in PushPreference.objects.filter(user=user, organization=employee.organization)
+            },
+            # Devices getting phone notifications (D125): names and dates only. The endpoint and
+            # keys are a per-device secret, not information about the person.
+            "push_devices": [
+                {
+                    "device": d.device,
+                    "added": _plain(d.created_at),
+                    "last_seen": _plain(d.last_seen_at),
+                    "last_notified": _plain(d.last_sent_at),
+                }
+                for d in PushSubscription.objects.filter(user=user)
+            ],
         }
     return data
 
@@ -216,6 +238,8 @@ def erase_employee(employee: Employee) -> None:
         HourTargetRule,
         Notification,
         PublishedVersion,
+        PushPreference,
+        PushSubscription,
         RotationAssignment,
         Shift,
     )
@@ -259,10 +283,12 @@ def erase_employee(employee: Employee) -> None:
         if user is not None:
             Notification.objects.filter(user=user, organization=org).delete()
             EmailPreference.objects.filter(user=user, organization=org).delete()
+            PushPreference.objects.filter(user=user, organization=org).delete()
             Membership.objects.filter(user=user, organization=org).delete()
             if not Membership.objects.filter(user=user).exists():
                 EmailAddress.objects.filter(user=user).delete()
                 SocialAccount.objects.filter(user=user).delete()
+                PushSubscription.objects.filter(user=user).delete()
                 user.email = f"erased-{user.pk}@invalid"
                 user.is_active = False
                 user.set_unusable_password()

@@ -29,6 +29,7 @@
   <h2 id="after-heading">Once it's on your phone</h2>
   <ul>
     {% if remember_days %}<li><strong>Stay signed in.</strong> Tick "Stay signed in" when you sign in, and you won't be asked again on this phone unless you go {{ remember_days }} days without opening {{ site_name }}. Your phone's passcode protects it. Sign out from <strong>More</strong> if you share the phone.</li>{% endif %}
+    {% if push_check_url %}<li><strong>Notifications.</strong> Open <a href="{% url 'email_settings' %}#phone">Notification settings</a> in the app and tap <strong>Turn on notifications on this device</strong>. Your published schedule changes and decisions on your requests then show up on your phone. On an iPhone this works only in the Home Screen app.</li>{% endif %}
     <li><strong>No signal?</strong> Your home page, your shifts and the published schedule open from the copy saved the last time you viewed them, with a note saying when that was.</li>
     <li><strong>Your calendar.</strong> To see your shifts in Apple Calendar or Google Calendar as well, {% if access.employee %}<a href="{% url 'calendar_feed_manage' %}">make a calendar link</a>{% else %}make a calendar link from My schedule{% endif %}.</li>
   </ul>

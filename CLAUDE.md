@@ -126,6 +126,8 @@ python spikes/cpsat-benchmark/summarize.py   # writes results/SUMMARY.md
 
 # redraw the app icons in app/static/icons/ (standard library only)
 python tools/make_icons.py
+# phone notifications (D125): print a VAPID key for .env (push stays off without one)
+docker compose run --rm web python manage.py vapid_keys
 ```
 
 On Windows Git Bash, prefix `docker run` with `MSYS_NO_PATHCONV=1` so the volume path isn't rewritten.
@@ -141,7 +143,7 @@ domain/               pure domain model (no Django imports): timeutil, calendar,
                       queries, remove from pool, targeted move, split: SPEC §7.3, §7.5)
 domain/engine/        the CP-SAT engine: candidates, model (tier weights documented at the
                       top), solve, diff, explain; run() is the entry point
-adapters/             Paycom, ICS/calendar, CSV import/export
+adapters/             Paycom, ICS/calendar, CSV import/export; webpush.py sends web push (D125)
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
 app/accounts/         sign-in accounts (email login, allauth, TOTP); adapter.py has the campus
                       sign-in (OIDC) checks (D118); sessions.py and forms.py "Stay signed in" (D123)
@@ -161,7 +163,8 @@ app/scheduling/       periods, draft shifts, publish and versions, rules config,
                       tasks.py is the worker task; suggestions.py and suggest_views.py are
                       the suggestion queries; reports.py the hours and coverage reports;
                       published.py the student view; feeds.py the ICS feed; exchanges.py
-                      open-shift claims and cover offers
+                      open-shift claims and cover offers; notify.py sends every notification,
+                      push.py and push_views.py the phone notifications (D125)
 app/static/js/        small progressive-enhancement scripts (no build step)
 app/templates/        server-rendered pages; app/static/ holds CSS (screen and print)
 deploy/               Caddyfile and backup.sh; compose.yaml and compose.dev.yaml sit at the root
