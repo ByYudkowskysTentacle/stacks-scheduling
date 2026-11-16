@@ -36,7 +36,7 @@ Edit `.env`:
 - `SITE_ADDRESS`, `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`: your DNS name.
 - `DJANGO_SECRET_KEY`: generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`.
 - `POSTGRES_PASSWORD`: a long random password.
-- `SMTP_*` and `DEFAULT_FROM_EMAIL`: your mail settings.
+- `SMTP_*` and `DEFAULT_FROM_EMAIL`: your mail settings. `SMTP_TIMEOUT` (default 10) is how many seconds Stacks waits for the mail server at each step before giving up.
 - `STACKS_TIME_ZONE`: the library's time zone, for example `America/Chicago`. It's the starting value for the organization's time zone; after that, an admin changes it under Settings, Organization.
 - `WORKER_CPUS`: the CPUs the solver may use (4 on the pilot server).
 

@@ -99,3 +99,12 @@ def test_email_settings_are_per_person(as_user, org, student_user, supervisor):
 
 def test_email_settings_need_sign_in(client):
     assert client.get(reverse("email_settings")).status_code == 302
+
+
+def test_emails_give_up_on_the_mail_server_well_before_the_web_request_times_out():
+    from django.core.mail import get_connection
+    from django.core.mail.backends.smtp import EmailBackend
+
+    connection = get_connection("django.core.mail.backends.smtp.EmailBackend")
+    assert isinstance(connection, EmailBackend)
+    assert connection.timeout is not None and 0 < connection.timeout <= 15  # gunicorn's limit is 30

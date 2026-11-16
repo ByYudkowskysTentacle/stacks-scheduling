@@ -207,6 +207,12 @@ EMAIL_PORT = int(env("SMTP_PORT", "587"))
 EMAIL_HOST_USER = env("SMTP_USER", "")
 EMAIL_HOST_PASSWORD = env("SMTP_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("SMTP_USE_TLS", True)
+# Seconds to wait for the mail server at each step (connecting, each reply). Without it a mail
+# server that stops answering holds a password reset or an invitation until gunicorn kills the
+# request, and holds the worker indefinitely.
+EMAIL_TIMEOUT = int(env("SMTP_TIMEOUT", "10"))
+if EMAIL_TIMEOUT <= 0:
+    raise ImproperlyConfigured("SMTP_TIMEOUT must be a number of seconds above 0 (see .env.example).")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "stacks@localhost")
 
 # Security. Caddy terminates TLS and forwards the scheme.
