@@ -62,7 +62,7 @@ These came from building real schedules for a library of about 30 student worker
 - Property-based tests for the engine: for random synthetic rosters, every returned schedule satisfies all hard constraints or reports exactly which ones it could not.
 - The acceptance scenarios in SPEC §12 are the regression suite. Add a scenario whenever a bug is found in scheduling behaviour.
 - Snapshot or visual tests for the printable availability grid and the hours report.
-- Adapter contract tests for the Paycom export, run against the fake and against the sample file formats in `fixtures/paycom/`.
+- Adapter contract tests for the Paycom export, run against the fake and against the sample file formats in `fixtures/paycom/`. Both arrive with milestone 7; neither is in the repository yet.
 
 ## 6. Security and privacy checklist (every PR)
 
@@ -143,7 +143,8 @@ domain/               pure domain model (no Django imports): timeutil, calendar,
                       queries, remove from pool, targeted move, split: SPEC §7.3, §7.5)
 domain/engine/        the CP-SAT engine: candidates, model (tier weights documented at the
                       top), solve, diff, explain; run() is the entry point
-adapters/             Paycom, ICS/calendar, CSV import/export; webpush.py sends web push (D125)
+adapters/             CSV import/export formats (csv_formats.py); webpush.py sends web push (D125);
+                      the Paycom adapter arrives with milestone 7
 app/config/           Django settings (from environment), URLs, WSGI; test_settings for pytest
 app/accounts/         sign-in accounts (email login, allauth, TOTP); adapter.py has the campus
                       sign-in (OIDC) checks (D118); sessions.py and forms.py "Stay signed in" (D123)
