@@ -119,23 +119,23 @@ class SolveStartView(PeriodMixin, View):
         if period.length_in_days > MAX_SOLVE_DAYS:
             initial["first_day"], initial["last_day"] = suggested_span(period, timezone.localdate())
         form = SolveForm(period=period, initial=initial)
-        return render(
-            request,
-            "scheduling/solve_start.html",
-            {"period": period, "form": form, "runs": period.solve_runs.all()[:10]},
-        )
+        return self.render_page(period, form)
 
     def post(self, request, period_pk):
         period = self.get_period()
         form = SolveForm(request.POST, period=period)
         if not form.is_valid():
-            return render(
-                request,
-                "scheduling/solve_start.html",
-                {"period": period, "form": form, "runs": period.solve_runs.all()[:10]},
-            )
+            return self.render_page(period, form)
         run = solver.start_solve(period, request.user, form.cleaned_data["mode"], form.params())
         return redirect("solve_run", period_pk=period.pk, pk=run.pk)
+
+    def render_page(self, period, form):
+        solver.fail_abandoned(period.solve_runs.all())  # so the recent runs don't show one as solving (D126)
+        return render(
+            self.request,
+            "scheduling/solve_start.html",
+            {"period": period, "form": form, "runs": period.solve_runs.all()[:10]},
+        )
 
 
 class WhatIfView(PeriodMixin, View):
@@ -170,12 +170,18 @@ class SolveRunView(PeriodMixin, TemplateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         period = self.get_period()
+        solver.fail_abandoned(period.solve_runs.filter(pk=self.kwargs["pk"]))  # D126
         run = get_object_or_404(period.solve_runs, pk=self.kwargs["pk"])
         ctx.update(
             period=period,
             run=run,
             Status=RunStatus,
             waiting=run.status in (RunStatus.QUEUED, RunStatus.RUNNING),
+            slow_start=run.status == RunStatus.QUEUED
+            and timezone.now() - run.created_at > solver.WAITING_NOTE_AFTER,
+            # A run waiting behind another solve starts by the time that one has finished or
+            # been given up as abandoned; later than that, the worker is probably not running.
+            check_worker_at=run.created_at + solver.longest_run(),
             options=run.result.get("options", []),
             weeks=week_links(period.domain()),
         )
