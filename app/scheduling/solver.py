@@ -13,6 +13,7 @@ from typing import Any
 import pghistory
 from django.conf import settings
 from django.db import transaction
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from app.core.timezones import local_now, org_time
@@ -28,9 +29,49 @@ from domain.timeutil import Interval
 
 log = logging.getLogger(__name__)
 
+# A run still "running" this long after its time limit has been abandoned: the worker stopped
+# (out of memory, a restart or an upgrade) without recording an outcome (D126). The time limit
+# covers building and solving the model; the grace covers loading the period before that clock
+# starts and writing up the options after it stops, with room for a slow or busy server.
+ABANDONED_GRACE = timedelta(minutes=5)
+# A run still waiting to start after this long gets a plain note on its page. It is never failed
+# for waiting: it starts once the worker is free or back (D126).
+WAITING_NOTE_AFTER = timedelta(minutes=2)
+ABANDONED_ERROR = (
+    "The solve stopped before it finished, so there are no options to compare: the worker running it "
+    "was probably restarted or ran out of memory. The schedule is unchanged. Try again with fewer days "
+    '(under Advanced, set "Only change from" and "Only change until"). If it stops again, ask IT to '
+    "check the worker's memory limit (WORKER_MEMORY in docs/install.md)."
+)
+
 
 class SolveError(Exception):
     pass
+
+
+def time_limit_seconds(mode: str) -> int:
+    return settings.STACKS_GENERATE_SECONDS if mode == Mode.GENERATE else settings.STACKS_REBALANCE_SECONDS
+
+
+def longest_run() -> timedelta:
+    """How long a run can be "running" before it counts as abandoned, for the longer mode."""
+    return timedelta(seconds=max(time_limit_seconds(m) for m in Mode)) + ABANDONED_GRACE
+
+
+def fail_abandoned(runs: QuerySet[SolveRun]) -> int:
+    """Mark as failed each of `runs` still running well past its time limit (D126), and return
+    how many. Each mark is one conditional UPDATE, so a run whose worker has just recorded its
+    outcome is left alone. The schedule is never touched."""
+    now = timezone.now()
+    marked = 0
+    for mode in Mode:
+        cutoff = now - timedelta(seconds=time_limit_seconds(mode)) - ABANDONED_GRACE
+        marked += runs.filter(status=RunStatus.RUNNING, mode=mode, started_at__lt=cutoff).update(
+            status=RunStatus.FAILED, error=ABANDONED_ERROR, finished_at=now
+        )
+    if marked:
+        log.warning("Marked %d solve run(s) failed: still running long after the time limit", marked)
+    return marked
 
 
 def working_copy_hash(period: SchedulePeriod) -> str:
@@ -86,9 +127,7 @@ def build_request(run: SolveRun) -> tuple[ScheduleContext, SolveRequest]:
     request = SolveRequest(
         mode=mode,
         scope=scope,
-        time_limit=float(
-            settings.STACKS_GENERATE_SECONDS if mode == Mode.GENERATE else settings.STACKS_REBALANCE_SECONDS
-        ),
+        time_limit=float(time_limit_seconds(mode)),
         workers=settings.STACKS_SOLVER_WORKERS,
         change_limit_minutes=scheduled * limit_pct // 100 if mode == Mode.REBALANCE else None,
     )
@@ -112,11 +151,16 @@ def execute_run(run_id: int) -> None:
 
 
 def _execute(run: SolveRun) -> None:
-    if run.status != RunStatus.QUEUED:
+    started = timezone.now()
+    # Only a queued run starts, so running the job again for a run that has started, finished or
+    # been given up (a retried stalled job, a second worker) does nothing (D126).
+    claimed = SolveRun.objects.filter(pk=run.pk, status=RunStatus.QUEUED).update(
+        status=RunStatus.RUNNING, started_at=started
+    )
+    if not claimed:
         return
-    run.status = RunStatus.RUNNING
-    run.started_at = timezone.now()
-    run.save(update_fields=["status", "started_at"])
+    run.status, run.started_at = RunStatus.RUNNING, started
+    outcome: dict[str, Any]
     try:
         ctx, request = build_request(run)
         last = {"t": 0.0}
@@ -124,26 +168,37 @@ def _execute(run: SolveRun) -> None:
         def progress(name: str, seconds: float, objective: float) -> None:
             if seconds - last["t"] >= 2:  # don't write to the database on every improvement
                 last["t"] = seconds
-                SolveRun.objects.filter(pk=run.pk).update(
+                SolveRun.objects.filter(pk=run.pk, status=RunStatus.RUNNING).update(
                     progress={"option": name, "seconds": round(seconds, 1), "objective": objective}
                 )
 
         result = engine.run(ctx, request, progress)
         names = {pid: p.name for pid, p in ctx.people.items()}
-        run.result = {
-            "notes": result.notes,
-            "candidates": result.candidates,
-            "wall_seconds": round(result.wall_seconds, 1),
-            "change_limit_minutes": request.change_limit_minutes,
-            "options": [serialize_option(o, names) for o in result.options],
+        outcome = {
+            "status": RunStatus.DONE,
+            "error": "",
+            "result": {
+                "notes": result.notes,
+                "candidates": result.candidates,
+                "wall_seconds": round(result.wall_seconds, 1),
+                "change_limit_minutes": request.change_limit_minutes,
+                "options": [serialize_option(o, names) for o in result.options],
+            },
         }
-        run.status = RunStatus.DONE
     except Exception as exc:  # report the failure on the run page; never lose the working copy
         log.exception("Solve run %s failed", run.pk)
-        run.status = RunStatus.FAILED
-        run.error = f"{exc.__class__.__name__}: the solve couldn't finish. The schedule is unchanged."
-    run.finished_at = timezone.now()
-    run.save()
+        outcome = {
+            "status": RunStatus.FAILED,
+            "error": f"{exc.__class__.__name__}: the solve couldn't finish. The schedule is unchanged.",
+        }
+    # The worker's outcome wins (D126): if a page gave up on this run as abandoned while it was
+    # still solving, the options replace the "stopped" message, and a supervisor still has to
+    # apply one. Matching started_at means only the worker that started the run records it.
+    recorded = SolveRun.objects.filter(
+        pk=run.pk, started_at=started, status__in=[RunStatus.RUNNING, RunStatus.FAILED]
+    ).update(finished_at=timezone.now(), **outcome)
+    if not recorded:
+        log.warning("Solve run %s changed while it was solving; its outcome was not recorded", run.pk)
 
 
 def serialize_option(o: Option, names: dict[int, str]) -> dict[str, Any]:

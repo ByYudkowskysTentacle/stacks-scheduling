@@ -19,6 +19,16 @@ Stacks holds student employee records: availability, scheduled hours and, if you
 | Network | A DNS name (for example `stacks.example.edu`) pointing at the server, and ports 80 and 443 open to the internet so Caddy can get a certificate. Nothing else needs to be open apart from SSH. |
 | Email | An SMTP account Stacks can send from (invitations and notification emails). |
 
+**Memory for the solver.** The `worker` container that builds schedules may use up to 4 GB (`WORKER_MEMORY`), which leaves the rest of an 8 GB server for the database, the web app and the system. A solve's memory grows with the number of days it covers. Measured with the 30-person demo roster and 4 solver CPUs:
+
+| Days in one solve | Peak memory |
+|---|---|
+| 14 | 1.0 GB |
+| 28 | 2.0 GB |
+| 31 (the most one run can cover) | 2.1 GB |
+
+A larger roster needs more. If a solve goes over the limit, the system stops the worker and Docker restarts it; the run's page then says the solve stopped before it finished, and the schedule is unchanged (D126). If that happens, raise `WORKER_MEMORY` if the server has room, or have supervisors solve fewer days at a time. To see what your roster needs, watch `docker stats` during your first real generate.
+
 Basic hardening: SSH keys only, a firewall allowing 22, 80 and 443 (`ufw allow OpenSSH && ufw allow 80,443/tcp && ufw enable`), and unattended security upgrades.
 
 ## Install
@@ -36,9 +46,10 @@ Edit `.env`:
 - `SITE_ADDRESS`, `DJANGO_ALLOWED_HOSTS` and `DJANGO_CSRF_TRUSTED_ORIGINS`: your DNS name.
 - `DJANGO_SECRET_KEY`: generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(50))"`.
 - `POSTGRES_PASSWORD`: a long random password.
-- `SMTP_*` and `DEFAULT_FROM_EMAIL`: your mail settings.
+- `SMTP_*` and `DEFAULT_FROM_EMAIL`: your mail settings. `SMTP_TIMEOUT` (default 10) is how many seconds Stacks waits for the mail server at each step before giving up.
 - `STACKS_TIME_ZONE`: the library's time zone, for example `America/Chicago`. It's the starting value for the organization's time zone; after that, an admin changes it under Settings, Organization.
 - `WORKER_CPUS`: the CPUs the solver may use (4 on the pilot server).
+- `WORKER_MEMORY`: the memory the solver may use (`4g`; see Memory for the solver above).
 
 Then start it and create the first admin:
 
@@ -56,7 +67,7 @@ What's running (`docker compose ps`):
 |---|---|
 | `caddy` | HTTPS with automatic certificates. The only service with open ports. |
 | `web` | The Django app. |
-| `worker` | Runs schedule generation and rebalancing in the background, and sends phone notifications (D125). |
+| `worker` | Runs schedule generation and rebalancing in the background, and sends notification emails (D127) and phone notifications (D125). |
 | `db` | PostgreSQL. Not reachable from outside the server. |
 | `migrate` | Runs database migrations at start-up, then exits. |
 
@@ -142,12 +153,15 @@ Upgrading to the version with departments puts every existing schedule, employee
 
 Upgrading to the version with an organization time zone (D119) sets every organization's zone to `STACKS_TIME_ZONE`, which is what the pages and jobs already used. If your library isn't in that zone, check Settings, Organization once after upgrading. The same upgrade adds periods of calendar months or a whole term (D120); existing schedules keep their dates as periods of weeks.
 
+The worker's memory limit went from 2 GB to 4 GB when a one-month generate was found to need more than 2 GB (D126). An existing `.env` copied from the old example still says `WORKER_MEMORY=2g`, and that wins over the new default: change it to `WORKER_MEMORY=4g` (or remove the line), then run `docker compose up -d`.
+
 ## Day to day
 
 - **Logs:** `docker compose logs -f web worker`. Logs hold request paths and status codes, never personal data.
 - **Solver speed:** generate runs for up to `STACKS_GENERATE_SECONDS` (default 300), and a rebalance for `STACKS_REBALANCE_SECONDS` (default 30). Results that hit the limit are labelled "not proven optimal".
 - **Accounts:** supervisors invite employees from their record in People. Admins grant supervisor and admin roles under Settings, Roles.
 - **Phones:** Stacks installs from the browser as a Home Screen app (D124); there is nothing to publish in an app store. Point people at `https://your-site/install/` for the steps, by email or on a poster. It needs the HTTPS that Caddy already provides. On library-owned iPhones and iPads managed with an MDM tool, you can push a Home Screen icon (a web clip) for that address instead. "Stay signed in" keeps a ticked sign-in for `STACKS_REMEMBER_DAYS` (default 90) after the person's last visit; set it to `0` in `.env` to turn the option off (D123).
+- **Notification emails (D127):** the `worker` container sends them after a publish, a decision or a reminder, so it needs to reach your mail server (`SMTP_HOST`). Invitations and password resets are still sent by `web` while the page waits. The worker does one job at a time, so an email can arrive up to `STACKS_GENERATE_SECONDS` (5 minutes by default) late if a schedule is being generated. A mail server that can't be reached or says "try again later" is tried four times in all, 1, 4 and 16 minutes apart; one that refuses a message (an unknown address, a refused sign-in) isn't tried again. The logs say which notification number failed and why (`Email for notification 42 not sent: SMTPAuthenticationError`), never the address. If the mail server stops answering, each email holds the worker for up to `SMTP_TIMEOUT` seconds, and schedule solves wait behind them.
 - **Phone notifications (web push, D125):** off until you add a key. Run `docker compose run --rm web python manage.py vapid_keys`, put the `STACKS_VAPID_PRIVATE_KEY=…` line it prints in `.env` (or a secret file named by `STACKS_VAPID_PRIVATE_KEY_FILE`), back it up with the rest of `.env`, and restart (`docker compose up -d`). Keep the same key from then on: a new one turns notifications off on every device until each person turns them on again. Apple needs a contact address: Stacks uses `STACKS_SITE_URL`, or set `STACKS_VAPID_SUBJECT=mailto:it@library.example.edu`; `manage.py check` warns if neither will do. The `worker` container sends the notifications, so it needs outbound HTTPS to the push services: `*.push.apple.com`, `fcm.googleapis.com`, `updates.push.services.mozilla.com` and `*.notify.windows.com`. Stacks sends only to those hosts (a browser can't make it post anywhere else); if a campus browser uses another push service, add its host to `STACKS_PUSH_EXTRA_HOSTS`. Each person turns notifications on per device under Notifications, Notification settings, which also has a test button. The worker does one job at a time: pushes go ahead of waiting schedule solves but wait for one that is running, so one can arrive up to `STACKS_GENERATE_SECONDS` (5 minutes by default) late, and if a push service stops answering, a solve queued behind a publish can wait a few minutes for its pushes to time out.
 - **Leaving Homebase:** until you stop using Homebase, a published schedule can be downloaded as CSV (Schedule, Versions, a version, Download CSV) for re-entry there if you ever need to fall back (D47). The file holds names and emails, so delete it when you're done.
 - **Retention:** nothing is purged until an admin sets periods under Settings, Retention (SPEC §11). The worker then purges expired data every night at 03:17 server time (UTC in the default containers). To see what is due without removing anything, run `docker compose exec web python manage.py purge_expired --dry-run`. Purged data is gone from the live records; the audit log keeps its history of it until the audit log's own period (blank keeps it), and backups keep it until they age out (30 days by default). Match both to your policy.

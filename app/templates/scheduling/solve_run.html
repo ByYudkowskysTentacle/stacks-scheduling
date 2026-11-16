@@ -11,7 +11,11 @@
 
 {% if waiting %}
   <div class="card card--notice" role="status">
+    {% if slow_start %}
+    <p>This run hasn't started yet: it may be waiting for another solve to finish. If it's still waiting at {{ check_worker_at|time:"H:i" }}, ask IT to check that the Stacks worker is running. The run starts by itself once the worker is free or back. This page refreshes every few seconds. Nothing changes until you apply an option.</p>
+    {% else %}
     <p>The solver is working{% if run.progress.seconds %}: {{ run.progress.seconds }} seconds in, still improving{% endif %}. This page refreshes every few seconds. Nothing changes until you apply an option.</p>
+    {% endif %}
   </div>
 {% elif run.status == Status.FAILED %}
   <p class="card card--problem">{{ run.error }}</p>
