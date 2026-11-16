@@ -47,7 +47,8 @@ services:
     <<: *app
     command: ["python", "manage.py", "procrastinate", "worker"]
     cpus: ${WORKER_CPUS:-4}
-    mem_limit: ${WORKER_MEMORY:-2g}
+    # A one-month generate for 30 people peaks near 2.1 GB; docs/install.md has the figures (D126).
+    mem_limit: ${WORKER_MEMORY:-4g}
     depends_on:
       migrate:
         condition: service_completed_successfully
