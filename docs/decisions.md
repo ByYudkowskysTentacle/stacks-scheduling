@@ -577,6 +577,32 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - The worker runs one task at a time. Pushes go ahead of any schedule solves still waiting, but wait for the one already running: up to its time limit (5 minutes by default for a generate, 30 seconds for a rebalance). The other way round, a solve queued during a publish waits for its pushes: normally a few seconds, but if a push service hangs, up to about 15 seconds per device, and again when the retries run 1 and 4 minutes later. Emails are unaffected. A separate worker for notifications would remove both waits at the cost of another container; not done.
   - Supervisors get no new notifications: push carries only the notifications that already exist.
 
+## 2026-11-16 – Worker memory and abandoned solve runs
+
+- **D126 (performance review, 2026-11-16).** The solver worker gets 4 GB of memory by default instead of 2 GB, and a solve run whose worker stopped mid-solve now ends as failed instead of showing "The solver is working" for ever.
+  A performance review on a 4-CPU machine with the 30-person demo roster and 4 solver workers measured the peak memory of the solving process:
+
+  | Span solved | Time limit | Peak memory |
+  |---|---|---|
+  | 14 days | 40 s | 1,040 MB |
+  | 28 days | 60 s | 1,987 MB |
+  | 31 days | 300 s, the default (finished in 202 s) | 2,118 MB |
+
+  The worker was capped at 2 GB, and one run may cover up to 31 days (D120), so a one-month generate got the worker killed by Docker. Nothing then moved the run out of "running", and its page kept refreshing every 3 seconds.
+  *Built:*
+  - **Memory.** `WORKER_MEMORY` defaults to `4g` in `compose.yaml` and `.env.example`, which leaves the other half of the recommended 8 GB server for the database, the web app and the system. `docs/install.md` gives the figures above, says a larger roster needs more and how to watch it (`docker stats`), and tells existing installs to change `WORKER_MEMORY=2g` in their `.env`, because that line overrides the new default.
+  - **Abandoned runs.** A run still running 5 minutes past its time limit (`STACKS_GENERATE_SECONDS` or `STACKS_REBALANCE_SECONDS`, by mode) is marked failed. Its page stops refreshing and says the solve stopped before it finished (probably a restart or running out of memory), that the schedule is unchanged, to try again with fewer days, and if it stops again to ask IT to check `WORKER_MEMORY`. The time limit already covers building and solving the model; the 5 minutes cover loading the period before that clock starts and writing up the options after it stops. Both together took under half a second for 14-day and 30-day generates of the demo roster, so the grace is headroom for a server that is swapping or busy.
+  - **Where it's checked.** When the run's page or the solve page (which lists recent runs) is opened. Those are the only pages that show a run's status. Each check is one `UPDATE … WHERE status = 'running' AND started_at < cutoff`, so any number of pages, workers or jobs at a time can run it.
+  - **Races.** The worker now claims a run with `UPDATE … WHERE status = 'queued'`, and records its outcome with `UPDATE … WHERE started_at = <when it claimed the run> AND status IN ('running', 'failed')`. So the worker's outcome wins: if a page gave up on a run that was only slow, the options replace the "stopped" message when they arrive. Nothing is applied by itself. A supervisor still applies an option, and applying still refuses if the schedule changed after the solve started.
+  - **Waiting to start.** A queued run is never failed for waiting, because it runs as soon as the worker is free or back. After 2 minutes its page says it hasn't started yet and may be waiting for another solve, and gives a clock time after which to ask IT to check that the worker is running: when it was queued, plus the longer of the two time limits and the 5 minutes, which is when a run ahead of it would have finished or been given up. The page keeps refreshing.
+  - **The Procrastinate job.** When the worker is killed, its job stays in `doing`. Procrastinate 3.10.0 neither retries nor finishes it: a starting worker only deletes worker rows whose heartbeat is more than 30 seconds old, which clears the job's worker, and workers fetch only `todo` jobs. `run_solve` has no lock, so the leftover row blocks nothing. If someone retries it by hand (`retry` in `procrastinate shell`, or `retry_job`), `run_solve` finds the run already running, failed or done and does nothing. A test runs it again for a run in each of those states.
+  *Interpretations:*
+  - **The worker wins the race, not the page.** Throwing away a finished solve because a page gave up a little early would be worse than a status that changes from failed to ready to compare. A late result never changes the schedule.
+  - **No check at the worker's start-up.** Procrastinate has no start-up hook (its `ON_APP_READY` runs in every process, the web app and `migrate` included), so it would need a wrapper around the worker command. Failing every running run at start-up would be wrong once there is more than one worker, or a worker runs more than one job at a time. A time-based check there would add nothing to the two pages that show a run. A run nobody opens again stays "running" until someone next opens the solve page for its period. Until then retention doesn't purge it either, since it counts from when a run finished, but such a run holds no options and no names.
+  - **Opening a page can now mark a run failed.** That corrects the run's status and never touches the schedule, and the audit log records it like any other change to a run.
+  - **A run whose worker died in the moment between taking the job and starting the run** stays "waiting to start", with the note. Not handled: the window is a few milliseconds.
+  - Not changed here: the solver's memory use, the 31-day limit on one run (D120) and the worker's one job at a time (D125).
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).
