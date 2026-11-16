@@ -557,7 +557,8 @@ class AuditLogView(OrgViewMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         org, params = self.request.organization, self.request.GET
         events = audit_log.events_for(org, self.request.access)
-        kinds = sorted(set(events.values_list("pgh_obj_model", flat=True)), key=audit_log._verbose)
+        kinds = sorted(events.kinds(), key=audit_log._verbose)
+        # The paginator counts and slices; a slice reads only its own 50 entries (D128).
         page = Paginator(audit_log.filtered(events, params), 50).get_page(params.get("page"))
         query = params.copy()
         query.pop("page", None)
