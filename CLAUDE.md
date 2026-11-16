@@ -112,7 +112,7 @@ uv run pytest -q -m slow                 # engine acceptance scenarios (real sol
 # campus sign-in end to end (D118): Keycloak with the synthetic realm, then the test with KEYCLOAK_URL
 docker run -d --rm --name keycloak --network stacks_default -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin -v "$PWD/fixtures/keycloak:/opt/keycloak/data/import:ro" quay.io/keycloak/keycloak:26.0.7 start-dev --import-realm
 docker compose -f compose.yaml -f compose.dev.yaml run --rm --no-deps -T -e KEYCLOAK_URL=http://keycloak:8080 web pytest -q tests/browser/test_sso_keycloak.py
-DJANGO_DEBUG=1 uv run python manage.py procrastinate worker   # runs solves queued from the web app
+DJANGO_DEBUG=1 uv run python manage.py procrastinate worker   # runs solves, notification emails and pushes queued from the web app
 uv run python manage.py makemigrations --check --dry-run --settings=app.config.test_settings
 
 # production: see docs/install.md (install, encrypted backups with deploy/backup.sh, restore, upgrade)
