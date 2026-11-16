@@ -5,11 +5,12 @@ with short time limits here (test_settings)."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.core import mail
 from django.urls import reverse
+from django.utils import timezone
 
 from app.availability.models import Availability
 from app.core.models import Term
@@ -227,6 +228,126 @@ def test_failed_solve_reports_and_changes_nothing(
     run.refresh_from_db()
     assert run.status == RunStatus.FAILED and "unchanged" in run.error
     assert "synthetic" not in run.error  # no internals shown
+
+
+# --- Abandoned runs: the worker stopped mid-solve (D126) ----------------------------------------
+
+REFRESH = 'http-equiv="refresh"'
+
+
+@pytest.fixture
+def limits(settings):
+    """The production time limits, so the ages below are far from either side of the line."""
+    settings.STACKS_GENERATE_SECONDS = 300
+    settings.STACKS_REBALANCE_SECONDS = 30
+
+
+def make_run(period, user, mode="generate", status=RunStatus.RUNNING, age=timedelta(minutes=1)):
+    """A run queued `age` ago and, unless still queued, started then."""
+    when = timezone.now() - age
+    run = SolveRun.objects.create(
+        organization=period.organization, period=period, mode=mode, status=status, created_by=user
+    )
+    started = None if status == RunStatus.QUEUED else when
+    SolveRun.objects.filter(pk=run.pk).update(created_at=when, started_at=started)
+    run.refresh_from_db()
+    return run
+
+
+def test_run_long_past_its_time_limit_is_marked_failed(limits, period, supervisor):
+    rebalance = make_run(period, supervisor, "rebalance", age=timedelta(minutes=6))  # 30 s + 5 min grace
+    generate = make_run(period, supervisor, "generate", age=timedelta(minutes=11))  # 5 min + 5 min grace
+    assert solver.fail_abandoned(period.solve_runs.all()) == 2
+    for run in (rebalance, generate):
+        run.refresh_from_db()
+        assert run.status == RunStatus.FAILED and run.finished_at is not None
+        assert "stopped before it finished" in run.error and "The schedule is unchanged" in run.error
+    assert solver.fail_abandoned(period.solve_runs.all()) == 0  # once only
+    assert not Shift.objects.exists()
+
+
+def test_run_within_its_time_limit_is_left_alone(limits, period, supervisor):
+    # Six minutes is too long for a rebalance but not for a generate: the limit follows the mode.
+    running = make_run(period, supervisor, "generate", age=timedelta(minutes=6))
+    queued = make_run(period, supervisor, "generate", status=RunStatus.QUEUED, age=timedelta(days=1))
+    done = make_run(period, supervisor, "rebalance", status=RunStatus.DONE, age=timedelta(days=1))
+    assert solver.fail_abandoned(period.solve_runs.all()) == 0
+    statuses = dict(SolveRun.objects.values_list("pk", "status"))
+    assert statuses == {running.pk: RunStatus.RUNNING, queued.pk: RunStatus.QUEUED, done.pk: RunStatus.DONE}
+
+
+def test_abandoned_run_page_says_so_and_stops_refreshing(limits, as_user, supervisor, period):
+    client = as_user(supervisor)
+    solving = make_run(period, supervisor, "generate", age=timedelta(minutes=6))
+    page = client.get(reverse("solve_run", args=[period.pk, solving.pk])).content.decode()
+    assert REFRESH in page and "The solver is working" in page
+
+    stuck = make_run(period, supervisor, "generate", age=timedelta(minutes=11))
+    page = client.get(reverse("solve_run", args=[period.pk, stuck.pk])).content.decode()
+    assert REFRESH not in page and "The solver is working" not in page
+    assert "The solve stopped before it finished" in page and "The schedule is unchanged" in page
+    assert "fewer days" in page and "WORKER_MEMORY" in page
+    stuck.refresh_from_db()
+    assert stuck.status == RunStatus.FAILED
+    solving.refresh_from_db()
+    assert solving.status == RunStatus.RUNNING  # the run page checks only its own run
+
+
+def test_solve_page_lists_an_abandoned_run_as_failed(limits, as_user, supervisor, period):
+    stuck = make_run(period, supervisor, "rebalance", age=timedelta(minutes=6))
+    page = as_user(supervisor).get(reverse("solve_start", args=[period.pk])).content.decode()
+    assert f"{reverse('solve_run', args=[period.pk, stuck.pk])}" in page and ": Failed" in page
+    stuck.refresh_from_db()
+    assert stuck.status == RunStatus.FAILED
+
+
+def test_a_waiting_run_gets_a_note_but_is_never_failed(limits, as_user, supervisor, period):
+    client = as_user(supervisor)
+    fresh = make_run(period, supervisor, status=RunStatus.QUEUED, age=timedelta(seconds=30))
+    page = client.get(reverse("solve_run", args=[period.pk, fresh.pk])).content.decode()
+    assert REFRESH in page and "hasn't started yet" not in page
+
+    waiting = make_run(period, supervisor, status=RunStatus.QUEUED, age=timedelta(days=1))
+    page = client.get(reverse("solve_run", args=[period.pk, waiting.pk])).content.decode()
+    assert REFRESH in page  # it starts by itself once the worker is back
+    assert "hasn't started yet" in page and "check that the Stacks worker is running" in page
+    waiting.refresh_from_db()
+    assert waiting.status == RunStatus.QUEUED
+
+
+def test_a_late_result_replaces_the_abandoned_mark(
+    as_user, supervisor, period, monkeypatch, django_capture_on_commit_callbacks
+):
+    real_run = solver.engine.run
+
+    def given_up_while_solving(*args, **kwargs):
+        monkeypatch.setattr(solver, "ABANDONED_GRACE", -timedelta(hours=1))  # anything running is "abandoned"
+        assert solver.fail_abandoned(SolveRun.objects.all()) == 1  # a page gives up on it mid-solve
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(solver.engine, "run", given_up_while_solving)
+    client = as_user(supervisor)
+    with django_capture_on_commit_callbacks(execute=True):
+        run = run_solve(client, period, "generate")
+    run.refresh_from_db()
+    assert run.status == RunStatus.DONE and run.error == "" and run.result["options"]
+    monkeypatch.undo()
+    page = client.get(reverse("solve_run", args=[period.pk, run.pk])).content.decode()
+    assert "Apply as draft" in page and "stopped before it finished" not in page
+    assert not Shift.objects.exists()  # still a what-if: nothing applied by itself
+
+
+@pytest.mark.parametrize("status", [RunStatus.RUNNING, RunStatus.FAILED, RunStatus.DONE])
+def test_running_the_job_again_does_nothing(status, period, supervisor, monkeypatch):
+    # A stalled job retried after the worker died, or a second worker, must not solve again.
+    def solve_again(*a, **k):
+        raise AssertionError("solved twice")
+
+    monkeypatch.setattr(solver.engine, "run", solve_again)
+    run = make_run(period, supervisor, status=status)
+    before = SolveRun.objects.filter(pk=run.pk).values().get()
+    solver.execute_run(run.pk)
+    assert SolveRun.objects.filter(pk=run.pk).values().get() == before
 
 
 # --- Duties, targets and desired hours flow into the engine ------------------------------------

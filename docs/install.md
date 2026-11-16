@@ -19,6 +19,16 @@ Stacks holds student employee records: availability, scheduled hours and, if you
 | Network | A DNS name (for example `stacks.example.edu`) pointing at the server, and ports 80 and 443 open to the internet so Caddy can get a certificate. Nothing else needs to be open apart from SSH. |
 | Email | An SMTP account Stacks can send from (invitations and notification emails). |
 
+**Memory for the solver.** The `worker` container that builds schedules may use up to 4 GB (`WORKER_MEMORY`), which leaves the rest of an 8 GB server for the database, the web app and the system. A solve's memory grows with the number of days it covers. Measured with the 30-person demo roster and 4 solver CPUs:
+
+| Days in one solve | Peak memory |
+|---|---|
+| 14 | 1.0 GB |
+| 28 | 2.0 GB |
+| 31 (the most one run can cover) | 2.1 GB |
+
+A larger roster needs more. If a solve goes over the limit, the system stops the worker and Docker restarts it; the run's page then says the solve stopped before it finished, and the schedule is unchanged (D126). If that happens, raise `WORKER_MEMORY` if the server has room, or have supervisors solve fewer days at a time. To see what your roster needs, watch `docker stats` during your first real generate.
+
 Basic hardening: SSH keys only, a firewall allowing 22, 80 and 443 (`ufw allow OpenSSH && ufw allow 80,443/tcp && ufw enable`), and unattended security upgrades.
 
 ## Install
@@ -39,6 +49,7 @@ Edit `.env`:
 - `SMTP_*` and `DEFAULT_FROM_EMAIL`: your mail settings. `SMTP_TIMEOUT` (default 10) is how many seconds Stacks waits for the mail server at each step before giving up.
 - `STACKS_TIME_ZONE`: the library's time zone, for example `America/Chicago`. It's the starting value for the organization's time zone; after that, an admin changes it under Settings, Organization.
 - `WORKER_CPUS`: the CPUs the solver may use (4 on the pilot server).
+- `WORKER_MEMORY`: the memory the solver may use (`4g`; see Memory for the solver above).
 
 Then start it and create the first admin:
 
@@ -141,6 +152,8 @@ To roll back, check out the previous version (`git checkout <tag>`), rebuild, an
 Upgrading to the version with departments puts every existing schedule, employee and supervisor into one department called "General". Nothing else changes until you rename it or add more under Settings, Departments, then put people in departments from their records and give supervisors theirs under Settings, Roles.
 
 Upgrading to the version with an organization time zone (D119) sets every organization's zone to `STACKS_TIME_ZONE`, which is what the pages and jobs already used. If your library isn't in that zone, check Settings, Organization once after upgrading. The same upgrade adds periods of calendar months or a whole term (D120); existing schedules keep their dates as periods of weeks.
+
+The worker's memory limit went from 2 GB to 4 GB when a one-month generate was found to need more than 2 GB (D126). An existing `.env` copied from the old example still says `WORKER_MEMORY=2g`, and that wins over the new default: change it to `WORKER_MEMORY=4g` (or remove the line), then run `docker compose up -d`.
 
 ## Day to day
 
