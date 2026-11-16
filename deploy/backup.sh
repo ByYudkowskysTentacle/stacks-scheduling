@@ -29,10 +29,22 @@ mkdir -p "$DEST"
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 OUT="$DEST/stacks-$STAMP.dump.age"
 TMP="$OUT.partial"
+STATUS="$TMP.status"
+trap 'rm -f "$TMP" "$STATUS"' EXIT
 
 # The dump never touches disk unencrypted. Credentials stay inside the db container.
-docker compose exec -T db sh -c 'pg_dump --format=custom --no-owner -U "$POSTGRES_USER" "$POSTGRES_DB"' \
-  | age --encrypt --recipients-file "$RECIPIENT_FILE" > "$TMP"
+# POSIX sh has no pipefail, so the dump's exit status goes through a file: otherwise a failed
+# dump (database down, say) is encrypted as an empty stream and reported as written.
+{
+  rc=0
+  docker compose exec -T db sh -c 'pg_dump --format=custom --no-owner -U "$POSTGRES_USER" "$POSTGRES_DB"' || rc=$?
+  echo "$rc" > "$STATUS"
+} | age --encrypt --recipients-file "$RECIPIENT_FILE" > "$TMP"
+rc=$(cat "$STATUS" 2>/dev/null || echo unknown)
+if [ "$rc" != 0 ]; then
+  echo "backup: database dump failed (exit status $rc); no backup written" >&2
+  exit 1
+fi
 mv "$TMP" "$OUT"
 echo "backup: wrote $OUT ($(wc -c < "$OUT") bytes)"
 
