@@ -3,12 +3,21 @@
 
 from procrastinate.contrib.django import app
 
-# The worker serves every queue one job at a time, highest priority first: a push goes ahead of
-# any solves still waiting, though not of the one already running (D125).
-PUSH_PRIORITY = 10
+# The worker serves every queue one job at a time, highest priority first: an email or push goes
+# ahead of any solves still waiting, though not of the one already running (D125, D127).
+NOTIFICATION_PRIORITY = 10
 
 
-@app.task(queue="notifications", name="scheduling.send_push", priority=PUSH_PRIORITY)
+@app.task(queue="notifications", name="scheduling.send_email", priority=NOTIFICATION_PRIORITY)
+def send_email(notification_id: int, attempt: int = 1) -> None:
+    """Email one notification to the person (D127). The job holds ids only: the address,
+    subject and body are read from the database when it runs."""
+    from app.scheduling.notify import deliver_email
+
+    deliver_email(notification_id, attempt)
+
+
+@app.task(queue="notifications", name="scheduling.send_push", priority=NOTIFICATION_PRIORITY)
 def send_push(notification_id: int, subscription_id: int | None = None, attempt: int = 1) -> None:
     """Push one notification to the person's phones (D125)."""
     from app.scheduling.push import deliver
@@ -16,7 +25,7 @@ def send_push(notification_id: int, subscription_id: int | None = None, attempt:
     deliver(notification_id, subscription_id, attempt)
 
 
-@app.task(queue="notifications", name="scheduling.send_test_push", priority=PUSH_PRIORITY)
+@app.task(queue="notifications", name="scheduling.send_test_push", priority=NOTIFICATION_PRIORITY)
 def send_test_push(user_id: int) -> None:
     """The test notification a person asked for from their notification settings (D125)."""
     from app.scheduling.push import deliver_test

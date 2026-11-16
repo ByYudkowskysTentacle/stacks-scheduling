@@ -214,6 +214,8 @@ EMAIL_TIMEOUT = int(env("SMTP_TIMEOUT", "10"))
 if EMAIL_TIMEOUT <= 0:
     raise ImproperlyConfigured("SMTP_TIMEOUT must be a number of seconds above 0 (see .env.example).")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "stacks@localhost")
+# Notification emails go from the worker (D127); this sends them in the request instead (tests only).
+STACKS_EMAIL_INLINE = env_bool("STACKS_EMAIL_INLINE")
 
 # Security. Caddy terminates TLS and forwards the scheme.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
