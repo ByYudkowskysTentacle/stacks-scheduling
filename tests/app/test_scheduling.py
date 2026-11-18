@@ -387,6 +387,26 @@ def test_new_employee_rule_strictness_is_a_setting(as_user, org, supervisor):
     assert rule.kind == "not_solo" and str(rule) == "A New employee never works alone"
 
 
+def test_at_most_n_on_duty_rule_can_be_added(as_user, org, supervisor):
+    tag = Tag.objects.create(organization=org, name="Apart")
+    client = as_user(supervisor)
+    assert "At most N on duty at once" in client.get(reverse("rules")).content.decode()
+    data = {
+        "form": "tag_rule",
+        "tag": tag.pk,
+        "kind": "max_on_duty",
+        "hard": "on",
+        "minutes": "",
+        "label": "",
+    }
+    page = client.post(reverse("rules"), {**data, "count": 0}).content.decode()
+    assert "Give the most people with the tag who may be on duty at once." in page
+    assert not TagCoverageRule.objects.exists()
+    client.post(reverse("rules"), {**data, "count": 1})
+    rule = TagCoverageRule.objects.get()
+    assert rule.hard and rule.kind == "max_on_duty" and str(rule) == "At most 1 Apart on duty at once"
+
+
 def test_rules_form_uses_hours(as_user, org, supervisor):
     data = {
         "form": "rules",

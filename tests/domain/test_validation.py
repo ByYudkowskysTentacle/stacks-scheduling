@@ -303,6 +303,39 @@ def test_not_solo_tag_rule_lets_new_employees_work_together():
     assert only(validate(ctx(paired, people, rules)), Category.TAG_RULE) == []
 
 
+def test_max_on_duty_tag_rule_flags_people_who_overlap():
+    rule = TagRule("Apart", TagRuleKind.MAX_ON_DUTY, hard=True)
+    people = {1: person(1, "Ana", tags={"Apart"}), 2: person(2, "Ben", tags={"Apart"}), 3: person(3)}
+    rules = Rules(coverage=CoverageRules(default=0), tag_rules=[rule])
+    together = [shift(1, MONDAY, 540, 720), shift(2, MONDAY, 660, 840), shift(3, MONDAY, 540, 840)]
+    issues = only(validate(ctx(together, people, rules)), Category.TAG_RULE)
+    assert [i.interval for i in issues] == [Interval(660, 720)]  # only while both are on
+    assert issues[0].severity == Severity.ERROR
+    assert issues[0].message == "At most 1 Apart on duty at once: Ana and Ben on duty Mon 18 Jan 11am–12pm"
+
+
+def test_max_on_duty_tag_rule_allows_a_handover():
+    rule = TagRule("Apart", TagRuleKind.MAX_ON_DUTY)
+    people = {1: person(1, tags={"Apart"}), 2: person(2, tags={"Apart"})}
+    rules = Rules(coverage=CoverageRules(default=0), tag_rules=[rule])
+    back_to_back = [shift(1, MONDAY, 540, 720), shift(2, MONDAY, 720, 840)]
+    assert only(validate(ctx(back_to_back, people, rules)), Category.TAG_RULE) == []
+
+
+def test_max_on_duty_tag_rule_counts_only_its_window_and_allows_count():
+    rule = TagRule(
+        "Apart", TagRuleKind.MAX_ON_DUTY, count=2, weekdays=frozenset({MON}), interval=Interval(540, 600)
+    )
+    people = {p: person(p, tags={"Apart"}) for p in (1, 2, 3)}
+    rules = Rules(coverage=CoverageRules(default=0), tag_rules=[rule])
+    three = [shift(p, MONDAY, 480, 660) for p in (1, 2, 3)] + [
+        shift(p, WEDNESDAY, 540, 660) for p in (1, 2, 3)
+    ]
+    issues = only(validate(ctx(three, people, rules)), Category.TAG_RULE)
+    assert [(i.day, i.interval) for i in issues] == [(MONDAY, Interval(540, 600))]
+    assert issues[0].message.startswith("At most 2 Apart on duty at once 9am–10am: P1, P2 and P3 on duty")
+
+
 def test_time_bound_tag_only_counts_on_its_days():
     rule = TagRule(
         "Shift lead", TagRuleKind.MIN_ON_DUTY, weekdays=frozenset({MON}), interval=Interval(540, 600)

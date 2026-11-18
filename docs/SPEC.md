@@ -158,6 +158,7 @@ Examples the system must support:
 - "At least one `Cataloguer` on duty Mon–Fri 9am–5pm."
 - "`Processor` hours total at least 15 per week."
 - "A `New employee` is never the only person on duty."
+- "At most one `Keep apart` on duty at once": a tag shared by people who shouldn't work at the same time (D128).
 
 Each rule can be hard (constraint) or soft (weighted). The validation suite reports violations either way.
 

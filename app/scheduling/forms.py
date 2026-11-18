@@ -349,6 +349,8 @@ class TagRuleForm(forms.ModelForm):
             self.add_error("end_min", "Ends before it starts.")
         if cleaned.get("kind") == dom.TagRuleKind.MIN_WEEKLY_HOURS and not cleaned["minutes"]:
             self.add_error("minutes", "Give the weekly hours.")
+        if cleaned.get("kind") == dom.TagRuleKind.MAX_ON_DUTY and not cleaned.get("count"):
+            self.add_error("count", "Give the most people with the tag who may be on duty at once.")
         return cleaned
 
 

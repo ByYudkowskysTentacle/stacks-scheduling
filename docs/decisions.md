@@ -618,6 +618,16 @@ The maintainer reviewed the decisions flagged for a look. Each entry below repla
   - Invitations and allauth's emails stay in the request. Each is a single email, now limited by `SMTP_TIMEOUT`. An invitation carries a one-time set-password link built from the request, which a job holding only ids would have to rebuild in the worker.
 
 
+## 2026-11-18 – At most N with a tag on duty
+
+- **D128 (maintainer request).** A supervisor needs two student workers never to work at the same time. That is now a fourth kind of tag rule, "At most N on duty at once" (`max_on_duty`), in Settings, Scheduling rules: give the people a shared tag and add the rule with N = 1.
+  *Built:*
+  - **Validation:** an issue for each run of slots where more than N people with the tag are on duty, naming them. Every slot anyone is on duty counts, not only open hours. The rule's weekdays and optional time range limit where it applies, as for "at least N".
+  - **Engine:** a sum over tagged candidates per slot, with each person over the limit costing one unit of the rule's tier. A hard rule sits above coverage like the other hard tag rules (D97): the generator leaves a gap rather than put them together, and the explanation names the rule and who was free.
+  *Interpretations:*
+  - **Overlap means sharing a 15-minute slot.** A handover, where one shift ends as the other starts, is allowed. A required gap between them would be a separate rule.
+  - **A tag, not a pair of names.** The rule reuses tags and tag rules instead of adding a person-to-person rule, so it also covers "at most two new employees at once". Tags show on supervisor pages (people, the availability grid, the schedule), not to students, but other supervisors see the name, so choose a neutral one.
+
 ## Open items for the maintainer
 
 1. Ask university HR/payroll for Paycom API documentation, a sandbox or test company, and whether third-party punch submission and geofenced phone punching are permitted (D12, D17, D19).

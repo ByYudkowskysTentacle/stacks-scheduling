@@ -187,10 +187,11 @@ class TagCoverageRule(models.Model):
             (dom.TagRuleKind.MIN_WEEKLY_HOURS, "Total hours per week"),
             (dom.TagRuleKind.NOT_ALONE, "Always with someone who doesn't have the tag"),
             (dom.TagRuleKind.NOT_SOLO, "Never working alone (anyone else on duty counts)"),
+            (dom.TagRuleKind.MAX_ON_DUTY, "At most N on duty at once"),
         ],
     )
     hard = models.BooleanField(default=False, help_text="Hard rules are never broken by the generator.")
-    count = models.PositiveSmallIntegerField(default=1)
+    count = models.PositiveSmallIntegerField(default=1, help_text="N, for the at-least and at-most rules.")
     minutes = models.PositiveIntegerField(default=0, help_text="For weekly-hours rules.")
     weekdays = models.JSONField(
         default=list, blank=True, help_text="Weekday numbers, Monday 0. Empty means every day."

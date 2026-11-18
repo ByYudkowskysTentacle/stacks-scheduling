@@ -316,6 +316,79 @@ def test_not_alone_gap_names_everyone_with_the_tag():
     assert "P1 and P2 were free, but no one without the tag was there" in text
 
 
+# --- At most N with a tag on duty at once (D128) -----------------------------------------------
+
+
+def _two_needed(rule, people):
+    """Coverage of 2 on Monday 9am-1pm."""
+    rules = Rules(
+        coverage=CoverageRules(
+            default=0, overrides=[CoverageOverride(frozenset({MON}), Interval(540, 780), 2)]
+        ),
+        tag_rules=[rule],
+    )
+    return context(people, rules)
+
+
+def _overlap(shifts, a, b):
+    return any(
+        s.employee_id == a and t.employee_id == b and s.day == t.day and s.interval.overlaps(t.interval)
+        for s in shifts
+        for t in shifts
+    )
+
+
+def test_max_on_duty_keeps_tagged_people_apart_and_covers_with_others():
+    rule = TagRule("Apart", TagRuleKind.MAX_ON_DUTY, hard=True)
+    ctx = _two_needed(rule, [person(1, tags=("Apart",)), person(2, tags=("Apart",)), person(3)])
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=8, workers=2)).options[0]
+    categories = {i.category for i in option.report.issues}
+    assert Category.TAG_RULE not in categories and Category.COVERAGE_GAP not in categories
+    assert not _overlap(option.shifts, 1, 2)
+
+
+def test_hard_max_on_duty_leaves_a_gap_and_says_why():
+    rule = TagRule("Apart", TagRuleKind.MAX_ON_DUTY, hard=True)
+    ctx = _two_needed(rule, [person(1, tags=("Apart",)), person(2, tags=("Apart",))])
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=8, workers=2)).options[0]
+    assert not _overlap(option.shifts, 1, 2)
+    assert [i for i in option.report.issues if i.category == Category.COVERAGE_GAP]
+    assert not [i for i in option.report.issues if i.category == Category.TAG_RULE]
+    text = " ".join(option.explanation.trade_offs)
+    assert 'because of the hard rule "At most 1 Apart on duty at once"' in text
+    assert "1 with the tag was already on duty" in text
+    unmet = next(u for u in option.explanation.unmet if u.category == Category.COVERAGE_GAP)
+    assert unmet.rule == "At most 1 Apart on duty at once" and unmet.what_ifs == ("relax_rule",)
+
+
+def test_soft_max_on_duty_gives_way_to_coverage():
+    rule = TagRule("Apart", TagRuleKind.MAX_ON_DUTY)
+    ctx = _two_needed(rule, [person(1, tags=("Apart",)), person(2, tags=("Apart",))])
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=8, workers=2)).options[0]
+    assert not [i for i in option.report.issues if i.category == Category.COVERAGE_GAP]
+    issues = [i for i in option.report.issues if i.category == Category.TAG_RULE]
+    assert issues and all(i.severity.value == "warning" for i in issues)
+
+
+@st.composite
+def apart_rosters(draw):
+    n = draw(st.integers(min_value=3, max_value=5))
+    people = [person(pid, tags=("Apart",) if pid <= 2 else ()) for pid in range(1, n + 1)]
+    rules = Rules(
+        coverage=CoverageRules(default=draw(st.integers(min_value=1, max_value=2))),
+        tag_rules=[TagRule("Apart", TagRuleKind.MAX_ON_DUTY, hard=True)],
+    )
+    return context(people, rules)
+
+
+@settings(max_examples=4, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(apart_rosters())
+def test_generated_schedules_never_put_kept_apart_people_together(ctx):
+    option = run(ctx, SolveRequest(Mode.GENERATE, time_limit=3, workers=2)).options[0]
+    assert not _overlap(option.shifts, 1, 2)
+    assert not [i for i in option.report.issues if i.category == Category.TAG_RULE]
+
+
 def test_a_gap_the_rule_did_not_cause_is_not_blamed_on_it():
     # P2 has no tag and is free, but capped at 0 hours: the cap, not the rule, leaves the gap.
     rule = TagRule("New", TagRuleKind.NOT_SOLO, hard=True)
