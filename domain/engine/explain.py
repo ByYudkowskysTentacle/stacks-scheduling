@@ -11,9 +11,9 @@ from datetime import date
 
 from domain.engine.candidates import Scope
 from domain.rules import CapScope, TagRule, TagRuleKind
-from domain.schedule import ScheduleContext, Shift, minutes_by_person_week
-from domain.timeutil import Interval, format_minute_12h, intersect, total_minutes
-from domain.validation import Category, Issue, Report, day_label
+from domain.schedule import ScheduleContext, Shift, minutes_by_person_week, slots_of
+from domain.timeutil import SLOT_MINUTES, Interval, format_minute_12h, intersect, total_minutes
+from domain.validation import Category, Issue, Report, day_label, join_names
 
 
 def hours(minutes: int) -> str:
@@ -187,12 +187,16 @@ def _rule_for(ctx: ScheduleContext, issue: Issue) -> TagRule | None:
 def _gap_blocked_by_rule(
     ctx: ScheduleContext, shifts: Sequence[Shift], issue: Issue
 ) -> tuple[TagRule, list[str]] | None:
-    """The hard "not alone" or "not solo" rule that kept free people off a gap, if one did: everyone
-    free for the whole gap has the tag, and no partner the rule needs is on duty or free (D97).
-    Returns None when anything else could explain the gap."""
+    """The hard tag rule that kept free people off a gap, if one did (D97, D128). Returns None
+    when anything else could explain the gap."""
     if issue.day is None or issue.interval is None:
         return None
     day, run = issue.day, issue.interval
+    for rule in ctx.rules.tag_rules:
+        if rule.hard and rule.kind == TagRuleKind.MAX_ON_DUTY:
+            names = _blocked_by_limit(ctx, shifts, day, run, rule)
+            if names:
+                return rule, names
     on_duty = {
         s.employee_id
         for s in shifts
@@ -215,6 +219,8 @@ def _gap_blocked_by_rule(
             rule.interval is not None and not rule.interval.overlaps(run)
         ):
             continue
+        # Everyone free for the whole gap has the tag, and no partner the rule needs is on duty
+        # or free.
         if not all(p.has_tag(rule.tag, day) for p in free):
             continue
         if rule.kind == TagRuleKind.NOT_ALONE:
@@ -227,9 +233,48 @@ def _gap_blocked_by_rule(
     return None
 
 
+def _blocked_by_limit(
+    ctx: ScheduleContext, shifts: Sequence[Shift], day: date, run: Interval, rule: TagRule
+) -> list[str]:
+    """Who an "at most N" rule kept off a gap: in every slot of the gap the rule applies, its
+    limit is already reached, and everyone free then has the tag. Checked slot by slot, since
+    the people it keeps apart can share a gap by working different parts of it. Empty when
+    anything else could explain the gap."""
+    if day.weekday() not in rule.weekdays:
+        return []
+    window = set(slots_of(rule.interval)) if rule.interval is not None else None
+    todays = [(s.employee_id, s.interval) for s in shifts if s.day == day and s.employee_id is not None]
+    open_ivs = ctx.open_on(day)
+    blocked: set[str] = set()
+    for slot in slots_of(run):
+        if window is not None and slot not in window:
+            return []
+        here = Interval(slot * SLOT_MINUTES, (slot + 1) * SLOT_MINUTES)
+        on = {e for e, iv in todays if iv.overlaps(here)}
+        tagged_on = sum(1 for e in on if (p := ctx.people.get(e)) and p.has_tag(rule.tag, day))
+        free = [
+            p
+            for p in ctx.people.values()
+            if p.auto_schedulable
+            and p.id not in on
+            and p.availability.is_known
+            and intersect([here], p.availability.available_within(day.weekday(), open_ivs)) == [here]
+        ]
+        if tagged_on < rule.count or not free or not all(p.has_tag(rule.tag, day) for p in free):
+            return []
+        blocked.update(p.name for p in free)
+    return sorted(blocked)
+
+
 def _explain_rule_gap(day: date, run: Interval, rule: TagRule, names: list[str]) -> str:
-    who = _join(names)
+    who = join_names(names)
     verb = "was" if len(names) == 1 else "were"
+    if rule.kind == TagRuleKind.MAX_ON_DUTY:
+        limit = f"{rule.count} with the tag {'was' if rule.count == 1 else 'were'} already on duty"
+        return (
+            f'{day_label(day)} {run.label()} is short because of the hard rule "{rule.describe()}": '
+            f"{who} {verb} free, but {limit}."
+        )
     partner = "else" if rule.kind == TagRuleKind.NOT_SOLO else "without the tag"
     return (
         f'{day_label(day)} {run.label()} is short because of the hard rule "{rule.describe()}": '
@@ -245,6 +290,18 @@ def _tag_reason(ctx: ScheduleContext, issue: Issue) -> str:
     if rule is None:
         return "not enough people with the tag were free at those times"
     day = issue.day
+    if rule.kind == TagRuleKind.MAX_ON_DUTY:
+        others = [
+            p
+            for p in ctx.people.values()
+            if p.auto_schedulable
+            and not p.has_tag(rule.tag, day)
+            and p.availability.is_known
+            and intersect([issue.interval], p.availability.available_within(day.weekday(), ctx.open_on(day)))
+        ]
+        if not others:
+            return "no one without the tag was available to cover instead"
+        return f"{len(others)} {'person' if len(others) == 1 else 'people'} without the tag could work then, but caps and other rules used their hours elsewhere"
     if rule.kind in (TagRuleKind.NOT_ALONE, TagRuleKind.NOT_SOLO):
         partner = "without the tag" if rule.kind == TagRuleKind.NOT_ALONE else "else"
         others = [
@@ -313,7 +370,9 @@ def _explain_over(ctx: ScheduleContext, shifts: Sequence[Shift], issue: Issue, p
     if not proven and len(facts) == 1:
         # Nothing specific forces it, and the solver stopped at its time limit: don't call it forced.
         return f"{head}. The solver stopped at its time limit, so a longer run may remove this."
-    return f"{head} because {_join(facts)}. The alternative is a shift shorter than the minimum, or a gap."
+    return (
+        f"{head} because {join_names(facts)}. The alternative is a shift shorter than the minimum, or a gap."
+    )
 
 
 def _explain_gap(ctx: ScheduleContext, issue: Issue) -> str:
@@ -333,7 +392,3 @@ def _explain_gap(ctx: ScheduleContext, issue: Issue) -> str:
         f"{day_label(day)} {run.label()} is short: {len(free)} people are free then, but each was held back by a cap, "
         "a shape rule or a duty."
     )
-
-
-def _join(parts: list[str]) -> str:
-    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]

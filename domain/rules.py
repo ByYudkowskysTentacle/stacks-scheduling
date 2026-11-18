@@ -74,6 +74,7 @@ class TagRuleKind(StrEnum):
     MIN_WEEKLY_HOURS = "min_weekly_hours"  # tagged people's scheduled minutes per week
     NOT_ALONE = "not_alone"  # a tagged person always has someone without the tag on duty too
     NOT_SOLO = "not_solo"  # a tagged person is never the only one on duty; anyone else counts (D96)
+    MAX_ON_DUTY = "max_on_duty"  # at most `count` people with the tag on duty at once (D128)
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,9 @@ class TagRule:
             return f"At least {self.count} {self.tag} on duty{when}"
         if self.kind == TagRuleKind.MIN_WEEKLY_HOURS:
             return f"{self.tag} hours total at least {self.minutes / 60:g} per week"
+        if self.kind == TagRuleKind.MAX_ON_DUTY:
+            when = f" {self.interval.label()}" if self.interval else ""
+            return f"At most {self.count} {self.tag} on duty at once{when}"
         if self.kind == TagRuleKind.NOT_SOLO:
             return f"A {self.tag} never works alone"
         return f"A {self.tag} always has someone without the tag on duty"

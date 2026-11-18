@@ -122,6 +122,11 @@ def day_label(day: date) -> str:
     return f"{WEEKDAY_SHORT[day.weekday()]} {day:%-d %b}"
 
 
+def join_names(parts: list[str]) -> str:
+    """ "Ana", "Ana and Ben", "Ana, Ben and Cy"."""
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
 def name(ctx: ScheduleContext, employee_id: int | None) -> str:
     if employee_id is None:
         return "Open shift"
@@ -563,6 +568,39 @@ def check_tag_rules(ctx: ScheduleContext) -> list[Issue]:
                             Category.TAG_RULE,
                             severity,
                             f"{rule.describe()}: alone on duty {day_label(day)} {iv.label()}",
+                            day,
+                            iv,
+                            minutes=iv.minutes,
+                        )
+                    )
+        elif rule.kind == TagRuleKind.MAX_ON_DUTY:
+            # Every slot anyone is on duty counts, not only open hours, so an overlap can't hide
+            # outside them. Each run of slots with the same people over the limit is one issue.
+            for day in ctx.period.days:
+                if day.weekday() not in rule.weekdays:
+                    continue
+                window = set(slots_of(rule.interval)) if rule.interval is not None else None
+                over: dict[int, tuple[int, ...]] = {}
+                for slot, emps in duty[day].items():
+                    if window is not None and slot not in window:
+                        continue
+                    tagged = tuple(
+                        sorted(e for e in emps if (p := ctx.people.get(e)) and p.has_tag(rule.tag, day))
+                    )
+                    if len(tagged) > rule.count:
+                        over[slot] = tagged
+                found = [
+                    (iv, who)
+                    for who in set(over.values())
+                    for iv in runs(slot for slot, w in over.items() if w == who)
+                ]
+                for iv, who in sorted(found, key=lambda f: (f[0].start, f[1])):
+                    names = join_names(sorted(name(ctx, e) for e in who))
+                    issues.append(
+                        Issue(
+                            Category.TAG_RULE,
+                            severity,
+                            f"{rule.describe()}: {names} on duty {day_label(day)} {iv.label()}",
                             day,
                             iv,
                             minutes=iv.minutes,

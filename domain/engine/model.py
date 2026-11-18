@@ -305,6 +305,20 @@ def build_model(
                 for i in new:
                     add(target - u + o + 2 * miss >= 2 * x[i])
                 terms["hard_tag" if rule.hard else "tag"].append((weight, miss))
+        elif rule.kind == TagRuleKind.MAX_ON_DUTY:
+            # At most `count` tagged candidates on in any slot of the rule's days and window
+            # (D128). Each person over the limit costs one unit of the rule's tier, so a hard
+            # rule outranks coverage like the others: the generator leaves a gap instead.
+            window = set(slots_of(rule.interval)) if rule.interval is not None else None
+            for (day, slot), idxs in by_cover.items():
+                if day.weekday() not in rule.weekdays or (window is not None and slot not in window):
+                    continue
+                have = [i for i in idxs if tagged(i, rule.tag)]
+                if len(have) <= rule.count:
+                    continue
+                excess = m.new_int_var(0, len(have) - rule.count, f"most{r_i}_{day}_{slot}")
+                add(sum(x[i] for i in have) - excess <= rule.count)
+                terms["hard_tag" if rule.hard else "tag"].append((weight, excess))
 
     # Supervisor hour targets (SPEC §6.4), soft and below caps.
     for t in rules.targets:
